@@ -1,5 +1,5 @@
 package main.java.com.auction.server.ui;
-
+//(Minh)
 /*
 Hiện tại bạn đang đặt là AuctionView. 
 Đây là một cái tên rất chuẩn theo mô hình MVC 
