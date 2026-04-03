@@ -1,4 +1,4 @@
-package main.java.com.auction.server.ui;
+package com.auction.client.ui;
 //(Minh)
 /*
 Hiện tại bạn đang đặt là AuctionView. 
