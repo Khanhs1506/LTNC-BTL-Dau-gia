@@ -69,9 +69,7 @@ public class LoginController {
                 fxmlFile = "/com/auction/server/view/ManageProduct.fxml"; // Màn hình quản lý
             }
 
-            // Lưu ý: Nếu chưa có các file fxml trên, dòng code dưới sẽ văng lỗi.
-            // Bạn cần tạo file trắng trước để test.
-            /*
+            
             Parent root = FXMLLoader.load(getClass().getResource(fxmlFile));
             Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
             stage.setScene(new Scene(root));
