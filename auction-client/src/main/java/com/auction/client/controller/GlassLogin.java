@@ -1,11 +1,29 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.geom.RadialGradientPaint;
-// login-ui-2
+import java.awt.RadialGradientPaint;
+import java.io.IOException;
+
 /**
  * Lớp chính để tạo Giao diện Đăng nhập Phong cách Glassmorphism
  */
 public class GlassLogin extends JFrame {
+
+    // Tạo các biến --> thành phương thức của class --> Instance variable
+    // Mục đích:
+    // - Controller truy cập được
+    // - View có thể cung cấp dữ liệu
+    // - Đúng mô hình MVC
+
+// Khi ko dùng các biến là các method: !!!!
+// Nếu chỉ tồn tại trong method setupLoginContents().
+// Sau khi method chạy xong:
+// LoginController
+// hoặc class khác
+// không thể truy cập được userField, passField, loginButton.
+
+    private RoundedTextField userField;
+    private RoundedPasswordField passField;
+    private RoundedButton loginButton;
 
     public GlassLogin() {
         setTitle("Giao diện Đăng nhập Phong cách Glassmorphism");
@@ -53,7 +71,7 @@ public class GlassLogin extends JFrame {
         panel.add(userLabel);
 
         // Ô nhập Username tùy chỉnh bo góc
-        RoundedTextField userField = new RoundedTextField();
+        userField = new RoundedTextField();
         userField.setBounds(75, 155, 450, 50);
         panel.add(userField);
 
@@ -73,7 +91,7 @@ public class GlassLogin extends JFrame {
         panel.add(forgotPass);
 
         // Ô nhập Password tùy chỉnh bo góc
-        RoundedPasswordField passField = new RoundedPasswordField();
+        passField = new RoundedPasswordField();
         passField.setBounds(75, 255, 450, 50);
         panel.add(passField);
 
@@ -95,7 +113,7 @@ public class GlassLogin extends JFrame {
         panel.add(rememberMe);
 
         // Nút "Login" màu vàng tùy chỉnh bo góc
-        RoundedButton loginButton = new RoundedButton("Login");
+        loginButton = new RoundedButton("Login");
         loginButton.setBounds(75, 360, 450, 60);
         panel.add(loginButton);
 
@@ -254,9 +272,42 @@ public class GlassLogin extends JFrame {
         }
     }
 
+    public String getUsername(){
+        return this.userField.getText();
+    }
+    // public String getPassword(){
+    //     return this.passField.getPassword();
+    // }
+    /*Hàm passField.getPassword() của Java trả về một mảng ký tự (char[]) chứ không phải chuỗi (String). 
+    Do đó, bạn cần ép kiểu nó về String. */
+    public String getPassword(){
+        return new String(this.passField.getPassword()); // Ép sang String;
+    }
+    public RoundedButton getLoginButton(){
+        return this.loginButton;
+    }
+    public void showError(String message){
+        JOptionPane.showMessageDialog(this, message);
+    }
+    public void showMessage(String message){
+        JOptionPane.showConfirmDialog(this, message);
+    }
+
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new GlassLogin().setVisible(true);
+        
+        SwingUtilities.invokeLater(() -> { // Cú pháp (Tự nhớ);
+        try {
+            GlassLogin view = new GlassLogin(); // Tạo giao diện đăng nhập
+            view.setVisible(true); // Cửa số hiển thị trên màn hình;
+
+            SocketClient socketClient = new SocketClient();
+            socketClient.connect();
+
+            new LoginController(socketClient, view); // Xử lý logic login;
+        
+        } catch (IOException e){
+            e.printStackTrace();
+            }
         });
     }
 }
