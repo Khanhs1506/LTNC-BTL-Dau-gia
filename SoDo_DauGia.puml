@@ -1,0 +1,170 @@
+@startuml
+' ==========================================
+' CẤU HÌNH GIAO DIỆN (Làm cho sơ đồ chuyên nghiệp hơn)
+' ==========================================
+skinparam shadowing false
+skinparam roundcorner 10
+skinparam classAttributeIconSize 0
+
+' Phối màu cho Class
+skinparam class {
+    BackgroundColor White
+    BorderColor #00509E
+    ArrowColor #333333
+    HeaderBackgroundColor #EBF4FA
+    FontSize 13
+}
+
+' Phối màu cho Package
+skinparam package {
+    BackgroundColor #FDFDFD
+    BorderColor #A9A9A9
+    FontStyle bold
+    FontSize 14
+}
+
+' ==========================================
+' GÓI CLIENT (BÊN TRÁI)
+' ==========================================
+package "com.auction.client" as ClientPkg {
+
+    package "ui (View)" {
+        class GlassLogin {
+            - userField: RoundedTextField
+            - passField: RoundedPasswordField
+            - loginButton: RoundedButton
+            + getUsername(): String
+            + getPassword(): String
+            + getLoginButton(): RoundedButton
+            + showError(message: String): void
+            + showMessage(message: String): void
+        }
+
+        class AuctionView {
+            - jTextField1: JTextField
+            - jButton1: JButton
+            + bidAction(): void
+            - loadImage(): void
+        }
+    }
+
+    package "controller" {
+        class LoginController {
+            - socketClient: SocketClient
+            - view: GlassLogin
+            + handleLogin(): void
+        }
+    }
+
+    package "network & utils" {
+        class SocketClient {
+            # socket: Socket
+            # out: PrintWriter
+            # in: BufferedReader
+            + connect(): void
+            + send(message: String): void
+            + receive(): String
+        }
+
+        class SessionManager <<Singleton>> {
+            - static instance: SessionManager
+            - username: String
+            - role: String
+            - token: String
+            - SessionManager()
+            + static getInstance(): SessionManager
+            + setSession(username: String, role: String): void
+            + clearSession(): void
+        }
+    }
+
+    LoginController o--> GlassLogin : Điều khiển
+    LoginController o--> SocketClient : Gửi DL
+}
+
+' Đường nối tàng hình để ép khối Client nằm bên TRÁI khối Server
+ClientPkg -[hidden]right-> ServerPkg
+
+' ==========================================
+' GÓI SERVER (BÊN PHẢI)
+' ==========================================
+package "com.auction.server" as ServerPkg {
+
+    package "model (Thực thể)" {
+        interface Entity {
+            + getId(): String
+            + setId(id: String): void
+        }
+
+        abstract class Item {
+            # id: String
+            # name: String
+            # startingPrice: double
+            # currentHighestBid: double
+            + {abstract} printInfo(): void
+        }
+
+        class ArtItem {
+            - artist: String
+            + printInfo(): void
+        }
+
+        class ElectronicsItem {
+            - warrantyMonths: int
+            + printInfo(): void
+        }
+
+        class VehicleItem {
+            - brand: String
+            - year: int
+            + printInfo(): void
+        }
+
+        class Bid {
+            - id: String
+            - itemId: String
+            - userId: String
+            - amount: double
+            - time: LocalDateTime
+            + printBidDetails(): void
+        }
+
+        class User {
+            - id: String
+            - username: String
+            - password: String
+            - role: String
+            + printUserInfo(): void
+        }
+
+        Entity <|.. Item
+        Entity <|.. Bid
+        Entity <|.. User
+
+        Item <|-- ArtItem
+        Item <|-- ElectronicsItem
+        Item <|-- VehicleItem
+    }
+
+    package "factory" {
+        interface ItemFactory {
+            + createItem(type: String, id: String, name: String, startingPrice: double, extraDetail: String...): Item
+        }
+
+        class ItemFactoryImpl {
+            + createItem(...): Item
+        }
+
+        ItemFactory <|.. ItemFactoryImpl
+        ItemFactoryImpl ..> Item : Khởi tạo >
+    }
+
+    ' Ép khối model nằm trên khối factory cho gọn
+    "model (Thực thể)" -[hidden]down-> "factory"
+}
+
+' ==========================================
+' GIAO TIẾP MẠNG CLIENT - SERVER
+' ==========================================
+SocketClient .[#FF4500,thickness=2].> User : "  TCP/IP (Login)  "
+@enduml
