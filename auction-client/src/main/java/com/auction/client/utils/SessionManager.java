@@ -2,7 +2,7 @@ package com.auction.client.utils;
 
 
 
-import com.auction.client.model.User; // Giả sử bạn có class User ở model
+ // Giả sử bạn có class User ở model
 
 public class SessionManager {
     private static SessionManager instance;

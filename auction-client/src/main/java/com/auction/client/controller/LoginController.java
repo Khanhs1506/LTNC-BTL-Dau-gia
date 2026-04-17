@@ -1,3 +1,5 @@
+package com.auction.client.controller;
+
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
@@ -30,7 +32,7 @@ public class LoginController{
 
         // Kiểm tra kiểu dữ liệu trước khi gửi đến Server
         if (username.isEmpty() || password.isEmpty()){
-            view.showError("Plese enter username and password"); // Hiện thị lỗi không nhâp đủ username và password;
+            view.showError("Please enter username and password"); // Hiện thị lỗi không nhâp đủ username và password;
             return;
         }
         

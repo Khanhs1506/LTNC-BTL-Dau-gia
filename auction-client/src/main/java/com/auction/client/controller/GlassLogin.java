@@ -1,3 +1,5 @@
+package com.auction.client.controller;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.RadialGradientPaint;
@@ -57,17 +59,17 @@ public class GlassLogin extends JFrame {
         String fontName = "Segoe UI";
 
         // Tiêu đề chính: Login
-        JLabel titleLabel = new JLabel("Login");
+        JLabel titleLabel = new JLabel("Đăng nhập");
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setFont(new Font(fontName, Font.BOLD, 48));
-        titleLabel.setBounds(225, 40, 150, 60);
+        titleLabel.setBounds(185, 40, 300, 60);
         panel.add(titleLabel);
 
         // Nhãn "Username or email"
-        JLabel userLabel = new JLabel("Username or email");
+        JLabel userLabel = new JLabel("Tên đăng nhập hoặc emal");
         userLabel.setForeground(new Color(255, 255, 255, 220)); 
         userLabel.setFont(new Font(fontName, Font.PLAIN, 18));
-        userLabel.setBounds(75, 120, 200, 25);
+        userLabel.setBounds(75, 120, 250, 25);
         panel.add(userLabel);
 
         // Ô nhập Username tùy chỉnh bo góc
@@ -76,14 +78,14 @@ public class GlassLogin extends JFrame {
         panel.add(userField);
 
         // Nhãn "Password"
-        JLabel passLabel = new JLabel("Password");
+        JLabel passLabel = new JLabel("Mật khẩu");
         passLabel.setForeground(new Color(255, 255, 255, 220));
         passLabel.setFont(new Font(fontName, Font.PLAIN, 18));
         passLabel.setBounds(75, 220, 100, 25);
         panel.add(passLabel);
 
         // Liên kết "Forgot password?"
-        JLabel forgotPass = new JLabel("Forgot password?");
+        JLabel forgotPass = new JLabel("Quên mật khẩu?");
         forgotPass.setForeground(new Color(255, 255, 255, 220));
         forgotPass.setFont(new Font(fontName, Font.PLAIN, 16));
         forgotPass.setBounds(390, 220, 150, 25);
@@ -104,7 +106,7 @@ public class GlassLogin extends JFrame {
         panel.add(eyeIcon);
 
         // Checkbox "Remember me"
-        JCheckBox rememberMe = new JCheckBox("Remember me");
+        JCheckBox rememberMe = new JCheckBox("Ghi nhớ");
         rememberMe.setForeground(Color.WHITE);
         rememberMe.setFont(new Font(fontName, Font.PLAIN, 16));
         rememberMe.setOpaque(false); // Làm nền checkbox trong suốt
@@ -113,15 +115,15 @@ public class GlassLogin extends JFrame {
         panel.add(rememberMe);
 
         // Nút "Login" màu vàng tùy chỉnh bo góc
-        loginButton = new RoundedButton("Login");
+        loginButton = new RoundedButton("Đăng nhập");
         loginButton.setBounds(75, 360, 450, 60);
         panel.add(loginButton);
 
         // Văn bản chân trang
-        JLabel footer = new JLabel("Don't have an account? Sign up");
+        JLabel footer = new JLabel("Chưa có tài khoản? Đăng ký.");
         footer.setForeground(Color.WHITE);
         footer.setFont(new Font(fontName, Font.PLAIN, 16));
-        footer.setBounds(175, 440, 300, 25);
+        footer.setBounds(200, 440, 300, 25);
         panel.add(footer);
     }
 
@@ -309,5 +311,6 @@ public class GlassLogin extends JFrame {
             e.printStackTrace();
             }
         });
+
     }
 }
