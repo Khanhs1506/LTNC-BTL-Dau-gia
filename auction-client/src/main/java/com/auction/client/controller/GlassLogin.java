@@ -311,6 +311,5 @@ public class GlassLogin extends JFrame {
             e.printStackTrace();
             }
         });
-
     }
 }

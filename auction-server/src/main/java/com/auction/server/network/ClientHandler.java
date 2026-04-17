@@ -1,6 +1,6 @@
 package com.auction.server.network;
 
-import com.auction.server.model.User;
+import com.auction.server.model.*;
 import com.google.gson.JsonObject;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
@@ -14,31 +14,21 @@ import java.net.Socket;
 import java.sql.*;
 import java.util.zip.DataFormatException;
 
-public class ClientHandler extends Thread {
+public class ClientHandler implements Runnable {
 
     // KẾT NỐI ĐẾN DATABASE.
     private final String DB_URL = "jdbc:mysql://localhost:3306/he_thong_dau_gia";
     private final String USERNAME = "root";
     private final String PASS = "123456";
-    private Connection con;
 
     public static int NumberOfClient = 0;
     private Socket socket;
     private BufferedReader reader;
     private PrintWriter writer;
-    private Gson gson;
-
     private User currentUser;
 
     public ClientHandler(Socket socket) {
         this.socket = socket;
-        gson = new Gson();
-        try {
-            con = DriverManager.getConnection(DB_URL, USERNAME, PASS);
-            System.out.println("Kết nối DTB thành công");
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
@@ -49,15 +39,13 @@ public class ClientHandler extends Thread {
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             writer = new PrintWriter(socket.getOutputStream(), true);
             String clientMessage;
-            JsonObject req;
-            while ((clientMessage = reader.readLine()) != null) {
 
+            while ((clientMessage = reader.readLine()) != null) {
                 System.out.println("Khách gửi: " + clientMessage);
+
                 if (clientMessage.startsWith("LOGIN")) {
                     handlerLogin(clientMessage);
                 }
-
-
             }
             NumberOfClient--;
         } catch (Exception e) {
@@ -66,10 +54,9 @@ public class ClientHandler extends Thread {
         } finally {
             System.out.println("Có " + NumberOfClient + " khách đang kết nối");
         }
-
     }
 
-    public void handlerLogin(String clientMessage) {
+    public void handlerLogin(String clientMessage) {    //sau đổi String thành User
         String[] data = clientMessage.split("\\|");
 
         String username = data[1];
@@ -77,31 +64,31 @@ public class ClientHandler extends Thread {
 
         System.out.println("Username: " + username);
         System.out.println("Password: " + password);
-
-        // kiểm tra login (demo)
-
-
-        if (username.equals("admin") && password.equals("123")) {
-
-            writer.println("LOGIN SUCCESS");
-            System.out.println("Login thanh cong");
-
-        } else {
-
-            writer.println("FAIL");
-            System.out.println("Login that bai");
-
+        try (Connection con = DriverManager.getConnection(DB_URL, USERNAME, PASS)) {
+            PreparedStatement pstLogin = con.prepareStatement("SELECT * FROM TaiKhoan WHERE username = ? AND password = ?");
+            pstLogin.setString(1, username);
+            pstLogin.setString(2, password);
+            ResultSet rs = pstLogin.executeQuery();
+            if (rs.next()){
+                writer.println("LOGIN SUCCESS");
+                System.out.println("Login thanh cong");
+            } else {
+                writer.println("FAIL");
+                System.out.println("Login that bai");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
-    public void handlerRegister(String clientMessage){
+    public void handlerRegister(String clientMessage) { //sau đổi String thành User
         String[] data = clientMessage.split("\\|");
 
         String username = data[1];
         String password = data[2];
 
 
-        try {
+        try (Connection con = DriverManager.getConnection(DB_URL, USERNAME, PASS)) {
             // Kiểm tra đã tồn tại chưa.
             PreparedStatement pstCheck = con.prepareStatement("SELECT * FROM TaiKhoan WHERE username = ?");
 
@@ -127,4 +114,56 @@ public class ClientHandler extends Thread {
     }
 
 
+    public void handlerPostItem(Item item){
+        try (Connection con = DriverManager.getConnection(DB_URL, USERNAME, PASS)) {
+
+            con.setAutoCommit(false);
+
+            try {
+                PreparedStatement pstInsertIt = con.prepareStatement("INSERT INTO Items (name, item_type, startingPrice, currentHighestBid, status, seller_id) VALUES (?, ?, ?, startingPrice, 'thêm sau', 'them sau')");
+                pstInsertIt.setString(1, item.getName());
+                pstInsertIt.setString(2, item.getType_item());
+                pstInsertIt.setDouble(3, item.getStartingPrice());
+                pstInsertIt.executeUpdate();
+                System.out.println("Tạo sản phẩm thành công.");
+
+                ResultSet rs = pstInsertIt.getGeneratedKeys();
+
+                if (rs.next()) {
+                    int idItem = rs.getInt(1);
+                    if (item instanceof ElectronicsItem) {
+                        ElectronicsItem elItem = (ElectronicsItem) item;
+                        try (PreparedStatement pstEle = con.prepareStatement("INSERT INTO Electronics_Items (item_id, warranty_months) VALUES (?, ?)")) {
+                            pstEle.setInt(1, idItem);
+                            pstEle.setInt(2, elItem.getWarrantyMonths());
+                            pstEle.executeUpdate();
+                        }
+                    } else if (item instanceof ArtItem) {
+                        ArtItem artItem = (ArtItem) item;
+                        try (PreparedStatement pstArt = con.prepareStatement("INSERT INTO Art_Items (item_id, artist_name) VALUES (?, ?)")) {
+                            pstArt.setInt(1, idItem);
+                            pstArt.setString(2, artItem.getArtist());
+                            pstArt.executeUpdate();
+                        }
+                    } else if (item instanceof VehicleItem) {
+                        VehicleItem vehicleItem = (VehicleItem) item;
+                        try (PreparedStatement pstVeh = con.prepareStatement("INSERT INTO Art_Items (item_id, brand, year) VALUES (?, ?, ?)")) {
+                            pstVeh.setInt(1, idItem);
+                            pstVeh.setString(2, vehicleItem.getBrand());
+                            pstVeh.setInt(3, vehicleItem.getYear());
+                            pstVeh.executeUpdate();
+                        }
+                    }
+                }
+                con.commit();
+                System.out.println("Tạo sản phẩm thành công.");
+            } catch (SQLException e){
+                con.rollback();
+                System.out.println("Tạo sản phẩm thất bại.");
+                e.printStackTrace();
+            }
+        } catch (SQLException e){
+            e.printStackTrace();
+        }
+    }
 }

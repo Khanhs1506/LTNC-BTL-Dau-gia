@@ -18,7 +18,7 @@ public class ServerApp {
             Socket socket = server.accept();
             ClientHandler.NumberOfClient++;
             System.out.println("Có " + ClientHandler.NumberOfClient + " khách đang kết nối!");
-            ClientHandler phucvu = new ClientHandler(socket);
+            Thread phucvu = new Thread(new ClientHandler(socket));
             phucvu.start();
         }
     }

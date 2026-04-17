@@ -5,6 +5,9 @@ abstract public class Item implements Entity{
     protected String name;
     protected double startingPrice;
     protected double currentHighestBid;
+    public String typeItem;
+
+    public abstract String getType_item();
 
     //Constructor cho Item
     public Item(String id, String name, double startingPrice) {
@@ -18,6 +21,13 @@ abstract public class Item implements Entity{
     public String getId() { return id; }
     @Override
     public void setId(String id) { this.id = id; }
+    public String getName() {
+        return name;
+    }
+    public double getStartingPrice() {
+        return startingPrice;
+    }
+
 
     //Getters & Setters cho các thuộc tính
     public double getCurrentHighestBid() { return currentHighestBid; }

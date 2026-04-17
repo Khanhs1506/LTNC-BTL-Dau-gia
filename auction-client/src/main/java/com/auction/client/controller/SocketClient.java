@@ -36,7 +36,8 @@ public class SocketClient{
 
     // Nhận dữ liệu từ server
     public String receive() throws IOException{
-        return in.readLine();
+        String serverMes = in.readLine();
+        return serverMes;
     }
 
 //     public static void main(String[] args) throws Exception {
