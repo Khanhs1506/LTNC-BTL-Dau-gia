@@ -1,22 +1,20 @@
+
 package com.auction.server.model;
 
-public class User implements Entity {
+public abstract class User implements Entity<String> {
     private String id;
     private String username;
     private String password;
-    private String role; //ADMIN hoặc SELLER hoặc BIDDER
 
-    // Constructor cho User
-    public User(String id, String username, String password, String role) {
+    public User(String id, String username, String password) {
         this.id = id;
         this.username = username;
         this.password = password;
-        this.role = role;
     }
 
     @Override
     public String getId() {
-        return this.id;
+        return id;
     }
 
     @Override
@@ -24,18 +22,11 @@ public class User implements Entity {
         this.id = id;
     }
 
-    //Getters & Setters cho các thuộc tính
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
-
-    public String getPassword() { return password; }
-    public void setPassword(String password) { this.password = password; }
-
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
-
-    // Hàm in thông tin
-    public void printUserInfo() {
-        System.out.println("[User] ID: " + id + " | Tên: " + username + " | Vai trò: " + role);
+    public String getUsername(){
+        return username;
     }
+
+
+    // Phương thức trừu tượng để các class con (Bidder, Admin) tự thực hiện logic riêng
+    public abstract void displayRoleInfo();
 }

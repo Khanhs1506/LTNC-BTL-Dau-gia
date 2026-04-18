@@ -1,6 +1,6 @@
 package com.auction.server.model;
 
-abstract public class Item implements Entity{
+abstract public class Item implements Entity<String>{
     protected String id;
     protected String name;
     protected double startingPrice;
@@ -9,7 +9,6 @@ abstract public class Item implements Entity{
 
     public abstract String getType_item();
 
-    //Constructor cho Item
     public Item(String id, String name, double startingPrice) {
         this.id = id;
         this.name = name;
@@ -29,7 +28,7 @@ abstract public class Item implements Entity{
     }
 
 
-    //Getters & Setters cho các thuộc tính
+
     public double getCurrentHighestBid() { return currentHighestBid; }
     public void setCurrentHighestBid(double currentHighestBid) { this.currentHighestBid = currentHighestBid; }
 
