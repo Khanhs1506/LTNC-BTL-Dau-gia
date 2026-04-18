@@ -3,7 +3,7 @@ package com.auction.server.model;
 import java.time.LocalDateTime;
 
 // Bid cũng là một thực thể cần lưu trữ, nên phải implements Entity
-public class Bid implements Entity {
+public class Bid implements Entity<String> {
     private String id;          // Mã của lượt bid (ví dụ: BID-001)
     private String itemId;      // Mã sản phẩm được trả giá
     private String userId;      // Mã người dùng thực hiện trả giá

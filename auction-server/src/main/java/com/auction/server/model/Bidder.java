@@ -5,45 +5,60 @@ import java.util.List;
 
 public class Bidder extends User {
 
-    //Danh sách ID các sản phẩm Bidder đang đặt giá
+    private static final long serialVersionUID = 4L;
+
+
+    private double balance;
+
+
     private List<String> participatedItemIds;
-    //Danh sách ID các sản phẩm Bidder theo dõi
     private List<String> favoriteItemIds;
 
 
-    public Bidder(String id, String name, String password){
-        super(id, name, password, "BIDDER");
-        participatedItemIds = new ArrayList<>();
-        favoriteItemIds = new ArrayList<>();
+    public Bidder(String id, String username, String password, double balance){
+        super(id, username, password);
+        this.balance = balance;
+        this.participatedItemIds = new ArrayList<>();
+        this.favoriteItemIds = new ArrayList<>();
     }
 
+    // lấy và sửa số dư
+    public double getBalance() { return balance; }
+    public void setBalance(double balance) { this.balance = balance; }
 
-    //Đánh dấu tham gia đấu giá
+
+    // danh sách id của người tham gia
     public void joinAuction(String itemId){
-        if (!participatedItemIds.contains(itemId)){
+        if (!participatedItemIds.contains(itemId)){//nếu người này là người mới tham gia lần đầu thì thêm id
             participatedItemIds.add(itemId);
         }
     }
-
-
-    //Lấy danh sách Id sản phẩm đang đấu giá
+    // lấy danh sách
     public List<String> getParticipatedItemIds(){
         return participatedItemIds;
     }
 
-
-    //Thêm sản phảm vào danh sách theo dõi
+    //thêm sản phẩm vào danh sách sản phẩm yêu thích
     public void addToFavorites(String itemId){
-        if (!favoriteItemIds.contains(itemId)){
+        if (!favoriteItemIds.contains(itemId)){// nếu chưa có thì thêm vaò
             favoriteItemIds.add(itemId);
         }
     }
 
-
-    //Xóa sản phẩm khỏi danh sách theo dõi
     public void removeFromFavorites(String itemId){
-        if (favoriteItemIds.contains(itemId)){
-            favoriteItemIds.remove(itemId);
-        }
+        favoriteItemIds.remove(itemId); // xóa sản phẩm khỏi danh sách theo dõi
+    }
+
+    //lấy danh sách
+    public List<String> getFavoriteItemIds() {
+        return favoriteItemIds;
+    }
+
+    @Override
+    public void displayRoleInfo() {
+        System.out.println("[BIDDER] ID: " + getId()
+                + " | Tên: " + getUsername()
+                + " | Số dư ví: $" + balance
+                + " | Đang theo dõi: " + favoriteItemIds.size() + " sản phẩm");
     }
 }
