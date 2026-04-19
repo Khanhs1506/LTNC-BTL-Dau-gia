@@ -11,6 +11,10 @@ public abstract class User implements Entity<String> {
         this.username = username;
         this.password = password;
     }
+    public User(String username, String password){
+        this.username = username;
+        this.password = password;
+    }
 
     @Override
     public String getId() {
@@ -26,6 +30,9 @@ public abstract class User implements Entity<String> {
         return username;
     }
 
+    public String getPassword() {
+        return password;
+    }
 
     // Phương thức trừu tượng để các class con (Bidder, Admin) tự thực hiện logic riêng
     public abstract void displayRoleInfo();

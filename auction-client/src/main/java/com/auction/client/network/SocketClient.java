@@ -5,11 +5,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import com.google.gson.Gson;
 
 public class SocketClient{
     protected Socket socket;
     protected PrintWriter out;
     protected BufferedReader in;
+    protected Gson gson;
 
     public SocketClient(){}
 
@@ -39,10 +41,17 @@ public class SocketClient{
         return in.readLine();
     }
 
-//     public static void main(String[] args) throws Exception {
-//     SocketClient client = new SocketClient();
-//     client.connect();
-// }
+    // GỬI TỚI SERVER CHUỖI JSON
+    public void sendRequest(String action, Object data){
+        try {
+
+            String jsonData = gson.toJson(data);
+            String req = action + "===" + jsonData;
+            out.println(req);
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
 }
 
 // LUỒNG CHẠY:

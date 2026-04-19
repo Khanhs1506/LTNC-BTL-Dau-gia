@@ -15,9 +15,9 @@ public class Seller extends User {
     // Danh sách ID các sản phẩm  mà người  này đăng bán
     private List<String> myItemIds;
 
-    public Seller(String id, String username, String password) {
+    public Seller(String username, String password) {
 
-        super(id, username, password);
+        super(username, password);
         this.rating = 5.0; // Mặc định người bán mới có 5 sao
         this.myItemIds = new ArrayList<>();
     }

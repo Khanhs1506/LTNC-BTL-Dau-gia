@@ -1,5 +1,8 @@
 package com.auction.client.controller;
 
+import com.auction.server.model.Seller;
+import com.auction.server.model.User;
+
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
@@ -38,7 +41,7 @@ public class LoginController{
         
         try{
             // Gửi dữ liệu tới Server
-            socketClient.send("LOGIN|" + username + "|" + password);
+            socketClient.sendRequest("LOGIN", new Seller("admin", "123"));
 
             String response = socketClient.receive(); // Nhận dữ liệu từ Server;
 
