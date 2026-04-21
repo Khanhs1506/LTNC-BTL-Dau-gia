@@ -16,7 +16,7 @@ public class Bidder extends User {
 
 
     public Bidder(String id, String username, String password, double balance){
-        super(id, username, password);
+        super(id, username, password,"BIDDER");
         this.balance = balance;
         this.participatedItemIds = new ArrayList<>();
         this.favoriteItemIds = new ArrayList<>();

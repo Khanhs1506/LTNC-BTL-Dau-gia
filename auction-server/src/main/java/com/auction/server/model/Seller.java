@@ -6,23 +6,22 @@ import java.util.List;
 
 public class Seller extends User {
 
-    // ID phiên bản để tương thích khi gửi qua Socket
+    //gửi qua socket
     private static final long serialVersionUID = 5L;
 
-    // Điểm uy tín của người bán
+    // Điểm uy tín
     private double rating;
 
-    // Danh sách ID các sản phẩm  mà người  này đăng bán
+
     private List<String> myItemIds;
 
-    public Seller(String username, String password) {
+    public Seller(String id, String username, String password) {
 
-        super(username, password);
+        super(id, username, password,"SELLER");
         this.rating = 5.0; // Mặc định người bán mới có 5 sao
         this.myItemIds = new ArrayList<>();
     }
 
-    // --- Getters & Setters ---
 
     public double getRating() {
         return rating;
@@ -48,9 +47,6 @@ public class Seller extends User {
         myItemIds.remove(itemId);
     }
 
-    /**
-     * Ghi đè phương thức hiển thị từ lớp cha
-     */
     @Override
     public void displayRoleInfo() {
         System.out.println("[SELLER] ID: " + getId()
