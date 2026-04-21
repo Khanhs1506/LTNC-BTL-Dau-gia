@@ -1,5 +1,7 @@
 package com.auction.client.controller;
 
+import com.google.gson.Gson;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -10,6 +12,7 @@ public class SocketClient{
     protected Socket socket;
     protected PrintWriter out;
     protected BufferedReader in;
+    protected Gson gson = new Gson();
 
     public SocketClient(){}
 
@@ -40,6 +43,16 @@ public class SocketClient{
         return serverMes;
     }
 
+    public void sendRequest(String action, Object data){
+        try {
+
+            String jsonData = gson.toJson(data);
+            String req = action + "===" + jsonData;
+            out.println(req);
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
 //     public static void main(String[] args) throws Exception {
 //     SocketClient client = new SocketClient();
 //     client.connect();

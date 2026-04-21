@@ -1,6 +1,7 @@
 package com.auction.server.network;
 
 import com.auction.server.model.*;
+import com.auction.server.repository.DatabaseManager;
 import com.google.gson.JsonObject;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
@@ -25,7 +26,8 @@ public class ClientHandler implements Runnable {
     private Socket socket;
     private BufferedReader reader;
     private PrintWriter writer;
-    private User currentUser;
+    private Connection con = DatabaseManager.getInstance().getConnection();
+    private Gson gson = new Gson();
 
     public ClientHandler(Socket socket) {
         this.socket = socket;
@@ -39,12 +41,19 @@ public class ClientHandler implements Runnable {
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             writer = new PrintWriter(socket.getOutputStream(), true);
             String clientMessage;
-
             while ((clientMessage = reader.readLine()) != null) {
                 System.out.println("Khách gửi: " + clientMessage);
+                String[] parts =  clientMessage.split("===");
 
-                if (clientMessage.startsWith("LOGIN")) {
-                    handlerLogin(clientMessage);
+                if (parts.length == 2){
+                    String action = parts[0];
+                    String jsonData = parts[1];
+
+                    switch (action) {
+                        case "LOGIN":
+                            handlerLogin(jsonData);
+                            break;
+                    }
                 }
             }
             NumberOfClient--;
@@ -56,18 +65,16 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    // ĐĂNG NHẬP TÀI KHOẢN
     public void handlerLogin(String clientMessage) {    //sau đổi String thành User
-        String[] data = clientMessage.split("\\|");
 
-        String username = data[1];
-        String password = data[2];
+        User user = gson.fromJson(clientMessage, Seller.class);
 
-        System.out.println("Username: " + username);
-        System.out.println("Password: " + password);
-        try (Connection con = DriverManager.getConnection(DB_URL, USERNAME, PASS)) {
-            PreparedStatement pstLogin = con.prepareStatement("SELECT * FROM TaiKhoan WHERE username = ? AND password = ?");
-            pstLogin.setString(1, username);
-            pstLogin.setString(2, password);
+
+        try {
+            PreparedStatement pstLogin = con.prepareStatement("SELECT * FROM users WHERE username = ? AND password = ?");
+            pstLogin.setString(1, user.getUsername());
+            pstLogin.setString(2, user.getPassword());
             ResultSet rs = pstLogin.executeQuery();
             if (rs.next()){
                 writer.println("LOGIN SUCCESS");
@@ -81,41 +88,45 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    public void handlerRegister(String clientMessage) { //sau đổi String thành User
+    // ĐĂNG KÍ TÀI KHOẢN
+    public boolean handlerRegister(String clientMessage) { //sau đổi String thành User
         String[] data = clientMessage.split("\\|");
 
         String username = data[1];
         String password = data[2];
 
 
-        try (Connection con = DriverManager.getConnection(DB_URL, USERNAME, PASS)) {
+        try {
             // Kiểm tra đã tồn tại chưa.
-            PreparedStatement pstCheck = con.prepareStatement("SELECT * FROM TaiKhoan WHERE username = ?");
+            PreparedStatement pstCheck = con.prepareStatement("SELECT * FROM users WHERE username = ?");
 
             pstCheck.setString(1, username);
             ResultSet rs = pstCheck.executeQuery();
 
             if (rs.next()){
                 System.out.println("Tên đăng nhập đã tồn tại. Hãy nhập lại.");
+                return false;
             } else {
 
                 //Tạo tài khoản
-                PreparedStatement pstInsert = con.prepareStatement("INSERT INTO TaiKhoan (username, password, role) VALUES (?, ?, 'USER')");
+                PreparedStatement pstInsert = con.prepareStatement("INSERT INTO users (username, password, role) VALUES (?, ?, 'USER')");
 
                 pstInsert.setString(1, username);
                 pstInsert.setString(2, password);
                 pstInsert.executeUpdate();
                 System.out.println("Tạo tài khoản thành công.");
+                return true;
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
+            return false;
         }
     }
 
-
-    public void handlerPostItem(Item item){
-        try (Connection con = DriverManager.getConnection(DB_URL, USERNAME, PASS)) {
+    // TẠO SẢN PHẨM
+    public boolean handlerPostItem(Item item){
+        try {
 
             con.setAutoCommit(false);
 
@@ -157,13 +168,23 @@ public class ClientHandler implements Runnable {
                 }
                 con.commit();
                 System.out.println("Tạo sản phẩm thành công.");
+                return true;
+
             } catch (SQLException e){
                 con.rollback();
                 System.out.println("Tạo sản phẩm thất bại.");
                 e.printStackTrace();
+                return false;
             }
         } catch (SQLException e){
             e.printStackTrace();
+            return false;
         }
+    }
+
+
+    // ĐẶT GIÁ SẢN PHẨM
+    public synchronized boolean placeBid(){
+        return false;
     }
 }
