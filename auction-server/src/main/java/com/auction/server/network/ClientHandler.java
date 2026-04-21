@@ -29,7 +29,7 @@ public class ClientHandler implements Runnable {
     private Connection con = DatabaseManager.getInstance().getConnection();
     private Gson gson = new Gson();
 
-    public ClientHandler(Socket socket) {
+    public ClientHandler(Socket socket) throws Exception {
         this.socket = socket;
     }
 
@@ -131,7 +131,7 @@ public class ClientHandler implements Runnable {
             con.setAutoCommit(false);
 
             try {
-                PreparedStatement pstInsertIt = con.prepareStatement("INSERT INTO Items (name, item_type, startingPrice, currentHighestBid, status, seller_id) VALUES (?, ?, ?, startingPrice, 'thêm sau', 'them sau')");
+                PreparedStatement pstInsertIt = con.prepareStatement("INSERT INTO Items (name, item_type, startingPrice, currentHighestBid, status, seller_id) VALUES (?, ?, ?, ?, 'thêm sau', 'them sau')");
                 pstInsertIt.setString(1, item.getName());
                 pstInsertIt.setString(2, item.getType_item());
                 pstInsertIt.setDouble(3, item.getStartingPrice());
@@ -158,7 +158,7 @@ public class ClientHandler implements Runnable {
                         }
                     } else if (item instanceof VehicleItem) {
                         VehicleItem vehicleItem = (VehicleItem) item;
-                        try (PreparedStatement pstVeh = con.prepareStatement("INSERT INTO Art_Items (item_id, brand, year) VALUES (?, ?, ?)")) {
+                        try (PreparedStatement pstVeh = con.prepareStatement("INSERT INTO Vehicle_Items (item_id, brand, year) VALUES (?, ?, ?)")) {
                             pstVeh.setInt(1, idItem);
                             pstVeh.setString(2, vehicleItem.getBrand());
                             pstVeh.setInt(3, vehicleItem.getYear());

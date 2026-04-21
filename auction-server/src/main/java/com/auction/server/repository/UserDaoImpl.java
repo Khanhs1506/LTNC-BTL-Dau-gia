@@ -29,6 +29,7 @@ public class UserDaoImpl implements IUserDAO{
                     String dbUser = rs.getString("username");
                     String dbPass = rs.getString("password");
                     String dbRole = rs.getString("role"); // Đọc cột role để biết là ai
+                    double dbBalance = rs.getDouble("balance");
 
                     switch (dbRole) {
                         case "ADMIN":
@@ -38,7 +39,7 @@ public class UserDaoImpl implements IUserDAO{
                             foundUser = new Seller(dbId, dbUser, dbPass);
                             break;
                         case "BIDDER":
-                            foundUser = new Bidder(dbId, dbUser, dbPass);
+                            foundUser = new Bidder(dbId, dbUser, dbPass, dbBalance);
                             break;
                         default:
                             System.err.println("Invalid Role");
@@ -50,5 +51,30 @@ public class UserDaoImpl implements IUserDAO{
         }
 
         return foundUser;
+    }
+
+    @Override
+    public boolean registerUser(User newUser) {
+        String sql = "INSERT INTO users (username, password, role) VALUES (?, ?, ?)";
+        boolean isSuccess = false;
+
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, newUser.getUsername());
+            stmt.setString(2, newUser.getPassword());
+            stmt.setString(3, newUser.getRole()); // Lấy Role từ Object
+
+            int rowsAffected = stmt.executeUpdate();
+
+            if (rowsAffected > 0) {
+                isSuccess = true; // Nếu có ít nhất 1 dòng được thêm vào kho -> Success
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error occurred while trying to register: " + e.getMessage());
+        }
+
+        return isSuccess;
     }
 }

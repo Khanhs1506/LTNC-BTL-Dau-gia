@@ -6,34 +6,50 @@ import java.sql.DriverManager;
 import java.util.Properties;
 
 public class DatabaseManager {
-    //(Singleton)
-    private static DatabaseManager instance;
-    private Connection connection;
+
+    private static class Holder {
+        private static final DatabaseManager INSTANCE = new DatabaseManager();
+    }
+
+    private String url;
+    private String user;
+    private String password;
 
     private DatabaseManager() {
         Properties properties = new Properties();
-        try (InputStream input = getClass().getClassLoader().getResourceAsStream("database.properties")) {
-            properties.load(input);
+        try (InputStream input = getClass().getClassLoader()
+                .getResourceAsStream("database.properties")) {
 
-            connection = DriverManager.getConnection(
-                    properties.getProperty("db.url"),
-                    properties.getProperty("db.user"),
-                    properties.getProperty("db.password")
-            );
-            System.out.println("Successfully connected to SQL");
+            if (input == null) {
+                System.err.println("[DatabaseManager] Không tìm thấy file database.properties!");
+                return;
+            }
+
+            properties.load(input);
+            this.url      = properties.getProperty("db.url");
+            this.user     = properties.getProperty("db.user");
+            this.password = properties.getProperty("db.password");
+
+            // Kiểm tra kết nối thử 1 lần khi khởi động server
+            try (Connection testConn = DriverManager.getConnection(url, user, password)) {
+                System.out.println("[DatabaseManager] Kết nối database thành công!");
+            }
+
         } catch (Exception e) {
-            System.err.println("Error connection: " + e.getMessage());
+            System.err.println("[DatabaseManager] Lỗi kết nối: " + e.getMessage());
         }
     }
 
     public static DatabaseManager getInstance() {
-        if (instance == null) {
-            instance = new DatabaseManager();
-        }
-        return instance;
+        return Holder.INSTANCE;
     }
 
-    public Connection getConnection() {
-        return connection;
+    // Mỗi lần gọi trả về 1 Connection MỚI
+    // Caller phải tự đóng bằng try-with-resources: try (Connection conn = getConnection())
+    public Connection getConnection() throws Exception {
+        if (url == null) {
+            throw new Exception("[DatabaseManager] Chưa load được cấu hình database!");
+        }
+        return DriverManager.getConnection(url, user, password);
     }
 }
