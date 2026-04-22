@@ -5,7 +5,7 @@ abstract public class Item implements Entity<String>{
     protected String name;
     protected double startingPrice;
     protected double currentHighestBid;
-    public String typeItem;
+    protected String typeItem;
 
     public abstract String getType_item();
 
@@ -27,7 +27,7 @@ abstract public class Item implements Entity<String>{
         return startingPrice;
     }
 
-
+    public String getTypeItem() { return typeItem; };
 
     public double getCurrentHighestBid() { return currentHighestBid; }
     public void setCurrentHighestBid(double currentHighestBid) { this.currentHighestBid = currentHighestBid; }

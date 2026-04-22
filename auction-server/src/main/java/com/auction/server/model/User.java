@@ -16,6 +16,7 @@ public abstract class User implements Entity<String>, Serializable {
         this.id = id;
         this.username = username;
         this.password = password;
+        this.role = role;
     }
     public User(String username, String password){
         this.username = username;
