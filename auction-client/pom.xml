@@ -33,6 +33,15 @@
             <artifactId>javafx-fxml</artifactId>
             <version>21</version>
         </dependency>
+<<<<<<< HEAD
+=======
+        <dependency>
+            <groupId>org.example</groupId>
+            <artifactId>auction-server</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
+>>>>>>> 817410f54e5bfcefbf958f5c1aab6ba102d2f415
 
     </dependencies>
 

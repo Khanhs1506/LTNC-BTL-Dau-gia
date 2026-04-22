@@ -12,11 +12,30 @@
         <module>auction-server</module>
         <module>auction-client</module>
     </modules>
+<<<<<<< HEAD
 
+=======
+    <dependencies>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.3.0</version>
+        </dependency>
+    </dependencies>
+>>>>>>> 817410f54e5bfcefbf958f5c1aab6ba102d2f415
     <properties>
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+<<<<<<< HEAD
 
 </project>
+=======
+</project>
+>>>>>>> 817410f54e5bfcefbf958f5c1aab6ba102d2f415

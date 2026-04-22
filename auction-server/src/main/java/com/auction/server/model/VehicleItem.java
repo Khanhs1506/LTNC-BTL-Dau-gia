@@ -1,6 +1,10 @@
 package com.auction.server.model;
 
 public class VehicleItem extends Item {
+<<<<<<< HEAD
+=======
+    public String typeItem = "Vehicle Item";
+>>>>>>> 817410f54e5bfcefbf958f5c1aab6ba102d2f415
     private String brand; // Hãng xe
     private int year;     // Năm sản xuất
 
@@ -22,4 +26,12 @@ public class VehicleItem extends Item {
 
     public int getYear() { return year; }
     public void setYear(int year) { this.year = year; }
+<<<<<<< HEAD
+=======
+
+    @Override
+    public String getType_item() {
+        return typeItem;
+    }
+>>>>>>> 817410f54e5bfcefbf958f5c1aab6ba102d2f415
 }
