@@ -7,6 +7,7 @@ import com.auction.server.model.Bidder;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.UUID;
 
 public class UserDaoImpl implements IUserDAO{
     @Override
@@ -55,6 +56,9 @@ public class UserDaoImpl implements IUserDAO{
 
     @Override
     public boolean registerUser(User newUser) {
+        if (newUser.getId() == null || newUser.getId().isEmpty()) {
+            newUser.setId(UUID.randomUUID().toString());
+        }
         String sql = "INSERT INTO users (id, username, password, role) VALUES (?, ?, ?, ?)";
         boolean isSuccess = false;
 
