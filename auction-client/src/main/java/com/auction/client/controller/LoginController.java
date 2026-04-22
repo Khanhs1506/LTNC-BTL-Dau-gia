@@ -41,7 +41,7 @@ public class LoginController{
         
         try{
             // Gửi dữ liệu tới Server
-            socketClient.sendRequest("LOGIN", new Seller("admin", "123"));
+            socketClient.sendRequest("LOGIN", new Seller("001","admin", "123"));
 
             String response = socketClient.receive(); // Nhận dữ liệu từ Server;
 

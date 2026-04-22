@@ -34,8 +34,8 @@ public class AuctionDaoImpl implements IAuctionDAO {
 
         // Đồng bộ giá và trạng thái từ DB vào object
         item.setCurrentHighestBid(highBid);
-        auction.updateHighestBid(highBid, winner);
-        auction.updateStatus(Auction.Status.valueOf(statusStr));
+        //auction.updateHighestBid(highBid, winner);
+        //auction.updateStatus(Auction.Status.valueOf(statusStr));
 
         return auction;
     }
