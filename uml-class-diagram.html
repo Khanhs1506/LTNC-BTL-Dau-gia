@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>UML Class Diagram — Auction System</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #f0f0f0; font-family: sans-serif; overflow: hidden; }
+  #toolbar {
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+    background: white; border-radius: 8px; padding: 8px 16px;
+    display: flex; gap: 12px; align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 100; font-size: 13px;
+  }
+  #toolbar button {
+    border: 1px solid #ccc; background: #fafafa; border-radius: 4px;
+    padding: 4px 10px; cursor: pointer; font-size: 13px;
+  }
+  #toolbar button:hover { background: #e8e8e8; }
+  #legend {
+    position: fixed; bottom: 10px; left: 10px; background: white;
+    border-radius: 8px; padding: 10px 14px; font-size: 11px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15); line-height: 1.8;
+  }
+  .leg { display: flex; align-items: center; gap: 6px; }
+  canvas { display: block; }
+  #container { width: 100vw; height: 100vh; overflow: hidden; cursor: grab; }
+  #container:active { cursor: grabbing; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <strong>UML — Auction System</strong>
+  <button onclick="zoom(1.2)">＋ Zoom in</button>
+  <button onclick="zoom(0.8)">－ Zoom out</button>
+  <button onclick="resetView()">⊙ Reset</button>
+  <span style="color:#888">Kéo để di chuyển • Scroll để zoom</span>
+</div>
+<div id="legend">
+  <div class="leg"><svg width="30" height="12"><line x1="0" y1="6" x2="22" y2="6" stroke="#333" stroke-width="1.5"/><polygon points="22,2 30,6 22,10" fill="white" stroke="#333" stroke-width="1.5"/></svg> Kế thừa</div>
+  <div class="leg"><svg width="30" height="12"><line x1="0" y1="6" x2="22" y2="6" stroke="#333" stroke-width="1.5" stroke-dasharray="4,2"/><polygon points="22,2 30,6 22,10" fill="white" stroke="#333" stroke-width="1.5"/></svg> Thực thi interface</div>
+  <div class="leg"><svg width="30" height="12"><line x1="0" y1="6" x2="30" y2="6" stroke="#555" stroke-width="1.5"/><polygon points="26,2 30,6 26,10" fill="#555"/></svg> Liên kết (uses)</div>
+  <div class="leg"><svg width="30" height="12"><line x1="0" y1="6" x2="30" y2="6" stroke="#555" stroke-width="1.5" stroke-dasharray="4,2"/><polygon points="26,2 30,6 26,10" fill="#555"/></svg> Phụ thuộc</div>
+  <div class="leg"><svg width="30" height="12"><polygon points="0,6 6,2 12,6 6,10" fill="black"/><line x1="12" y1="6" x2="30" y2="6" stroke="#333" stroke-width="1.5"/></svg> Thành phần (composition)</div>
+  <hr style="margin:4px 0; border-color:#ddd">
+  <div class="leg"><span style="background:#DBEAFE;border:1px solid #93C5FD;padding:1px 5px;border-radius:3px;font-size:10px">model</span></div>
+  <div class="leg"><span style="background:#D1FAE5;border:1px solid #6EE7B7;padding:1px 5px;border-radius:3px;font-size:10px">factory</span></div>
+  <div class="leg"><span style="background:#FEF3C7;border:1px solid #FCD34D;padding:1px 5px;border-radius:3px;font-size:10px">service</span></div>
+  <div class="leg"><span style="background:#EDE9FE;border:1px solid #C4B5FD;padding:1px 5px;border-radius:3px;font-size:10px">repository</span></div>
+  <div class="leg"><span style="background:#FCE7F3;border:1px solid #F9A8D4;padding:1px 5px;border-radius:3px;font-size:10px">network</span></div>
+  <div class="leg"><span style="background:#FEE2E2;border:1px solid #FCA5A5;padding:1px 5px;border-radius:3px;font-size:10px">exception</span></div>
+  <div class="leg"><span style="background:#CCFBF1;border:1px solid #5EEAD4;padding:1px 5px;border-radius:3px;font-size:10px">client</span></div>
+</div>
+
+<div id="container">
+<svg id="diagram" xmlns="http://www.w3.org/2000/svg" width="2800" height="1900" viewBox="0 0 2800 1900">
+<defs>
+  <marker id="arrow-inherit" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+    <polygon points="0,0 9,5 0,10" fill="white" stroke="#333" stroke-width="1"/>
+  </marker>
+  <marker id="arrow-impl" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+    <polygon points="0,0 9,5 0,10" fill="white" stroke="#333" stroke-width="1"/>
+  </marker>
+  <marker id="arrow-assoc" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <polygon points="0,0 7,4 0,8" fill="#444"/>
+  </marker>
+  <marker id="arrow-dep" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+    <polygon points="0,0 7,4 0,8" fill="#444"/>
+  </marker>
+  <marker id="diamond" markerWidth="12" markerHeight="8" refX="0" refY="4" orient="auto">
+    <polygon points="0,4 5,0 10,4 5,8" fill="black"/>
+  </marker>
+</defs>
+
+<!-- ===================== BACKGROUND PACKAGE ZONES ===================== -->
+<!-- model zone -->
+<rect x="10" y="10" width="1410" height="720" rx="10" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="22" y="28" font-size="11" fill="#3B82F6" font-weight="600">model</text>
+
+<!-- factory zone -->
+<rect x="10" y="750" width="440" height="130" rx="10" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="22" y="768" font-size="11" fill="#16A34A" font-weight="600">factory</text>
+
+<!-- service zone -->
+<rect x="470" y="750" width="820" height="200" rx="10" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="482" y="768" font-size="11" fill="#D97706" font-weight="600">service</text>
+
+<!-- exception zone -->
+<rect x="10" y="900" width="680" height="130" rx="10" fill="#FFF1F2" stroke="#FCA5A5" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="22" y="918" font-size="11" fill="#DC2626" font-weight="600">exception</text>
+
+<!-- repository zone -->
+<rect x="10" y="1060" width="2170" height="380" rx="10" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="22" y="1078" font-size="11" fill="#7C3AED" font-weight="600">repository</text>
+
+<!-- network zone -->
+<rect x="10" y="1460" width="650" height="370" rx="10" fill="#FDF4FF" stroke="#F0ABFC" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="22" y="1478" font-size="11" fill="#A21CAF" font-weight="600">network</text>
+
+<!-- client zone -->
+<rect x="680" y="1460" width="1500" height="370" rx="10" fill="#F0FDFA" stroke="#5EEAD4" stroke-width="1.5" stroke-dasharray="6,3"/>
+<text x="692" y="1478" font-size="11" fill="#0F766E" font-weight="600">client</text>
+
+<!-- ===================== RELATIONSHIP ARROWS ===================== -->
+<!-- Entity ← User (implements) -->
+<line x1="305" y1="110" x2="620" y2="110" stroke="#333" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow-impl)"/>
+<!-- Entity ← Item (implements) -->
+<line x1="305" y1="110" x2="850" y2="80" stroke="#333" stroke-width="1.5" stroke-dasharray="6,3"/>
+<line x1="850" y1="80" x2="980" y2="80" stroke="#333" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow-impl)"/>
+
+<!-- User ← Admin -->
+<line x1="130" y1="280" x2="130" y2="370" stroke="#333" stroke-width="1.5" marker-end="url(#arrow-inherit)"/>
+<!-- User ← Seller -->
+<line x1="270" y1="280" x2="270" y2="370" stroke="#333" stroke-width="1.5" marker-end="url(#arrow-inherit)"/>
+<!-- User ← Bidder -->
+<line x1="430" y1="280" x2="430" y2="370" stroke="#333" stroke-width="1.5" marker-end="url(#arrow-inherit)"/>
+
+<!-- Item ← ElectronicsItem -->
+<line x1="1050" y1="280" x2="1050" y2="370" stroke="#333" stroke-width="1.5" marker-end="url(#arrow-inherit)"/>
+<!-- Item ← ArtItem -->
+<line x1="1190" y1="280" x2="1190" y2="370" stroke="#333" stroke-width="1.5" marker-end="url(#arrow-inherit)"/>
+<!-- Item ← VehicleItem -->
+<line x1="1330" y1="280" x2="1330" y2="370" stroke="#333" stroke-width="1.5" marker-end="url(#arrow-inherit)"/>
+
+<!-- Auction -◆→ BidTransaction (composition) -->
+<line x1="820" y1="620" x2="960" y2="595" stroke="#333" stroke-width="1.5" marker-start="url(#diamond)" marker-end="url(#arrow-assoc)"/>
+<!-- Auction → Item (association) -->
+<line x1="730" y1="530" x2="1100" y2="350" stroke="#444" stroke-width="1.5" marker-end="url(#arrow-assoc)"/>
+
+<!-- ItemFactory ← ItemFactoryImpl (implements) -->
+<line x1="220" y1="820" x2="270" y2="820" stroke="#333" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow-impl)"/>
+
+<!-- AuctionObserver → BiddingEngine (observer) -->
+<line x1="700" y1="820" x2="760" y2="820" stroke="#333" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow-impl)"/>
+
+<!-- BiddingEngine → AuctionManager (uses) -->
+<line x1="910" y1="830" x2="890" y2="830" stroke="#444" stroke-width="1" marker-end="url(#arrow-assoc)"/>
+
+<!-- IUserDAO ← UserDaoImpl -->
+<line x1="220" y1="1170" x2="270" y2="1170" stroke="#333" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow-impl)"/>
+<!-- IItemDAO ← ItemDaoImpl -->
+<line x1="640" y1="1170" x2="690" y2="1170" stroke="#333" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow-impl)"/>
+<!-- IAuctionDAO ← AuctionDaoImpl -->
+<line x1="1060" y1="1170" x2="1110" y2="1170" stroke="#333" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow-impl)"/>
+<!-- IBidTransactionDAO ← BidTransactionDaoImpl -->
+<line x1="1490" y1="1170" x2="1540" y2="1170" stroke="#333" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow-impl)"/>
+
+<!-- All DAOs → DatabaseManager (dependency) -->
+<line x1="390" y1="1140" x2="1850" y2="1110" stroke="#999" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-dep)"/>
+<line x1="820" y1="1140" x2="1870" y2="1110" stroke="#999" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-dep)"/>
+<line x1="1240" y1="1140" x2="1890" y2="1110" stroke="#999" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-dep)"/>
+<line x1="1680" y1="1140" x2="1910" y2="1110" stroke="#999" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-dep)"/>
+
+<!-- AuctionDaoImpl → IItemDAO (dependency) -->
+<line x1="1130" y1="1200" x2="840" y2="1175" stroke="#999" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-dep)"/>
+
+<!-- ClientHandler implements AuctionObserver -->
+<line x1="270" y1="1460" x2="600" y2="900" stroke="#333" stroke-width="1" stroke-dasharray="6,3" marker-end="url(#arrow-impl)"/>
+
+<!-- LoginController → GlassLogin -->
+<line x1="900" y1="1570" x2="1000" y2="1570" stroke="#444" stroke-width="1.5" marker-end="url(#arrow-assoc)"/>
+<!-- LoginController → SocketClient -->
+<line x1="1190" y1="1570" x2="1270" y2="1570" stroke="#444" stroke-width="1.5" marker-end="url(#arrow-assoc)"/>
+
+<!-- ServerApp → ClientHandler -->
+<line x1="175" y1="1570" x2="200" y2="1570" stroke="#444" stroke-width="1.5" marker-end="url(#arrow-assoc)"/>
+
+<!-- ===================== CLASS BOXES ===================== -->
+
+<!-- ===== ENTITY interface ===== -->
+<g transform="translate(620,40)">
+  <rect width="220" height="70" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="220" height="30" rx="4" fill="#93C5FD"/>
+  <rect x="0" y="26" width="220" height="4" fill="#93C5FD"/>
+  <text x="110" y="13" text-anchor="middle" font-size="9" fill="#1e3a5f" font-style="italic">«interface»</text>
+  <text x="110" y="23" text-anchor="middle" font-size="12" fill="#1e3a5f" font-weight="bold">Entity&lt;T&gt;</text>
+  <line x1="0" y1="30" x2="220" y2="30" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="44" font-size="10" fill="#1e40af">+ getId() : T</text>
+  <text x="8" y="57" font-size="10" fill="#1e40af">+ setId(id: T) : void</text>
+</g>
+
+<!-- ===== USER abstract ===== -->
+<g transform="translate(60,140)">
+  <rect width="230" height="145" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="230" height="30" rx="4" fill="#3B82F6"/>
+  <rect x="0" y="26" width="230" height="4" fill="#3B82F6"/>
+  <text x="115" y="13" text-anchor="middle" font-size="9" fill="white" font-style="italic">«abstract»</text>
+  <text x="115" y="23" text-anchor="middle" font-size="12" fill="white" font-weight="bold">User</text>
+  <line x1="0" y1="30" x2="230" y2="30" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="44" font-size="10" fill="#1e40af">- id : String</text>
+  <text x="8" y="57" font-size="10" fill="#1e40af">- username : String</text>
+  <text x="8" y="70" font-size="10" fill="#1e40af">- password : String</text>
+  <text x="8" y="83" font-size="10" fill="#1e40af">- role : String</text>
+  <line x1="0" y1="90" x2="230" y2="90" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="103" font-size="10" fill="#1e40af">+ getId() / setId()</text>
+  <text x="8" y="116" font-size="10" fill="#1e40af">+ getUsername() / getRole()</text>
+  <text x="8" y="129" font-size="10" fill="#1e40af">+ {abstract} displayRoleInfo()</text>
+</g>
+
+<!-- ===== ITEM abstract ===== -->
+<g transform="translate(940,140)">
+  <rect width="230" height="155" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="230" height="30" rx="4" fill="#3B82F6"/>
+  <rect x="0" y="26" width="230" height="4" fill="#3B82F6"/>
+  <text x="115" y="13" text-anchor="middle" font-size="9" fill="white" font-style="italic">«abstract»</text>
+  <text x="115" y="23" text-anchor="middle" font-size="12" fill="white" font-weight="bold">Item</text>
+  <line x1="0" y1="30" x2="230" y2="30" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="44" font-size="10" fill="#1e40af"># id : String</text>
+  <text x="8" y="57" font-size="10" fill="#1e40af"># name : String</text>
+  <text x="8" y="70" font-size="10" fill="#1e40af"># startingPrice : double</text>
+  <text x="8" y="83" font-size="10" fill="#1e40af"># currentHighestBid : double</text>
+  <text x="8" y="96" font-size="10" fill="#1e40af"># typeItem : String</text>
+  <line x1="0" y1="103" x2="230" y2="103" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="116" font-size="10" fill="#1e40af">+ getStartingPrice() : double</text>
+  <text x="8" y="129" font-size="10" fill="#1e40af">+ setCurrentHighestBid()</text>
+  <text x="8" y="142" font-size="10" fill="#1e40af">+ {abstract} printInfo()</text>
+</g>
+
+<!-- ===== ADMIN ===== -->
+<g transform="translate(30,370)">
+  <rect width="170" height="95" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="170" height="24" rx="4" fill="#60A5FA"/>
+  <rect x="0" y="20" width="170" height="4" fill="#60A5FA"/>
+  <text x="85" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">Admin</text>
+  <line x1="0" y1="24" x2="170" y2="24" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#1e40af">(kế thừa User)</text>
+  <line x1="0" y1="44" x2="170" y2="44" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="58" font-size="10" fill="#1e40af">+ Admin(id, user, pass)</text>
+  <text x="8" y="71" font-size="10" fill="#1e40af">+ displayRoleInfo()</text>
+</g>
+
+<!-- ===== SELLER ===== -->
+<g transform="translate(215,370)">
+  <rect width="200" height="125" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="200" height="24" rx="4" fill="#60A5FA"/>
+  <rect x="0" y="20" width="200" height="4" fill="#60A5FA"/>
+  <text x="100" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">Seller</text>
+  <line x1="0" y1="24" x2="200" y2="24" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#1e40af">- rating : double</text>
+  <text x="8" y="51" font-size="10" fill="#1e40af">- myItemIds : List&lt;String&gt;</text>
+  <line x1="0" y1="58" x2="200" y2="58" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="72" font-size="10" fill="#1e40af">+ getRating() / setRating()</text>
+  <text x="8" y="85" font-size="10" fill="#1e40af">+ addItem(itemId)</text>
+  <text x="8" y="98" font-size="10" fill="#1e40af">+ removeItem(itemId)</text>
+  <text x="8" y="111" font-size="10" fill="#1e40af">+ displayRoleInfo()</text>
+</g>
+
+<!-- ===== BIDDER ===== -->
+<g transform="translate(430,370)">
+  <rect width="220" height="155" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="220" height="24" rx="4" fill="#60A5FA"/>
+  <rect x="0" y="20" width="220" height="4" fill="#60A5FA"/>
+  <text x="110" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">Bidder</text>
+  <line x1="0" y1="24" x2="220" y2="24" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#1e40af">- balance : double</text>
+  <text x="8" y="51" font-size="10" fill="#1e40af">- participatedItemIds : List</text>
+  <text x="8" y="64" font-size="10" fill="#1e40af">- favoriteItemIds : List</text>
+  <line x1="0" y1="71" x2="220" y2="71" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="85" font-size="10" fill="#1e40af">+ getBalance() / setBalance()</text>
+  <text x="8" y="98" font-size="10" fill="#1e40af">+ joinAuction(itemId)</text>
+  <text x="8" y="111" font-size="10" fill="#1e40af">+ addToFavorites(itemId)</text>
+  <text x="8" y="124" font-size="10" fill="#1e40af">+ removeFromFavorites()</text>
+  <text x="8" y="137" font-size="10" fill="#1e40af">+ displayRoleInfo()</text>
+</g>
+
+<!-- ===== ELECTRONICS ITEM ===== -->
+<g transform="translate(935,370)">
+  <rect width="215" height="105" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="215" height="24" rx="4" fill="#60A5FA"/>
+  <rect x="0" y="20" width="215" height="4" fill="#60A5FA"/>
+  <text x="107" y="16" text-anchor="middle" font-size="11" fill="white" font-weight="bold">ElectronicsItem</text>
+  <line x1="0" y1="24" x2="215" y2="24" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#1e40af">- warrantyMonths : int</text>
+  <line x1="0" y1="45" x2="215" y2="45" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="59" font-size="10" fill="#1e40af">+ ElectronicsItem(...)</text>
+  <text x="8" y="72" font-size="10" fill="#1e40af">+ getWarrantyMonths() : int</text>
+  <text x="8" y="85" font-size="10" fill="#1e40af">+ getType_item() : String</text>
+  <text x="8" y="98" font-size="10" fill="#1e40af">+ printInfo() : void</text>
+</g>
+
+<!-- ===== ART ITEM ===== -->
+<g transform="translate(1165,370)">
+  <rect width="185" height="105" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="185" height="24" rx="4" fill="#60A5FA"/>
+  <rect x="0" y="20" width="185" height="4" fill="#60A5FA"/>
+  <text x="92" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">ArtItem</text>
+  <line x1="0" y1="24" x2="185" y2="24" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#1e40af">- artist : String</text>
+  <line x1="0" y1="45" x2="185" y2="45" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="59" font-size="10" fill="#1e40af">+ ArtItem(...)</text>
+  <text x="8" y="72" font-size="10" fill="#1e40af">+ getArtist() : String</text>
+  <text x="8" y="85" font-size="10" fill="#1e40af">+ getType_item() : String</text>
+  <text x="8" y="98" font-size="10" fill="#1e40af">+ printInfo() : void</text>
+</g>
+
+<!-- ===== VEHICLE ITEM ===== -->
+<g transform="translate(1365,370)">
+  <rect width="210" height="115" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="210" height="24" rx="4" fill="#60A5FA"/>
+  <rect x="0" y="20" width="210" height="4" fill="#60A5FA"/>
+  <text x="105" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">VehicleItem</text>
+  <line x1="0" y1="24" x2="210" y2="24" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#1e40af">- brand : String</text>
+  <text x="8" y="51" font-size="10" fill="#1e40af">- year : int</text>
+  <line x1="0" y1="58" x2="210" y2="58" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="72" font-size="10" fill="#1e40af">+ getBrand() / setBrand()</text>
+  <text x="8" y="85" font-size="10" fill="#1e40af">+ getYear() / setYear()</text>
+  <text x="8" y="98" font-size="10" fill="#1e40af">+ getType_item() : String</text>
+  <text x="8" y="111" font-size="10" fill="#1e40af">+ printInfo() : void</text>
+</g>
+
+<!-- ===== AUCTION ===== -->
+<g transform="translate(575,530)">
+  <rect width="255" height="200" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="255" height="24" rx="4" fill="#1D4ED8"/>
+  <rect x="0" y="20" width="255" height="4" fill="#1D4ED8"/>
+  <text x="127" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">Auction</text>
+  <line x1="0" y1="24" x2="255" y2="24" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#1e40af">- id : int</text>
+  <text x="8" y="51" font-size="10" fill="#1e40af">- item : Item</text>
+  <text x="8" y="64" font-size="10" fill="#1e40af">- currentHighestBid : double</text>
+  <text x="8" y="77" font-size="10" fill="#1e40af">- currentWinnerUsername : String</text>
+  <text x="8" y="90" font-size="10" fill="#1e40af">- startTime / endTime : LocalDateTime</text>
+  <text x="8" y="103" font-size="10" fill="#1e40af">- status : Status {OPEN,RUNNING,...}</text>
+  <text x="8" y="116" font-size="10" fill="#1e40af">- bidHistory : List&lt;BidTransaction&gt;</text>
+  <line x1="0" y1="123" x2="255" y2="123" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="137" font-size="10" fill="#1e40af">+ placeBid(username, amount) : bool</text>
+  <text x="8" y="150" font-size="10" fill="#1e40af">+ startAuction() / closeAuction()</text>
+  <text x="8" y="163" font-size="10" fill="#1e40af">+ extendEndTime(minutes)</text>
+  <text x="8" y="176" font-size="10" fill="#1e40af">+ updateHighestBid(bid, winner)</text>
+  <text x="8" y="189" font-size="10" fill="#1e40af">+ updateStatus(status)</text>
+</g>
+
+<!-- ===== BID TRANSACTION ===== -->
+<g transform="translate(850,530)">
+  <rect width="255" height="185" rx="4" fill="#DBEAFE" stroke="#93C5FD" stroke-width="1.5"/>
+  <rect width="255" height="24" rx="4" fill="#1D4ED8"/>
+  <rect x="0" y="20" width="255" height="4" fill="#1D4ED8"/>
+  <text x="127" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">BidTransaction</text>
+  <line x1="0" y1="24" x2="255" y2="24" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#1e40af">- transactionId : String (UUID)</text>
+  <text x="8" y="51" font-size="10" fill="#1e40af">- auctionId : int</text>
+  <text x="8" y="64" font-size="10" fill="#1e40af">- bidderUsername : String</text>
+  <text x="8" y="77" font-size="10" fill="#1e40af">- bidAmount : double</text>
+  <text x="8" y="90" font-size="10" fill="#1e40af">- timestamp : LocalDateTime</text>
+  <line x1="0" y1="97" x2="255" y2="97" stroke="#93C5FD" stroke-width="1"/>
+  <text x="8" y="111" font-size="10" fill="#1e40af">+ BidTransaction(auctionId,...) </text>
+  <text x="8" y="124" font-size="10" fill="#1e40af">+ BidTransaction(id,...,timestamp)</text>
+  <text x="8" y="137" font-size="10" fill="#1e40af">+ getTransactionId() : String</text>
+  <text x="8" y="150" font-size="10" fill="#1e40af">+ getBidAmount() : double</text>
+  <text x="8" y="163" font-size="10" fill="#1e40af">+ getFormattedTimestamp()</text>
+  <text x="8" y="176" font-size="10" fill="#1e40af">+ toString() : String</text>
+</g>
+
+<!-- ===== ITEM FACTORY interface ===== -->
+<g transform="translate(20,775)">
+  <rect width="200" height="75" rx="4" fill="#D1FAE5" stroke="#6EE7B7" stroke-width="1.5"/>
+  <rect width="200" height="24" rx="4" fill="#6EE7B7"/>
+  <rect x="0" y="20" width="200" height="4" fill="#6EE7B7"/>
+  <text x="100" y="12" text-anchor="middle" font-size="9" fill="#064e3b" font-style="italic">«interface»</text>
+  <text x="100" y="22" text-anchor="middle" font-size="11" fill="#064e3b" font-weight="bold">ItemFactory</text>
+  <line x1="0" y1="24" x2="200" y2="24" stroke="#6EE7B7" stroke-width="1"/>
+  <line x1="0" y1="37" x2="200" y2="37" stroke="#6EE7B7" stroke-width="1"/>
+  <text x="8" y="51" font-size="9.5" fill="#065f46">+ createItem(type, id, name,</text>
+  <text x="8" y="64" font-size="9.5" fill="#065f46">    price, extraDetail...) : Item</text>
+</g>
+
+<!-- ===== ITEM FACTORY IMPL ===== -->
+<g transform="translate(235,775)">
+  <rect width="215" height="75" rx="4" fill="#D1FAE5" stroke="#6EE7B7" stroke-width="1.5"/>
+  <rect width="215" height="24" rx="4" fill="#10B981"/>
+  <rect x="0" y="20" width="215" height="4" fill="#10B981"/>
+  <text x="107" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">ItemFactoryImpl</text>
+  <line x1="0" y1="24" x2="215" y2="24" stroke="#6EE7B7" stroke-width="1"/>
+  <line x1="0" y1="37" x2="215" y2="37" stroke="#6EE7B7" stroke-width="1"/>
+  <text x="8" y="51" font-size="9.5" fill="#065f46">+ createItem(type, id, name,</text>
+  <text x="8" y="64" font-size="9.5" fill="#065f46">    price, extraDetail...) : Item</text>
+</g>
+
+<!-- ===== AUCTION OBSERVER interface ===== -->
+<g transform="translate(480,775)">
+  <rect width="220" height="75" rx="4" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
+  <rect width="220" height="24" rx="4" fill="#FCD34D"/>
+  <rect x="0" y="20" width="220" height="4" fill="#FCD34D"/>
+  <text x="110" y="12" text-anchor="middle" font-size="9" fill="#78350f" font-style="italic">«interface»</text>
+  <text x="110" y="22" text-anchor="middle" font-size="11" fill="#78350f" font-weight="bold">AuctionObserver</text>
+  <line x1="0" y1="24" x2="220" y2="24" stroke="#FCD34D" stroke-width="1"/>
+  <line x1="0" y1="37" x2="220" y2="37" stroke="#FCD34D" stroke-width="1"/>
+  <text x="8" y="51" font-size="9.5" fill="#92400e">+ onNewBidPlaced(auctionId,</text>
+  <text x="8" y="64" font-size="9.5" fill="#92400e">    username, bidAmount)</text>
+</g>
+
+<!-- ===== AUCTION MANAGER ===== -->
+<g transform="translate(715,775)">
+  <rect width="225" height="120" rx="4" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
+  <rect width="225" height="24" rx="4" fill="#F59E0B"/>
+  <rect x="0" y="20" width="225" height="4" fill="#F59E0B"/>
+  <text x="112" y="12" text-anchor="middle" font-size="9" fill="white" font-style="italic">«Singleton»</text>
+  <text x="112" y="22" text-anchor="middle" font-size="12" fill="white" font-weight="bold">AuctionManager</text>
+  <line x1="0" y1="24" x2="225" y2="24" stroke="#FCD34D" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#92400e">- activeAuctions : ConcurrentHashMap</text>
+  <line x1="0" y1="45" x2="225" y2="45" stroke="#FCD34D" stroke-width="1"/>
+  <text x="8" y="59" font-size="10" fill="#92400e">+ getInstance() : AuctionManager</text>
+  <text x="8" y="72" font-size="10" fill="#92400e">+ addAuction(auction)</text>
+  <text x="8" y="85" font-size="10" fill="#92400e">+ getAuction(id) : Auction</text>
+  <text x="8" y="98" font-size="10" fill="#92400e">+ getAllAuctions() : List</text>
+  <text x="8" y="111" font-size="10" fill="#92400e">+ endAuction(auctionId)</text>
+</g>
+
+<!-- ===== BIDDING ENGINE ===== -->
+<g transform="translate(955,775)">
+  <rect width="240" height="145" rx="4" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
+  <rect width="240" height="24" rx="4" fill="#F59E0B"/>
+  <rect x="0" y="20" width="240" height="4" fill="#F59E0B"/>
+  <text x="120" y="12" text-anchor="middle" font-size="9" fill="white" font-style="italic">«Singleton»</text>
+  <text x="120" y="22" text-anchor="middle" font-size="12" fill="white" font-weight="bold">BiddingEngine</text>
+  <line x1="0" y1="24" x2="240" y2="24" stroke="#FCD34D" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#92400e">- auctionManager : AuctionManager</text>
+  <text x="8" y="51" font-size="10" fill="#92400e">- observers : List&lt;AuctionObserver&gt;</text>
+  <line x1="0" y1="58" x2="240" y2="58" stroke="#FCD34D" stroke-width="1"/>
+  <text x="8" y="72" font-size="10" fill="#92400e">+ getInstance() : BiddingEngine</text>
+  <text x="8" y="85" font-size="10" fill="#92400e">+ addObserver(observer)</text>
+  <text x="8" y="98" font-size="10" fill="#92400e">+ removeObserver(observer)</text>
+  <text x="8" y="111" font-size="10" fill="#92400e">+ processBid(id, user, amount)</text>
+  <text x="8" y="124" font-size="10" fill="#92400e">- notifyAllObservers(...)</text>
+</g>
+
+<!-- ===== USER MANAGER ===== -->
+<g transform="translate(1210,775)">
+  <rect width="230" height="130" rx="4" fill="#FFFBEB" stroke="#FCD34D" stroke-width="1.5"/>
+  <rect width="230" height="24" rx="4" fill="#F59E0B"/>
+  <rect x="0" y="20" width="230" height="4" fill="#F59E0B"/>
+  <text x="115" y="12" text-anchor="middle" font-size="9" fill="white" font-style="italic">«Singleton»</text>
+  <text x="115" y="22" text-anchor="middle" font-size="12" fill="white" font-weight="bold">UserManager</text>
+  <line x1="0" y1="24" x2="230" y2="24" stroke="#FCD34D" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#92400e">- users : ConcurrentHashMap</text>
+  <line x1="0" y1="45" x2="230" y2="45" stroke="#FCD34D" stroke-width="1"/>
+  <text x="8" y="59" font-size="10" fill="#92400e">+ getInstance() : UserManager</text>
+  <text x="8" y="72" font-size="10" fill="#92400e">+ register(user) : boolean</text>
+  <text x="8" y="85" font-size="10" fill="#92400e">+ login(username, password) : User</text>
+  <text x="8" y="98" font-size="10" fill="#92400e">+ getUser(username) : User</text>
+</g>
+
+<!-- ===== EXCEPTION CLASSES ===== -->
+<g transform="translate(20,925)">
+  <rect width="210" height="80" rx="4" fill="#FEE2E2" stroke="#FCA5A5" stroke-width="1.5"/>
+  <rect width="210" height="24" rx="4" fill="#EF4444"/>
+  <rect x="0" y="20" width="210" height="4" fill="#EF4444"/>
+  <text x="105" y="12" text-anchor="middle" font-size="9" fill="white">extends Exception</text>
+  <text x="105" y="22" text-anchor="middle" font-size="10" fill="white" font-weight="bold">AuctionClosedException</text>
+  <line x1="0" y1="24" x2="210" y2="24" stroke="#FCA5A5" stroke-width="1"/>
+  <line x1="0" y1="43" x2="210" y2="43" stroke="#FCA5A5" stroke-width="1"/>
+  <text x="8" y="57" font-size="10" fill="#7f1d1d">+ AuctionClosedException(msg)</text>
+  <text x="8" y="70" font-size="10" fill="#7f1d1d">+ AuctionClosedException(msg, cause)</text>
+</g>
+
+<g transform="translate(245,925)">
+  <rect width="200" height="80" rx="4" fill="#FEE2E2" stroke="#FCA5A5" stroke-width="1.5"/>
+  <rect width="200" height="24" rx="4" fill="#EF4444"/>
+  <rect x="0" y="20" width="200" height="4" fill="#EF4444"/>
+  <text x="100" y="12" text-anchor="middle" font-size="9" fill="white">extends Exception</text>
+  <text x="100" y="22" text-anchor="middle" font-size="10" fill="white" font-weight="bold">InvalidBidException</text>
+  <line x1="0" y1="24" x2="200" y2="24" stroke="#FCA5A5" stroke-width="1"/>
+  <line x1="0" y1="43" x2="200" y2="43" stroke="#FCA5A5" stroke-width="1"/>
+  <text x="8" y="57" font-size="10" fill="#7f1d1d">+ InvalidBidException(msg)</text>
+  <text x="8" y="70" font-size="10" fill="#7f1d1d">+ InvalidBidException(msg, cause)</text>
+</g>
+
+<g transform="translate(460,925)">
+  <rect width="215" height="80" rx="4" fill="#FEE2E2" stroke="#FCA5A5" stroke-width="1.5"/>
+  <rect width="215" height="24" rx="4" fill="#EF4444"/>
+  <rect x="0" y="20" width="215" height="4" fill="#EF4444"/>
+  <text x="107" y="12" text-anchor="middle" font-size="9" fill="white">extends Exception</text>
+  <text x="107" y="22" text-anchor="middle" font-size="10" fill="white" font-weight="bold">UserNotFoundException</text>
+  <line x1="0" y1="24" x2="215" y2="24" stroke="#FCA5A5" stroke-width="1"/>
+  <line x1="0" y1="43" x2="215" y2="43" stroke="#FCA5A5" stroke-width="1"/>
+  <text x="8" y="57" font-size="10" fill="#7f1d1d">+ UserNotFoundException(msg)</text>
+  <text x="8" y="70" font-size="10" fill="#7f1d1d">+ UserNotFoundException(msg, cause)</text>
+</g>
+
+<!-- ===== DATABASE MANAGER ===== -->
+<g transform="translate(1760,1085)">
+  <rect width="235" height="115" rx="4" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.5"/>
+  <rect width="235" height="24" rx="4" fill="#7C3AED"/>
+  <rect x="0" y="20" width="235" height="4" fill="#7C3AED"/>
+  <text x="117" y="12" text-anchor="middle" font-size="9" fill="white" font-style="italic">«Singleton»</text>
+  <text x="117" y="22" text-anchor="middle" font-size="12" fill="white" font-weight="bold">DatabaseManager</text>
+  <line x1="0" y1="24" x2="235" y2="24" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#4c1d95">- url : String</text>
+  <text x="8" y="51" font-size="10" fill="#4c1d95">- user : String</text>
+  <text x="8" y="64" font-size="10" fill="#4c1d95">- password : String</text>
+  <line x1="0" y1="71" x2="235" y2="71" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="85" font-size="10" fill="#4c1d95">+ getInstance() : DatabaseManager</text>
+  <text x="8" y="98" font-size="10" fill="#4c1d95">+ getConnection() : Connection</text>
+</g>
+
+<!-- ===== IUserDAO ===== -->
+<g transform="translate(20,1090)">
+  <rect width="200" height="80" rx="4" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.5"/>
+  <rect width="200" height="24" rx="4" fill="#C4B5FD"/>
+  <rect x="0" y="20" width="200" height="4" fill="#C4B5FD"/>
+  <text x="100" y="12" text-anchor="middle" font-size="9" fill="#3b0764" font-style="italic">«interface»</text>
+  <text x="100" y="22" text-anchor="middle" font-size="11" fill="#3b0764" font-weight="bold">IUserDAO</text>
+  <line x1="0" y1="24" x2="200" y2="24" stroke="#C4B5FD" stroke-width="1"/>
+  <line x1="0" y1="37" x2="200" y2="37" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="51" font-size="10" fill="#4c1d95">+ getUserByUsername(u) : User</text>
+  <text x="8" y="64" font-size="10" fill="#4c1d95">+ registerUser(user) : boolean</text>
+</g>
+
+<!-- ===== UserDaoImpl ===== -->
+<g transform="translate(235,1090)">
+  <rect width="205" height="95" rx="4" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.5"/>
+  <rect width="205" height="24" rx="4" fill="#7C3AED"/>
+  <rect x="0" y="20" width="205" height="4" fill="#7C3AED"/>
+  <text x="102" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">UserDaoImpl</text>
+  <line x1="0" y1="24" x2="205" y2="24" stroke="#C4B5FD" stroke-width="1"/>
+  <line x1="0" y1="37" x2="205" y2="37" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="51" font-size="10" fill="#4c1d95">+ getUserByUsername(u) : User</text>
+  <text x="8" y="64" font-size="10" fill="#4c1d95">+ registerUser(user) : boolean</text>
+  <text x="8" y="77" font-size="10" fill="#4c1d95">- buildUser(rs) : User</text>
+</g>
+
+<!-- ===== IItemDAO ===== -->
+<g transform="translate(455,1090)">
+  <rect width="215" height="110" rx="4" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.5"/>
+  <rect width="215" height="24" rx="4" fill="#C4B5FD"/>
+  <rect x="0" y="20" width="215" height="4" fill="#C4B5FD"/>
+  <text x="107" y="12" text-anchor="middle" font-size="9" fill="#3b0764" font-style="italic">«interface»</text>
+  <text x="107" y="22" text-anchor="middle" font-size="11" fill="#3b0764" font-weight="bold">IItemDAO</text>
+  <line x1="0" y1="24" x2="215" y2="24" stroke="#C4B5FD" stroke-width="1"/>
+  <line x1="0" y1="37" x2="215" y2="37" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="51" font-size="10" fill="#4c1d95">+ getItemById(id) : Item</text>
+  <text x="8" y="64" font-size="10" fill="#4c1d95">+ getAllItems() : List&lt;Item&gt;</text>
+  <text x="8" y="77" font-size="10" fill="#4c1d95">+ getItemsBySellerId(id) : List</text>
+  <text x="8" y="90" font-size="10" fill="#4c1d95">+ insertItem(item, sellerId) : int</text>
+  <text x="8" y="103" font-size="10" fill="#4c1d95">+ deleteItem(id) / updateBid()</text>
+</g>
+
+<!-- ===== ItemDaoImpl ===== -->
+<g transform="translate(685,1090)">
+  <rect width="220" height="125" rx="4" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.5"/>
+  <rect width="220" height="24" rx="4" fill="#7C3AED"/>
+  <rect x="0" y="20" width="220" height="4" fill="#7C3AED"/>
+  <text x="110" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">ItemDaoImpl</text>
+  <line x1="0" y1="24" x2="220" y2="24" stroke="#C4B5FD" stroke-width="1"/>
+  <line x1="0" y1="37" x2="220" y2="37" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="51" font-size="10" fill="#4c1d95">+ getItemById(id) : Item</text>
+  <text x="8" y="64" font-size="10" fill="#4c1d95">+ getAllItems() / getBy SellerId()</text>
+  <text x="8" y="77" font-size="10" fill="#4c1d95">+ insertItem(item, sellerId) : int</text>
+  <text x="8" y="90" font-size="10" fill="#4c1d95">+ deleteItem() / updateBid()</text>
+  <text x="8" y="103" font-size="10" fill="#4c1d95">- buildItem(rs) : Item</text>
+  <text x="8" y="116" font-size="10" fill="#4c1d95">- insertSubType(conn, id, item)</text>
+</g>
+
+<!-- ===== IAuctionDAO ===== -->
+<g transform="translate(920,1090)">
+  <rect width="220" height="120" rx="4" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.5"/>
+  <rect width="220" height="24" rx="4" fill="#C4B5FD"/>
+  <rect x="0" y="20" width="220" height="4" fill="#C4B5FD"/>
+  <text x="110" y="12" text-anchor="middle" font-size="9" fill="#3b0764" font-style="italic">«interface»</text>
+  <text x="110" y="22" text-anchor="middle" font-size="11" fill="#3b0764" font-weight="bold">IAuctionDAO</text>
+  <line x1="0" y1="24" x2="220" y2="24" stroke="#C4B5FD" stroke-width="1"/>
+  <line x1="0" y1="37" x2="220" y2="37" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="51" font-size="10" fill="#4c1d95">+ getAuctionById(id) : Auction</text>
+  <text x="8" y="64" font-size="10" fill="#4c1d95">+ getAllAuctions() : List</text>
+  <text x="8" y="77" font-size="10" fill="#4c1d95">+ getAuctionsByStatus(s) : List</text>
+  <text x="8" y="90" font-size="10" fill="#4c1d95">+ insertAuction(...) : int</text>
+  <text x="8" y="103" font-size="10" fill="#4c1d95">+ updateStatus(id, status)</text>
+  <text x="8" y="116" font-size="10" fill="#4c1d95">+ updateHighestBid(id, bid, user)</text>
+</g>
+
+<!-- ===== AuctionDaoImpl ===== -->
+<g transform="translate(1155,1090)">
+  <rect width="230" height="135" rx="4" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.5"/>
+  <rect width="230" height="24" rx="4" fill="#7C3AED"/>
+  <rect x="0" y="20" width="230" height="4" fill="#7C3AED"/>
+  <text x="115" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">AuctionDaoImpl</text>
+  <line x1="0" y1="24" x2="230" y2="24" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#4c1d95">- itemDAO : IItemDAO</text>
+  <line x1="0" y1="45" x2="230" y2="45" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="59" font-size="10" fill="#4c1d95">+ getAuctionById(id) : Auction</text>
+  <text x="8" y="72" font-size="10" fill="#4c1d95">+ getAllAuctions() : List</text>
+  <text x="8" y="85" font-size="10" fill="#4c1d95">+ getAuctionsByStatus() : List</text>
+  <text x="8" y="98" font-size="10" fill="#4c1d95">+ insertAuction(...) : int</text>
+  <text x="8" y="111" font-size="10" fill="#4c1d95">+ updateStatus() / updateHighestBid()</text>
+  <text x="8" y="124" font-size="10" fill="#4c1d95">- buildAuction(rs) : Auction</text>
+</g>
+
+<!-- ===== IBidTransactionDAO ===== -->
+<g transform="translate(1400,1090)">
+  <rect width="220" height="95" rx="4" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.5"/>
+  <rect width="220" height="24" rx="4" fill="#C4B5FD"/>
+  <rect x="0" y="20" width="220" height="4" fill="#C4B5FD"/>
+  <text x="110" y="12" text-anchor="middle" font-size="9" fill="#3b0764" font-style="italic">«interface»</text>
+  <text x="110" y="22" text-anchor="middle" font-size="10" fill="#3b0764" font-weight="bold">IBidTransactionDAO</text>
+  <line x1="0" y1="24" x2="220" y2="24" stroke="#C4B5FD" stroke-width="1"/>
+  <line x1="0" y1="37" x2="220" y2="37" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="51" font-size="10" fill="#4c1d95">+ insertBid(transaction) : bool</text>
+  <text x="8" y="64" font-size="10" fill="#4c1d95">+ getBidsByAuctionId(id) : List</text>
+  <text x="8" y="77" font-size="10" fill="#4c1d95">+ getHighestBid(id) : BidTransaction</text>
+</g>
+
+<!-- ===== BidTransactionDaoImpl ===== -->
+<g transform="translate(1635,1090)">
+  <rect width="230" height="120" rx="4" fill="#EDE9FE" stroke="#C4B5FD" stroke-width="1.5"/>
+  <rect width="230" height="24" rx="4" fill="#7C3AED"/>
+  <rect x="0" y="20" width="230" height="4" fill="#7C3AED"/>
+  <text x="115" y="16" text-anchor="middle" font-size="11" fill="white" font-weight="bold">BidTransactionDaoImpl</text>
+  <line x1="0" y1="24" x2="230" y2="24" stroke="#C4B5FD" stroke-width="1"/>
+  <line x1="0" y1="37" x2="230" y2="37" stroke="#C4B5FD" stroke-width="1"/>
+  <text x="8" y="51" font-size="10" fill="#4c1d95">+ insertBid(transaction) : bool</text>
+  <text x="8" y="64" font-size="10" fill="#4c1d95">+ getBidsByAuctionId(id) : List</text>
+  <text x="8" y="77" font-size="10" fill="#4c1d95">+ getHighestBid(id) : BidTransaction</text>
+  <text x="8" y="90" font-size="10" fill="#4c1d95">- buildBidTransaction(rs)</text>
+</g>
+
+<!-- ===== SERVER APP ===== -->
+<g transform="translate(20,1490)">
+  <rect width="170" height="80" rx="4" fill="#FDF4FF" stroke="#E9D5FF" stroke-width="1.5"/>
+  <rect width="170" height="24" rx="4" fill="#A855F7"/>
+  <rect x="0" y="20" width="170" height="4" fill="#A855F7"/>
+  <text x="85" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">ServerApp</text>
+  <line x1="0" y1="24" x2="170" y2="24" stroke="#E9D5FF" stroke-width="1"/>
+  <line x1="0" y1="37" x2="170" y2="37" stroke="#E9D5FF" stroke-width="1"/>
+  <text x="8" y="51" font-size="10" fill="#6b21a8">+ main(args)</text>
+  <text x="8" y="64" font-size="9.5" fill="#6b21a8">  — accept() → ClientHandler</text>
+</g>
+
+<!-- ===== CLIENT HANDLER ===== -->
+<g transform="translate(205,1490)">
+  <rect width="250" height="180" rx="4" fill="#FDF4FF" stroke="#E9D5FF" stroke-width="1.5"/>
+  <rect width="250" height="24" rx="4" fill="#A855F7"/>
+  <rect x="0" y="20" width="250" height="4" fill="#A855F7"/>
+  <text x="125" y="12" text-anchor="middle" font-size="9" fill="white">implements Runnable, AuctionObserver</text>
+  <text x="125" y="22" text-anchor="middle" font-size="12" fill="white" font-weight="bold">ClientHandler</text>
+  <line x1="0" y1="24" x2="250" y2="24" stroke="#E9D5FF" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#6b21a8">+ {static} numberOfClient : int</text>
+  <text x="8" y="51" font-size="10" fill="#6b21a8">- socket : Socket</text>
+  <text x="8" y="64" font-size="10" fill="#6b21a8">- reader : BufferedReader</text>
+  <text x="8" y="77" font-size="10" fill="#6b21a8">- writer : PrintWriter</text>
+  <text x="8" y="90" font-size="10" fill="#6b21a8">- gson : Gson</text>
+  <line x1="0" y1="97" x2="250" y2="97" stroke="#E9D5FF" stroke-width="1"/>
+  <text x="8" y="111" font-size="10" fill="#6b21a8">+ run() : void</text>
+  <text x="8" y="124" font-size="10" fill="#6b21a8">+ handlerLogin(msg)</text>
+  <text x="8" y="137" font-size="10" fill="#6b21a8">+ handlerRegister(msg) : bool</text>
+  <text x="8" y="150" font-size="10" fill="#6b21a8">+ handlerPostItem(item) : bool</text>
+  <text x="8" y="163" font-size="10" fill="#6b21a8">+ placeBid() : bool</text>
+</g>
+
+<!-- ===== GLASS LOGIN ===== -->
+<g transform="translate(695,1490)">
+  <rect width="235" height="150" rx="4" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1.5"/>
+  <rect width="235" height="24" rx="4" fill="#0D9488"/>
+  <rect x="0" y="20" width="235" height="4" fill="#0D9488"/>
+  <text x="117" y="12" text-anchor="middle" font-size="9" fill="white">extends JFrame (View)</text>
+  <text x="117" y="22" text-anchor="middle" font-size="12" fill="white" font-weight="bold">GlassLogin</text>
+  <line x1="0" y1="24" x2="235" y2="24" stroke="#5EEAD4" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#134e4a">- userField : RoundedTextField</text>
+  <text x="8" y="51" font-size="10" fill="#134e4a">- passField : RoundedPasswordField</text>
+  <text x="8" y="64" font-size="10" fill="#134e4a">- loginButton : RoundedButton</text>
+  <line x1="0" y1="71" x2="235" y2="71" stroke="#5EEAD4" stroke-width="1"/>
+  <text x="8" y="85" font-size="10" fill="#134e4a">+ getUsername() : String</text>
+  <text x="8" y="98" font-size="10" fill="#134e4a">+ getPassword() : String</text>
+  <text x="8" y="111" font-size="10" fill="#134e4a">+ getLoginButton() : RoundedButton</text>
+  <text x="8" y="124" font-size="10" fill="#134e4a">+ showError(message)</text>
+  <text x="8" y="137" font-size="10" fill="#134e4a">+ showMessage(message)</text>
+</g>
+
+<!-- ===== LOGIN CONTROLLER ===== -->
+<g transform="translate(945,1490)">
+  <rect width="230" height="120" rx="4" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1.5"/>
+  <rect width="230" height="24" rx="4" fill="#0D9488"/>
+  <rect x="0" y="20" width="230" height="4" fill="#0D9488"/>
+  <text x="115" y="12" text-anchor="middle" font-size="9" fill="white">(Controller)</text>
+  <text x="115" y="22" text-anchor="middle" font-size="12" fill="white" font-weight="bold">LoginController</text>
+  <line x1="0" y1="24" x2="230" y2="24" stroke="#5EEAD4" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#134e4a">- socketClient : SocketClient</text>
+  <text x="8" y="51" font-size="10" fill="#134e4a">- view : GlassLogin</text>
+  <line x1="0" y1="58" x2="230" y2="58" stroke="#5EEAD4" stroke-width="1"/>
+  <text x="8" y="72" font-size="10" fill="#134e4a">+ LoginController(client, view)</text>
+  <text x="8" y="85" font-size="10" fill="#134e4a">- handleLogin() : void</text>
+</g>
+
+<!-- ===== SOCKET CLIENT ===== -->
+<g transform="translate(1190,1490)">
+  <rect width="220" height="130" rx="4" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1.5"/>
+  <rect width="220" height="24" rx="4" fill="#0D9488"/>
+  <rect x="0" y="20" width="220" height="4" fill="#0D9488"/>
+  <text x="110" y="16" text-anchor="middle" font-size="12" fill="white" font-weight="bold">SocketClient</text>
+  <line x1="0" y1="24" x2="220" y2="24" stroke="#5EEAD4" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#134e4a">- socket : Socket</text>
+  <text x="8" y="51" font-size="10" fill="#134e4a">- out : PrintWriter</text>
+  <text x="8" y="64" font-size="10" fill="#134e4a">- in : BufferedReader</text>
+  <text x="8" y="77" font-size="10" fill="#134e4a">- gson : Gson</text>
+  <line x1="0" y1="84" x2="220" y2="84" stroke="#5EEAD4" stroke-width="1"/>
+  <text x="8" y="98" font-size="10" fill="#134e4a">+ connect() : void</text>
+  <text x="8" y="111" font-size="10" fill="#134e4a">+ send(message) : void</text>
+  <text x="8" y="124" font-size="10" fill="#134e4a">+ sendRequest(action, data)</text>
+</g>
+
+<!-- ===== AUCTION VIEW ===== -->
+<g transform="translate(1425,1490)">
+  <rect width="215" height="100" rx="4" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1.5"/>
+  <rect width="215" height="24" rx="4" fill="#0D9488"/>
+  <rect x="0" y="20" width="215" height="4" fill="#0D9488"/>
+  <text x="107" y="12" text-anchor="middle" font-size="9" fill="white">extends JFrame (View)</text>
+  <text x="107" y="22" text-anchor="middle" font-size="12" fill="white" font-weight="bold">AuctionView</text>
+  <line x1="0" y1="24" x2="215" y2="24" stroke="#5EEAD4" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#134e4a">(UI components: JPanel,</text>
+  <text x="8" y="51" font-size="10" fill="#134e4a"> JLabel, JTextField, JButton)</text>
+  <line x1="0" y1="58" x2="215" y2="58" stroke="#5EEAD4" stroke-width="1"/>
+  <text x="8" y="72" font-size="10" fill="#134e4a">+ AuctionView()</text>
+  <text x="8" y="85" font-size="10" fill="#134e4a">- bidAction() : void</text>
+</g>
+
+<!-- ===== SESSION MANAGER ===== -->
+<g transform="translate(1655,1490)">
+  <rect width="215" height="115" rx="4" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1.5"/>
+  <rect width="215" height="24" rx="4" fill="#0D9488"/>
+  <rect x="0" y="20" width="215" height="4" fill="#0D9488"/>
+  <text x="107" y="12" text-anchor="middle" font-size="9" fill="white">«Singleton»</text>
+  <text x="107" y="22" text-anchor="middle" font-size="12" fill="white" font-weight="bold">SessionManager</text>
+  <line x1="0" y1="24" x2="215" y2="24" stroke="#5EEAD4" stroke-width="1"/>
+  <text x="8" y="38" font-size="10" fill="#134e4a">- username : String</text>
+  <text x="8" y="51" font-size="10" fill="#134e4a">- role : String</text>
+  <line x1="0" y1="58" x2="215" y2="58" stroke="#5EEAD4" stroke-width="1"/>
+  <text x="8" y="72" font-size="10" fill="#134e4a">+ getInstance() : SessionManager</text>
+  <text x="8" y="85" font-size="10" fill="#134e4a">+ setSession(username, role)</text>
+  <text x="8" y="98" font-size="10" fill="#134e4a">+ clearSession()</text>
+</g>
+
+<!-- Design Pattern labels -->
+<rect x="575" y="730" width="86" height="16" rx="3" fill="#F59E0B" opacity="0.15"/>
+<text x="618" y="742" text-anchor="middle" font-size="9" fill="#92400e" font-weight="600">Observer Pattern</text>
+
+<rect x="20" y="730" width="86" height="16" rx="3" fill="#10B981" opacity="0.15"/>
+<text x="63" y="742" text-anchor="middle" font-size="9" fill="#065f46" font-weight="600">Factory Pattern</text>
+
+<rect x="715" y="730" width="215" height="16" rx="3" fill="#F59E0B" opacity="0.15"/>
+<text x="822" y="742" text-anchor="middle" font-size="9" fill="#92400e" font-weight="600">Singleton Pattern</text>
+
+<rect x="955" y="730" width="110" height="16" rx="3" fill="#F59E0B" opacity="0.15"/>
+<text x="1010" y="742" text-anchor="middle" font-size="9" fill="#92400e" font-weight="600">Singleton Pattern</text>
+
+</svg>
+</div>
+
+<script>
+  const container = document.getElementById('container');
+  const svg = document.getElementById('diagram');
+  let scale = 0.55, tx = 0, ty = 0;
+  let dragging = false, startX, startY, startTx, startTy;
+
+  function applyTransform() {
+    svg.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+    svg.style.transformOrigin = '0 0';
+  }
+
+  function zoom(factor) {
+    scale = Math.min(Math.max(scale * factor, 0.2), 3);
+    applyTransform();
+  }
+
+  function resetView() {
+    scale = 0.55; tx = 20; ty = 40;
+    applyTransform();
+  }
+
+  container.addEventListener('mousedown', e => {
+    dragging = true; startX = e.clientX; startY = e.clientY;
+    startTx = tx; startTy = ty;
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    tx = startTx + (e.clientX - startX);
+    ty = startTy + (e.clientY - startY);
+    applyTransform();
+  });
+  document.addEventListener('mouseup', () => dragging = false);
+  container.addEventListener('wheel', e => {
+    e.preventDefault();
+    zoom(e.deltaY < 0 ? 1.1 : 0.9);
+  }, { passive: false });
+
+  resetView();
+</script>
+</body>
+</html>
