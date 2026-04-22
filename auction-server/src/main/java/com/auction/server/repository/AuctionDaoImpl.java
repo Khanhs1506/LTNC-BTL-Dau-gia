@@ -40,6 +40,7 @@ public class AuctionDaoImpl implements IAuctionDAO {
         return auction;
     }
 
+
     @Override
     public Auction getAuctionById(int id) {
         String sql = "SELECT * FROM auctions WHERE id = ?";
