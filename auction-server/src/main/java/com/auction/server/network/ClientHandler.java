@@ -28,6 +28,7 @@ public class ClientHandler implements Runnable {
     private PrintWriter writer;
     private Connection con = DatabaseManager.getInstance().getConnection();
     private Gson gson = new Gson();
+    private User user;
 
     public ClientHandler(Socket socket) throws Exception {
         this.socket = socket;
@@ -183,8 +184,43 @@ public class ClientHandler implements Runnable {
     }
 
 
-    // ĐẶT GIÁ SẢN PHẨM
-    public synchronized boolean placeBid(){
-        return false;
+    public synchronized boolean handlerPlaceBid(Item item, double newBid){
+        if (this.user == null) {
+            return false;
+        }
+
+        try {
+            con.setAutoCommit(false);
+            PreparedStatement pstCheck = con.prepareStatement("SELECT * FROM Items WHERE id = ? AND name = ?");
+            pstCheck.setString(1, item.getId());
+            pstCheck.setString(2, item.getName());
+            ResultSet rs = pstCheck.executeQuery();
+
+            if(rs.next()){
+                double currentPrice = rs.getDouble("current_highest_bid");
+                if (newBid <= currentPrice){
+                    con.rollback();
+                    return false;
+                }
+            } else {
+                return false;
+            }
+            PreparedStatement pstAddBid = con.prepareStatement("INSERT INTO bids (item_id, bidder_id, bid_amount, created_at) VALUES (?, ?, ?, NOW())");
+            pstAddBid.setString(1, item.getId());
+            pstAddBid.setString(2, user.getId());
+            pstAddBid.setDouble(3, newBid);
+            pstAddBid.executeUpdate();
+
+            PreparedStatement pstPlaceBid = con.prepareStatement("UPDATE items SET current_highest_bid = ? WHERE id = ? and name = ?");
+            pstPlaceBid.setDouble(1, newBid);
+            pstAddBid.setString(2, item.getId());
+            pstPlaceBid.executeUpdate();
+
+            con.commit();
+            return true;
+        } catch (SQLException e){
+            e.printStackTrace();
+            return false;
+        }
     }
 }
