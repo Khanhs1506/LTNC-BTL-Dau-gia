@@ -74,7 +74,6 @@ public class BidTransactionDaoImpl implements IBidTransactionDAO {
     }
 
     // Dựng BidTransaction từ DB — cần constructor đặc biệt trong BidTransaction.java
-    // Xem ghi chú bên dưới (*)
     private BidTransaction buildBidTransaction(ResultSet rs) throws SQLException {
         String        transactionId   = rs.getString("transaction_id");
         int           auctionId       = rs.getInt("auction_id");

@@ -55,15 +55,16 @@ public class UserDaoImpl implements IUserDAO{
 
     @Override
     public boolean registerUser(User newUser) {
-        String sql = "INSERT INTO users (username, password, role) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO users (id, username, password, role) VALUES (?, ?, ?, ?)";
         boolean isSuccess = false;
 
         try (Connection conn = DatabaseManager.getInstance().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, newUser.getUsername());
-            stmt.setString(2, newUser.getPassword());
-            stmt.setString(3, newUser.getRole()); // Lấy Role từ Object
+            stmt.setString(1, newUser.getId());
+            stmt.setString(2, newUser.getUsername());
+            stmt.setString(3, newUser.getPassword());
+            stmt.setString(4, newUser.getRole()); // Lấy Role từ Object
 
             int rowsAffected = stmt.executeUpdate();
 

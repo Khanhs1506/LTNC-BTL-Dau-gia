@@ -25,6 +25,17 @@ public class BidTransaction implements Serializable {
         this.timestamp = LocalDateTime.now();
     }
 
+    // Constructor dùng khi đọc lại từ DB
+    public BidTransaction(String transactionId, int auctionId,
+                          String bidderUsername, double bidAmount,
+                          LocalDateTime timestamp) {
+        this.transactionId = transactionId;
+        this.auctionId     = auctionId;
+        this.bidderUsername = bidderUsername;
+        this.bidAmount     = bidAmount;
+        this.timestamp     = timestamp;
+    }
+
 
     // chỉ lấy (getter) không sửa
 
