@@ -19,8 +19,6 @@ public class ItemDaoImpl implements IItemDAO {
         String itemType          = rs.getString("item_type");
         double startingPrice     = rs.getDouble("startingPrice");
         double currentHighestBid = rs.getDouble("currentHighestBid");
-        String status            = rs.getString("status");
-        String sellerId          = rs.getString("seller_id");
 
         Item item;
         switch (itemType) {

@@ -92,4 +92,15 @@ public class Auction implements Serializable {
     public LocalDateTime getEndTime() { return endTime; }
     public Status getStatus() { return status; }
     public List<BidTransaction> getBidHistory() { return new ArrayList<>(bidHistory); }
+
+    // Dùng khi load dữ liệu từ DB — đồng bộ giá và người thắng vào RAM
+    public void updateHighestBid(double highestBid, String winnerUsername) {
+        this.currentHighestBid = highestBid;
+        this.currentWinnerUsername = winnerUsername;
+    }
+
+    // Dùng khi load dữ liệu từ DB — đồng bộ trạng thái vào RAM
+    public void updateStatus(Status newStatus) {
+        this.status = newStatus;
+    }
 }
