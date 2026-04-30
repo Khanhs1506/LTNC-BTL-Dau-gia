@@ -70,46 +70,31 @@ public class LoginController implements Initializable {
     // ===== Xác thực với DB =====
     private void validateLogin(String username, String password) {
         try {
-            DatabaseConnection connectNow = new DatabaseConnection();
-            Connection connectDB = connectNow.getConnection();
+            String reponse = ServerConnection.getInstance().login(username, password);
 
-            // ⚠ Thực tế nên dùng PreparedStatement để tránh SQL Injection
-            String sql = "SELECT count(1) FROM user_account "
-                    + "WHERE username = '" + username
-                    + "' AND password = '" + password + "'";
+            if (reponse.equalsIgnoreCase("LOGIN SUCCESS")) {
 
-            Statement statement   = connectDB.createStatement();
-            ResultSet queryResult = statement.executeQuery(sql);
+                // 1. Lưu session
+                UserSession.getInstance().login(username);
 
-            if (queryResult.next()) {
-                if (queryResult.getInt(1) == 1) {
-                    // ✅ Đăng nhập thành công
-
-                    // 1. Lưu session
-                    UserSession.getInstance().login(username);
-
-                    // 2. Cập nhật Navbar trang Home
-                    if (HomeController.getInstance() != null) {
-                        HomeController.getInstance().onLoginSuccess(username);
-                    }
-
-                    // 3. Đóng cửa sổ Login
-                    closeWindow();
-
-                } else {
-                    // ❌ Sai thông tin
-                    loginMessageLabel.setText("❌ Sai tên đăng nhập hoặc mật khẩu!");
-                    enterPasswordField.clear();
+                // 2. Cập nhật Navbar trang Home
+                if (HomeController.getInstance() != null) {
+                    HomeController.getInstance().onLoginSuccess(username);
                 }
+
+                // 3. Đóng cửa sổ Login
+                closeWindow();
+
+            } else {
+                // ❌ Sai thông tin
+                loginMessageLabel.setText("❌ Sai tên đăng nhập hoặc mật khẩu!");
+                enterPasswordField.clear();
             }
 
-            // Đóng kết nối
-            queryResult.close();
-            statement.close();
-            connectDB.close();
-
-        } catch (Exception e) {
+        } catch (java.net.ConnectException e) {
             loginMessageLabel.setText("⚠ Lỗi kết nối cơ sở dữ liệu!");
+        } catch (Exception e) {
+            loginMessageLabel.setText("⚠ Lỗi kết nối!");
             e.printStackTrace();
         }
     }
