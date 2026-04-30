@@ -22,6 +22,11 @@ public class Seller extends User {
         this.myItemIds = new ArrayList<>();
     }
 
+    //Construction cho đang nhập
+    public Seller(String username, String password) {
+        super(username, password);
+    }
+
 
     public double getRating() {
         return rating;

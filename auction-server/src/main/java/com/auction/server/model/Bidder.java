@@ -22,6 +22,11 @@ public class Bidder extends User {
         this.favoriteItemIds = new ArrayList<>();
     }
 
+    //Construction cho đang nhập
+    public Bidder(String username, String password) {
+        super(username, password);
+    }
+
     // lấy và sửa số dư
     public double getBalance() { return balance; }
     public void setBalance(double balance) { this.balance = balance; }
