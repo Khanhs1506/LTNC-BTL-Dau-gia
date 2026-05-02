@@ -52,8 +52,9 @@ public class ClientHandler implements Runnable {
         } catch (Exception e) {
             System.out.println("Khách hàng mất mạng hoặc ngắt kết nối đột ngột");
         } finally {
-            System.out.println("Có " + NumberOfClient + " khách đang kết nối");
             NumberOfClient--;
+            System.out.println("Có " + NumberOfClient + " khách đang kết nối");
+
         }
     }
 
@@ -101,14 +102,14 @@ public class ClientHandler implements Runnable {
     // ĐĂNG NHẬP TÀI KHOẢN
     private void handlerLogin(String json) {    //sau đổi String thành User
 
-        User inputUser = gson.fromJson(json, User.class);
+        User inputUser = gson.fromJson(json, Seller.class);
 
         User dbUser = userRepo.getUserByUsername(inputUser.getUsername());
 
         if (dbUser != null && dbUser.getPassword().equals(inputUser.getPassword())) {
 
             currentUser = dbUser;
-            writer.println("LOGIN SUCCESS===" + gson.toJson(dbUser));
+            writer.println("LOGIN SUCCESS");
         } else {
             writer.println("LOGIN FAIL");
         }
