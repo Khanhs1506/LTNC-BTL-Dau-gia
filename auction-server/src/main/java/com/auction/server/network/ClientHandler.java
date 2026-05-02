@@ -6,7 +6,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import javax.swing.plaf.basic.BasicScrollPaneUI;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -69,6 +68,7 @@ public class ClientHandler implements Runnable {
 
             String action = parts[0];
             String json = parts[1];
+
             switch (action) {
                 case "LOGIN":
                     handlerLogin(json);
@@ -101,13 +101,14 @@ public class ClientHandler implements Runnable {
     // ĐĂNG NHẬP TÀI KHOẢN
     private void handlerLogin(String json) {    //sau đổi String thành User
 
-        User inputUser = gson.fromJson(json, Seller.class);
+        User inputUser = gson.fromJson(json, User.class);
 
         User dbUser = userRepo.getUserByUsername(inputUser.getUsername());
 
-        if (dbUser != null && dbUser.getPassword().equalsIgnoreCase(inputUser.getPassword())) {
+        if (dbUser != null && dbUser.getPassword().equals(inputUser.getPassword())) {
+
             currentUser = dbUser;
-            writer.println("LOGIN SUCCESS");
+            writer.println("LOGIN SUCCESS===" + gson.toJson(dbUser));
         } else {
             writer.println("LOGIN FAIL");
         }
@@ -164,7 +165,7 @@ public class ClientHandler implements Runnable {
         writer.println("ITEM===" + gson.toJson(items));
     }
 
-    private void handlePlaceBid(String json) {
+   private void handlePlaceBid(String json) {
 
         if (!(currentUser instanceof Bidder)) {
             writer.println("ONLY BIDDER CAN BID");
