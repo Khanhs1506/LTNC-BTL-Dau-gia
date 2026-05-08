@@ -100,7 +100,7 @@ public class ClientHandler implements Runnable {
     }
 
     // ĐĂNG NHẬP TÀI KHOẢN
-    private void handlerLogin(String json) {    //sau đổi String thành User
+    private void handlerLogin(String json) {
 
         User inputUser = gson.fromJson(json, Seller.class);
 
@@ -116,7 +116,7 @@ public class ClientHandler implements Runnable {
     }
 
     // ĐĂNG KÍ TÀI KHOẢN
-    private void handlerRegister(String json) { //sau đổi String thành User
+    private void handlerRegister(String json) {
         JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
 
         String username = obj.get("username").getAsString();
