@@ -91,6 +91,10 @@ public class ClientHandler implements Runnable {
                     handleLogout();
                     break;
 
+                case "GET_ITEMS_BY_CATEGORY":
+                    handlerGetItemsByCategory(json);
+                    break;
+
                 default:
                     writer.println("UNKNOWN ACTION");
             }
@@ -100,14 +104,16 @@ public class ClientHandler implements Runnable {
     }
 
     // ĐĂNG NHẬP TÀI KHOẢN
-    private void handlerLogin(String json) {    //sau đổi String thành User
+// Trong ClientHandler.java — sửa toàn bộ method handlerLogin()
+    private void handlerLogin(String json) {
+        // ★ Sửa: parse thủ công thay vì gson.fromJson(json, Seller.class)
+        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+        String inputUsername = obj.get("username").getAsString();
+        String inputPassword = obj.get("password").getAsString();
 
-        User inputUser = gson.fromJson(json, Seller.class);
+        User dbUser = userRepo.getUserByUsername(inputUsername);
 
-        User dbUser = userRepo.getUserByUsername(inputUser.getUsername());
-
-        if (dbUser != null && dbUser.getPassword().equals(inputUser.getPassword())) {
-
+        if (dbUser != null && dbUser.getPassword().equals(inputPassword)) {
             currentUser = dbUser;
             writer.println("LOGIN SUCCESS");
         } else {
@@ -134,6 +140,10 @@ public class ClientHandler implements Runnable {
                 break;
             case "BIDDER":
                 newUser = new Bidder(null, username, password, 0);
+                break;
+
+            case "GET_ITEMS_BY_CATEGORY":
+                handlerGetItemsByCategory(json);
                 break;
         }
 
@@ -188,5 +198,18 @@ public class ClientHandler implements Runnable {
     private void handleLogout() {
         currentUser = null;
         writer.println("LOGOUT SUCCESS");
+    }
+
+    //LẤY DANH SÁCH THEO THƯ MỤC - Minh
+    private void handlerGetItemsByCategory(String json) {
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            String category = obj.get("category").getAsString();
+            List<Item> items = itemRepo.getItemsByCategory(category);
+            writer.println("ITEMS===" + gson.toJson(items));
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("GET ITEMS FAIL");
+        }
     }
 }

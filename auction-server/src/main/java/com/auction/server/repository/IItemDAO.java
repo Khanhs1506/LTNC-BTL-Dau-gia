@@ -21,4 +21,12 @@ public interface IItemDAO {
 
     // Cập nhật giá cao nhất hiện tại (gọi sau mỗi bid hợp lệ)
     boolean updateCurrentHighestBid(int itemId, double newBid);
+
+    /**
+     * Lấy danh sách item theo danh mục.
+     *
+     * @param category tên danh mục cần tìm
+     * @return danh sách item thuộc danh mục
+     */
+    List<Item> getItemsByCategory(String category);
 }
