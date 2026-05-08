@@ -12,26 +12,22 @@ import javafx.scene.image.ImageView;
 import javafx.stage.Stage;
 
 import java.net.URL;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.ResourceBundle;
 
 public class LoginController implements Initializable {
 
     // ===== FXML Fields =====
-    @FXML private Button       cancelButton;
-    @FXML private Label        loginMessageLabel;
-    @FXML private ImageView    brandingImageView;
-    @FXML private ImageView    lockImageView;
-    @FXML private TextField    usernameTextField;
+    @FXML private Button        cancelButton;
+    @FXML private Label         loginMessageLabel;
+    @FXML private ImageView     brandingImageView;
+    @FXML private ImageView     lockImageView;
+    @FXML private TextField     usernameTextField;
     @FXML private PasswordField enterPasswordField;
 
     // ===== Initialize: Load ảnh =====
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         try {
-            // Ảnh logo bên trái
             URL brandingUrl = getClass().getResource("/images/logo_new.png");
             if (brandingUrl != null) {
                 brandingImageView.setImage(new Image(brandingUrl.toString()));
@@ -39,7 +35,6 @@ public class LoginController implements Initializable {
                 System.out.println("⚠ Không tìm thấy: /images/logo_new.png");
             }
 
-            // Ảnh ổ khóa
             URL lockUrl = getClass().getResource("/images/o_khoa.png");
             if (lockUrl != null) {
                 lockImageView.setImage(new Image(lockUrl.toString()));
@@ -64,20 +59,28 @@ public class LoginController implements Initializable {
             return;
         }
 
+        // Disable nút tránh click nhiều lần khi đang chờ server
+        cancelButton.setDisable(true);
+        loginMessageLabel.setText("Đang kết nối...");
+
         validateLogin(username, password);
+
+        cancelButton.setDisable(false);
     }
 
-    // ===== Xác thực với DB =====
+    // ===== Xác thực với Server =====
     private void validateLogin(String username, String password) {
         try {
-            String reponse = ServerConnection.getInstance().login(username, password);
+            // Gửi request tới server, nhận response
+            String response = ServerConnection.getInstance().login(username, password);
 
-            if (reponse.equalsIgnoreCase("LOGIN SUCCESS")) {
+            // ✅ Server trả về "LOGIN SUCCESS" (khớp với ClientHandler)
+            if ("LOGIN SUCCESS".equals(response)) {
 
                 // 1. Lưu session
                 UserSession.getInstance().login(username);
 
-                // 2. Cập nhật Navbar trang Home
+                // 2. Cập nhật Navbar trang Home nếu đang mở
                 if (HomeController.getInstance() != null) {
                     HomeController.getInstance().onLoginSuccess(username);
                 }
@@ -85,16 +88,20 @@ public class LoginController implements Initializable {
                 // 3. Đóng cửa sổ Login
                 closeWindow();
 
-            } else {
-                // ❌ Sai thông tin
+            } else if ("LOGIN FAIL".equals(response)) {
+                // ❌ Sai username hoặc password
                 loginMessageLabel.setText("❌ Sai tên đăng nhập hoặc mật khẩu!");
                 enterPasswordField.clear();
+
+            } else {
+                // Trường hợp server trả về gì đó không mong đợi
+                loginMessageLabel.setText("⚠ Phản hồi không hợp lệ từ server: " + response);
             }
 
         } catch (java.net.ConnectException e) {
-            loginMessageLabel.setText("⚠ Lỗi kết nối cơ sở dữ liệu!");
+            loginMessageLabel.setText("⚠ Không thể kết nối tới server!");
         } catch (Exception e) {
-            loginMessageLabel.setText("⚠ Lỗi kết nối!");
+            loginMessageLabel.setText("⚠ Lỗi: " + e.getMessage());
             e.printStackTrace();
         }
     }

@@ -1,9 +1,11 @@
 package sample;
 
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Side;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -17,18 +19,19 @@ import java.util.List;
 
 public class HomeController {
 
-    // ===== Static instance để LoginController gọi lại =====
+    // ===== Singleton =====
     private static HomeController instance;
     public static HomeController getInstance() { return instance; }
 
     // ===== FXML fields =====
-    @FXML private FlowPane flowPane;
+    @FXML private FlowPane  flowPane;
     @FXML private TextField txtSearch;
+    @FXML private HBox      guestBox;
+    @FXML private HBox      userBox;
+    @FXML private Label     lblUsername;
+    @FXML private Button    btnKhac;
 
-    // Navbar
-    @FXML private HBox   guestBox;   // Chứa nút Đăng kí / Đăng nhập
-    @FXML private HBox   userBox;    // Chứa avatar + tên + Đăng xuất
-    @FXML private Label  lblUsername;
+    private ContextMenu khacMenu;
 
     // ===== Model =====
     static class AuctionItem {
@@ -49,7 +52,14 @@ public class HomeController {
     // ===== Initialize =====
     @FXML
     public void initialize() {
-        instance = this; // ← Lưu instance để LoginController gọi được
+        instance = this;
+
+        guestBox.setVisible(true);
+        guestBox.setManaged(true);
+        userBox.setVisible(false);
+        userBox.setManaged(false);
+
+        buildKhacMenu();
 
         List<AuctionItem> items = Arrays.asList(
                 new AuctionItem("G.5 - BKS 30K - 888.88",
@@ -65,80 +75,156 @@ public class HomeController {
         }
     }
 
-    // ===== Được gọi từ LoginController sau khi đăng nhập thành công =====
+    // ===== Menu Khác =====
+    private void buildKhacMenu() {
+        khacMenu = new ContextMenu();
+
+        String[] categories = {
+                "Đồ cổ", "Trang sức", "Tác phẩm nghệ thuật", "Đồng hồ",
+                "Túi xách", "Thời trang", "Thiết bị điện tử", "Điện thoại",
+                "Máy tính", "Xe cộ", "Nội thất", "Sách và tài liệu sưu tầm",
+                "Đồ lưu niệm", "Nhạc cụ", "Đồ chơi sưu tầm", "Thẻ bài / mô hình",
+                "Tiền xu / tem", "Vật phẩm game", "NFT / tài sản số",
+                "Đồ gia dụng", "Thiết bị công nghiệp", "Máy móc",
+                "Động vật cảnh", "Vé sự kiện"
+        };
+
+        for (String cat : categories) {
+            MenuItem menuItem = new MenuItem(cat);
+            menuItem.setStyle("-fx-font-size: 13px; -fx-padding: 6 16;");
+            menuItem.setOnAction(e -> handleCategorySelected(cat));
+            khacMenu.getItems().add(menuItem);
+        }
+
+        khacMenu.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-border-color: #e8e0d0;" +
+                        "-fx-border-width: 1;" +
+                        "-fx-border-radius: 8;" +
+                        "-fx-background-radius: 8;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.12), 12, 0, 0, 4);"
+        );
+    }
+
+    @FXML
+    private void handleKhacMenu(ActionEvent event) {
+        khacMenu.show(btnKhac, Side.BOTTOM, 0, 6);
+    }
+
+    private void handleCategorySelected(String category) {
+        System.out.println("Danh mục đã chọn: " + category);
+        // TODO: lọc flowPane theo category
+    }
+
+    // ===== Login / Logout =====
     public void onLoginSuccess(String username) {
-        // Ẩn nhóm nút khách
         guestBox.setVisible(false);
         guestBox.setManaged(false);
-
-        // Hiện nhóm user
         lblUsername.setText(username);
         userBox.setVisible(true);
         userBox.setManaged(true);
-
-        System.out.println("✅ Navbar đã cập nhật - Chào " + username);
+        System.out.println("✅ Đăng nhập thành công - Chào " + username);
     }
 
-    // ===== Đăng xuất =====
     @FXML
     private void handleDangXuat() {
         UserSession.getInstance().logout();
-
-        // Ẩn nhóm user, hiện lại nhóm khách
         userBox.setVisible(false);
         userBox.setManaged(false);
-
         guestBox.setVisible(true);
         guestBox.setManaged(true);
-
         System.out.println("→ Đã đăng xuất");
     }
 
-    // ===== Mở cửa sổ Đăng nhập =====
-    @FXML
-    private void handleDangNhap() {
+    // ===== Helper mở cửa sổ chung =====
+    private void openWindow(String fxmlPath, String title, double width, double height) {
         try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/sample/login.fxml")
-            );
-            Parent root = loader.load();
-
-            Stage loginStage = new Stage();
-            loginStage.initStyle(StageStyle.UNDECORATED);
-            loginStage.initModality(Modality.APPLICATION_MODAL); // Chặn home khi login
-            loginStage.setScene(new Scene(root, 551, 400));
-            loginStage.setTitle("Đăng nhập");
-            loginStage.show();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    // ===== Mở cửa sổ Đăng kí =====
-    @FXML
-    private void handleDangKi() {
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/sample/register.fxml")
-            );
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
             Parent root = loader.load();
 
             Stage stage = new Stage();
             stage.initStyle(StageStyle.UNDECORATED);
             stage.initModality(Modality.APPLICATION_MODAL);
-            stage.setScene(new Scene(root, 520, 527));
-            stage.show();
+            stage.setScene(new Scene(root, width, height));
+            stage.setTitle(title);
+            stage.showAndWait();
 
         } catch (Exception e) {
             e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Lỗi");
+            alert.setHeaderText(null);
+            alert.setContentText("Không thể mở " + title + "!\nLỗi: " + e.getMessage());
+            alert.showAndWait();
         }
+    }
+
+    @FXML
+    private void handleDangNhap() {
+        openWindow("/sample/login.fxml", "Đăng Nhập", 551, 400);
+    }
+
+    @FXML
+    private void handleDangKi() {
+        openWindow("/sample/register.fxml", "Đăng Ký", 520, 600);
     }
 
     @FXML
     private void handleSearch() {
         String keyword = txtSearch.getText().trim();
-        System.out.println("Tìm kiếm: " + keyword);
+        if (keyword.isEmpty()) return;
+        System.out.println("🔍 Tìm kiếm: " + keyword);
+        // TODO: gọi server lọc theo keyword
+    }
+
+    // ===== Mở AuctionDetail =====
+    private void openAuctionDetail(AuctionItem item) {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/sample/AuctionDetail.fxml"));
+            Parent root = loader.load();
+
+            AuctionItemDTO dto = new AuctionItemDTO(
+                    0,
+                    item.title,
+                    parseAmount(item.giaKhoiDiem),
+                    parseAmount(item.giaCaoNhat),
+                    item.hanDangKi + " 23:59:59",
+                    "RUNNING"
+            );
+
+            AuctionDetailController ctrl = loader.getController();
+            ctrl.setAuction(dto);
+
+            Stage stage = new Stage();
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setScene(new Scene(root, 700, 620));
+            stage.setTitle("Chi tiết: " + item.title);
+            stage.setOnCloseRequest(ev -> ctrl.stopCountdown());
+            stage.showAndWait();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Lỗi");
+            alert.setHeaderText(null);
+            alert.setContentText("Không thể mở chi tiết!\nLỗi: " + e.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    // Helper: "120.000.000 VNĐ" → 120000000.0
+    private double parseAmount(String formatted) {
+        try {
+            return Double.parseDouble(
+                    formatted.replace(".", "")
+                            .replace(",", "")
+                            .replace(" VNĐ", "")
+                            .trim()
+            );
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     // ===== Tạo Card =====
@@ -153,6 +239,7 @@ public class HomeController {
                         "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 14, 0, 0, 4);"
         );
 
+        // Tiêu đề + tim
         HBox titleRow = new HBox();
         titleRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -168,8 +255,7 @@ public class HomeController {
 
         titleRow.getChildren().addAll(lblTitle, spacer, lblHeart);
 
-        Separator sep = new Separator();
-
+        // Grid thông tin
         GridPane grid = new GridPane();
         grid.setHgap(15);
         grid.setVgap(9);
@@ -186,6 +272,7 @@ public class HomeController {
         addRow(grid, 3, "Thầu thứ:",               String.valueOf(item.thauThu), false);
         addRow(grid, 4, "Hạn đăng kí đến:",        item.hanDangKi,              false);
 
+        // Nút đăng kí đấu giá
         Button btnDangKi = new Button("Đăng kí đấu giá");
         btnDangKi.setMaxWidth(Double.MAX_VALUE);
         btnDangKi.setStyle(
@@ -195,18 +282,22 @@ public class HomeController {
         );
         btnDangKi.setOnAction(e -> {
             if (!UserSession.getInstance().isLoggedIn()) {
-                handleDangNhap(); // Chưa login → mở trang login
+                handleDangNhap();
             } else {
                 System.out.println("→ Đăng kí đấu giá: " + item.title);
+                // TODO: ServerConnection.placeBid(...)
             }
         });
 
+        // Link xem chi tiết  ← gọi openAuctionDetail
         Label lblLink = new Label("Xem chi tiết & Lịch sử");
         lblLink.setStyle("-fx-text-fill: #e05252; -fx-cursor: hand; -fx-font-size: 13;");
+        lblLink.setOnMouseClicked(e -> openAuctionDetail(item));
+
         VBox linkBox = new VBox(lblLink);
         linkBox.setAlignment(Pos.CENTER);
 
-        card.getChildren().addAll(titleRow, sep, grid, btnDangKi, linkBox);
+        card.getChildren().addAll(titleRow, new Separator(), grid, btnDangKi, linkBox);
         return card;
     }
 
@@ -222,6 +313,7 @@ public class HomeController {
             lbl.setStyle("-fx-text-fill: #555555; -fx-font-size: 13;");
             val.setStyle("-fx-text-fill: #111111; -fx-font-weight: bold; -fx-font-size: 13;");
         }
+
         grid.add(lbl, 0, row);
         grid.add(val, 1, row);
     }

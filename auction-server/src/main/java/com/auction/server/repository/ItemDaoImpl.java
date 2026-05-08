@@ -227,4 +227,32 @@ public class ItemDaoImpl implements IItemDAO {
             return false;
         }
     }
+
+    @Override
+    public List<Item> getItemsByCategory(String category) {
+        List<Item> list = new ArrayList<>();
+
+        // Phải có LEFT JOIN như các method khác để buildItem hoạt động
+        String sql = "SELECT i.*, e.warranty_months, a.artist_name, v.brand, v.year " +
+                "FROM Items i " +
+                "LEFT JOIN Electronics_Items e ON i.id = e.item_id " +
+                "LEFT JOIN Art_Items         a ON i.id = a.item_id " +
+                "LEFT JOIN Vehicle_Items     v ON i.id = v.item_id " +
+                "WHERE i.item_type = ?";
+
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, category);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Item item = buildItem(rs); // ← Đổi mapItem thành buildItem
+                    if (item != null) list.add(item);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[ItemDaoImpl] Lỗi getItemsByCategory: " + e.getMessage());
+        }
+        return list;
+    }
 }
