@@ -42,9 +42,9 @@ public class ServerConnection {
         return sendRequest("LOGIN", json);
     }
 
-    public String register(String username, String password) throws Exception {
+    public String register(String username, String password, String role) throws Exception {
         String json = String.format(
-                "{\"username\":\"%s\",\"password\":\"%s\"}", username, password);
+                "{\"username\":\"%s\",\"password\":\"%s\",\"role\":\"%s\"}", username, password, role);
         return sendRequest("REGISTER", json);
     }
 

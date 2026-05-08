@@ -9,7 +9,8 @@
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.text.Font?>
 
-<fx:root prefHeight="527.0" prefWidth="520.0" type="AnchorPane" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.RegisterController">
+<?import javafx.scene.control.ComboBox?>
+<AnchorPane prefHeight="600.0" prefWidth="520.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.RegisterController">
    <children>
       <AnchorPane prefHeight="82.0" prefWidth="520.0" style="-fx-background-color: #E96151;">
          <children>
@@ -26,44 +27,46 @@
          </children>
       </AnchorPane>
       <Label layoutX="92.0" layoutY="107.0" text="Firstname">
-         <font>
-            <Font size="13.0" />
-         </font>
+         <font><Font size="13.0" /></font>
       </Label>
       <TextField fx:id="firstnameTextField" layoutX="92.0" layoutY="126.0" prefHeight="25.0" prefWidth="336.0" promptText="Firstname" style="-fx-background-color: transparent; -fx-border-color: #a9a9a9; -fx-border-width: 0px 0px 1px 0px;" />
       <Label layoutX="92.0" layoutY="164.0" text="Lastname">
-         <font>
-            <Font size="13.0" />
-         </font>
+         <font><Font size="13.0" /></font>
       </Label>
       <TextField fx:id="lastnameTextField" layoutX="92.0" layoutY="183.0" prefHeight="25.0" prefWidth="336.0" promptText="Lastname" style="-fx-background-color: transparent; -fx-border-color: #a9a9a9; -fx-border-width: 0px 0px 1px 0px;" />
       <Label layoutX="92.0" layoutY="223.0" text="Username">
-         <font>
-            <Font size="13.0" />
-         </font>
+         <font><Font size="13.0" /></font>
       </Label>
       <TextField fx:id="usernameTextField" layoutX="92.0" layoutY="242.0" prefHeight="25.0" prefWidth="336.0" promptText="Username" style="-fx-background-color: transparent; -fx-border-color: #a9a9a9; -fx-border-width: 0px 0px 1px 0px;" />
       <Label layoutX="92.0" layoutY="281.0" text="Password">
-         <font>
-            <Font size="13.0" />
-         </font>
+         <font><Font size="13.0" /></font>
       </Label>
       <PasswordField fx:id="setPasswordField" layoutX="92.0" layoutY="300.0" prefHeight="25.0" prefWidth="336.0" promptText="Password" style="-fx-background-color: transparent; -fx-border-color: #a9a9a9; -fx-border-width: 0px 0px 1px 0px;" />
-      <Label layoutX="92.0" layoutY="338.0" text="Confirm Password">
+      <Label layoutX="92.0" layoutY="395.0" text="Role">
          <font>
             <Font size="13.0" />
          </font>
       </Label>
+      <ComboBox fx:id="roleComboBox" layoutX="92.0" layoutY="414.0" prefHeight="25.0" prefWidth="336.0" promptText="-- Select Role --" style="-fx-background-color: transparent; -fx-border-color: #a9a9a9; -fx-border-width: 0px 0px 1px 0px;" />
+      <Label layoutX="92.0" layoutY="338.0" text="Confirm Password">
+         <font><Font size="13.0" /></font>
+      </Label>
       <PasswordField fx:id="confirmPasswordField" layoutX="92.0" layoutY="357.0" prefHeight="25.0" prefWidth="336.0" promptText="Confirm Password" style="-fx-background-color: transparent; -fx-border-color: #a9a9a9; -fx-border-width: 0px 0px 1px 0px;" />
-      <Button fx:id="registerButton" layoutX="94.0" layoutY="414.0" mnemonicParsing="false" prefHeight="26.0" prefWidth="336.0" style="-fx-background-color: #E96151;" text="Register" textFill="WHITE">
-         <font>
-            <Font size="13.0" />
-         </font>
+
+      <!-- Label thông báo kết quả -->
+      <Label fx:id="registerMessageLabel" alignment="CENTER" layoutX="92.0" layoutY="393.0" prefHeight="18.0" prefWidth="336.0" text="" textFill="#e05252">
+         <font><Font size="12.0" /></font>
+      </Label>
+
+      <Button fx:id="registerButton" layoutX="94.0" layoutY="456.0" mnemonicParsing="false"
+              onAction="#registerButtonOnAction"
+              prefHeight="26.0" prefWidth="336.0" style="-fx-background-color: #E96151;" text="Register" textFill="WHITE">
+         <font><Font size="13.0" /></font>
       </Button>
-      <Button fx:id="closeButton" layoutX="92.0" layoutY="455.0" mnemonicParsing="false" prefHeight="26.0" prefWidth="336.0" style="-fx-background-color: #E96151;" text="Close" textFill="WHITE">
-         <font>
-            <Font size="13.0" />
-         </font>
+      <Button fx:id="closeButton" layoutX="92.0" layoutY="497.0" mnemonicParsing="false"
+              onAction="#closeButtonOnAction"
+              prefHeight="26.0" prefWidth="336.0" style="-fx-background-color: #E96151;" text="Close" textFill="WHITE">
+         <font><Font size="13.0" /></font>
       </Button>
    </children>
-</fx:root>
+</AnchorPane>

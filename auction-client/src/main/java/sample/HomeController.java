@@ -127,7 +127,7 @@ public class HomeController {
             Stage stage = new Stage();
             stage.initStyle(StageStyle.UNDECORATED);
             stage.initModality(Modality.APPLICATION_MODAL);
-            stage.setScene(new Scene(root, 520, 527));
+            stage.setScene(new Scene(root, 520, 550));
             stage.show();
 
         } catch (Exception e) {
@@ -147,10 +147,7 @@ public class HomeController {
         card.setPrefWidth(340);
         card.setPadding(new Insets(20));
         card.setStyle(
-                "-fx-background-color: white;" +
-                        "-fx-background-radius: 15;" +
-                        "-fx-border-radius: 15;" +
-                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 14, 0, 0, 4);"
+                "-fx-background-color: white;" + "-fx-background-radius: 15;" + "-fx-border-radius: 15;" + "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 14, 0, 0, 4);"
         );
 
         HBox titleRow = new HBox();
