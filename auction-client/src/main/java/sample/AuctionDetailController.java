@@ -1,11 +1,67 @@
 package sample;
 
 import javafx.fxml.FXML;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.XYChart;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.HBox;
+import javafx.stage.Stage;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.util.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 
 public class AuctionDetailController {
 
-    private AuctionItemDTO auction;
+    @FXML private Label    itemNameLabel;
+    @FXML private Label    startingPriceLabel;
+    @FXML private Label    currentBidLabel;
+    @FXML private Label    endTimeLabel;
+    @FXML private Label    countdownLabel;
+    @FXML private Label    messageLabel;
+    @FXML private TextField bidAmountField;
+    @FXML private LineChart<String, Number> bidChart;
+    @FXML private HBox     headerBar;
 
+    private AuctionItemDTO auction;
+    private Timeline       countdown;
+
+    // ── Drag support ──────────────────────────────────────
+    private double dragOffsetX, dragOffsetY;
+
+    @FXML
+    private void onHeaderPressed(MouseEvent e) {
+        dragOffsetX = e.getScreenX() - getStage().getX();
+        dragOffsetY = e.getScreenY() - getStage().getY();
+    }
+
+    @FXML
+    private void onHeaderDragged(MouseEvent e) {
+        getStage().setX(e.getScreenX() - dragOffsetX);
+        getStage().setY(e.getScreenY() - dragOffsetY);
+    }
+
+    // ── Nút điều khiển ────────────────────────────────────
+    @FXML
+    private void handleClose() {
+        stopCountdown();
+        getStage().close();
+    }
+
+    @FXML
+    private void handleMinimize() {
+        getStage().setIconified(true);
+    }
+
+    private Stage getStage() {
+        return (Stage) headerBar.getScene().getWindow();
+    }
+
+    // ── Set dữ liệu ───────────────────────────────────────
     public void setAuction(AuctionItemDTO dto) {
         this.auction = dto;
         loadAuctionDetail();
@@ -14,28 +70,72 @@ public class AuctionDetailController {
     }
 
     private void loadAuctionDetail() {
-        System.out.println("📋 Load chi tiết: " + auction.title);
-        // TODO: gán label, giá, trạng thái vào FXML
+        itemNameLabel.setText(auction.title);
+        startingPriceLabel.setText(formatVND(auction.giaKhoiDiem));
+        currentBidLabel.setText(formatVND(auction.giaCaoNhat));
+        endTimeLabel.setText(auction.endTime);
     }
 
     private void startCountdown() {
-        System.out.println("⏱ Bắt đầu đếm ngược đến: " + auction.endTime);
-        // TODO: Timeline JavaFX đếm ngược theo giây
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+        LocalDateTime end;
+        try {
+            end = LocalDateTime.parse(auction.endTime, fmt);
+        } catch (Exception e) {
+            countdownLabel.setText("⏳ --:--:--");
+            return;
+        }
+
+        countdown = new Timeline(new KeyFrame(Duration.seconds(1), ev -> {
+            long secs = ChronoUnit.SECONDS.between(LocalDateTime.now(), end);
+            if (secs <= 0) {
+                countdownLabel.setText("⏳ Đã kết thúc");
+                countdown.stop();
+            } else {
+                long h = secs / 3600, m = (secs % 3600) / 60, s = secs % 60;
+                countdownLabel.setText(String.format("⏳ %02d:%02d:%02d", h, m, s));
+            }
+        }));
+        countdown.setCycleCount(Timeline.INDEFINITE);
+        countdown.play();
     }
 
     public void stopCountdown() {
-        System.out.println("⏹ Dừng đếm ngược");
-        // TODO: timeline.stop()
+        if (countdown != null) countdown.stop();
     }
 
     private void loadBidChart() {
-        System.out.println("📊 Load lịch sử giá cho: " + auction.title);
-        // TODO: ServerConnection.getBidHistory(auction.id)
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        series.setName("Giá thầu");
+        // Dữ liệu mẫu — thay bằng ServerConnection.getBidHistory(auction.id)
+        series.getData().add(new XYChart.Data<>("10:00", auction.giaKhoiDiem));
+        series.getData().add(new XYChart.Data<>("10:15", auction.giaKhoiDiem * 1.05));
+        series.getData().add(new XYChart.Data<>("10:30", auction.giaCaoNhat * 0.9));
+        series.getData().add(new XYChart.Data<>("10:45", auction.giaCaoNhat));
+        bidChart.getData().add(series);
     }
 
     @FXML
-    private void placeBid() {
-        System.out.println("💰 Đặt giá cho: " + auction.title);
-        // TODO: ServerConnection.placeBid(auction.id, amount)
+    private void placeBidOnAction() {
+        try {
+            double amount = Double.parseDouble(
+                    bidAmountField.getText().replace(".", "").replace(",", "").trim());
+            if (amount <= auction.giaCaoNhat) {
+                messageLabel.setText("⚠ Giá phải lớn hơn " + formatVND(auction.giaCaoNhat));
+                return;
+            }
+            // TODO: ServerConnection.getInstance().placeBid(auction.id, username, amount);
+            auction.giaCaoNhat = amount;
+            currentBidLabel.setText(formatVND(amount));
+            messageLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 13;");
+            messageLabel.setText("✅ Đặt giá thành công!");
+            bidAmountField.clear();
+        } catch (NumberFormatException e) {
+            messageLabel.setText("⚠ Vui lòng nhập số hợp lệ");
+        }
+    }
+
+    private String formatVND(double amount) {
+        return String.format("%,.0f VNĐ", amount);
     }
 }
