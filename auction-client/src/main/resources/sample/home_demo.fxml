@@ -18,107 +18,164 @@
 
    <!-- ===== NAVBAR ===== -->
    <top>
-      <HBox alignment="CENTER_LEFT" spacing="25"
-            style="-fx-background-color: #1c1c1c; -fx-padding: 12 30 12 30;">
+      <VBox style="-fx-background-color: #FDFCF8;
+                   -fx-border-color: #e8e0d0;
+                   -fx-border-width: 0 0 1.5 0;
+                   -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);">
 
-         <Label text="TINY HOARDER'S KEY MARKET"
-                style="-fx-text-fill: #e05252; -fx-font-size: 18; -fx-font-weight: bold;"/>
+         <!-- Hàng 1: Logo + nút auth -->
+         <HBox alignment="CENTER_LEFT" spacing="16"
+               style="-fx-padding: 14 36 10 36;">
 
-         <Region HBox.hgrow="ALWAYS"/>
+            <Label text="TINY HOARDER'S KEY MARKET"
+                   style="-fx-text-fill: #c0392b;
+                          -fx-font-size: 19;
+                          -fx-font-weight: bold;"/>
 
-         <!-- Menu chính -->
-         <Label text="Tiền sảnh"
-                style="-fx-text-fill: white; -fx-font-size: 13; -fx-cursor: hand;"/>
-         <Label text="Biển số xe"
-                style="-fx-text-fill: white; -fx-font-size: 13; -fx-cursor: hand;"/>
-         <Label text="Bất động sản"
-                style="-fx-text-fill: white; -fx-font-size: 13; -fx-cursor: hand;"/>
-         <Label text="Khác"
-                style="-fx-text-fill: white; -fx-font-size: 13; -fx-cursor: hand;"/>
+            <Region HBox.hgrow="ALWAYS"/>
 
-         <!-- NHÓM KHI CHƯA ĐĂNG NHẬP -->
-         <HBox fx:id="guestBox" spacing="10" alignment="CENTER">
-            <Button text="Đăng kí" onAction="#handleDangKi"
-                    style="-fx-background-color: #e05252; -fx-text-fill: white;
-                               -fx-font-weight: bold; -fx-padding: 8 18;
-                               -fx-background-radius: 5; -fx-cursor: hand;"/>
-            <Button text="Đăng nhập" onAction="#handleDangNhap"
-                    style="-fx-background-color: #e05252; -fx-text-fill: white;
-                               -fx-font-weight: bold; -fx-padding: 8 18;
-                               -fx-background-radius: 5; -fx-cursor: hand;"/>
-            <Button text="🔔"
-                    style="-fx-background-color: #333333; -fx-text-fill: white;
-                               -fx-font-size: 14; -fx-padding: 6 10;
-                               -fx-background-radius: 5; -fx-cursor: hand;"/>
-         </HBox>
-
-         <!-- NHÓM KHI ĐÃ ĐĂNG NHẬP (ẩn lúc đầu) -->
-         <HBox fx:id="userBox" spacing="12" alignment="CENTER"
-               visible="false" managed="false">
-
-            <Button text="🔔"
-                    style="-fx-background-color: #333333; -fx-text-fill: white;
-                               -fx-font-size: 14; -fx-padding: 6 10;
-                               -fx-background-radius: 5; -fx-cursor: hand;"/>
-
-            <!-- Avatar vòng tròn + tên -->
-            <HBox spacing="8" alignment="CENTER"
-                  style="-fx-background-color: #333333;
-                             -fx-background-radius: 20;
-                             -fx-padding: 5 14;
-                             -fx-cursor: hand;">
-               <Label text="👤"
-                      style="-fx-text-fill: white; -fx-font-size: 16;"/>
-               <Label fx:id="lblUsername"
-                      text=""
-                      style="-fx-text-fill: white; -fx-font-size: 13; -fx-font-weight: bold;"/>
+            <!-- NHÓM KHI CHƯA ĐĂNG NHẬP -->
+            <HBox fx:id="guestBox" spacing="10" alignment="CENTER">
+               <Button text="Đăng kí" onAction="#handleDangKi"
+                       style="-fx-background-color: #c0392b;
+                              -fx-text-fill: white;
+                              -fx-font-weight: bold;
+                              -fx-font-size: 13;
+                              -fx-padding: 8 22;
+                              -fx-background-radius: 6;
+                              -fx-cursor: hand;"/>
+               <Button text="Đăng nhập" onAction="#handleDangNhap"
+                       style="-fx-background-color: white;
+                              -fx-text-fill: #c0392b;
+                              -fx-font-weight: bold;
+                              -fx-font-size: 13;
+                              -fx-padding: 8 22;
+                              -fx-background-radius: 6;
+                              -fx-border-color: #c0392b;
+                              -fx-border-radius: 6;
+                              -fx-border-width: 1.5;
+                              -fx-cursor: hand;"/>
+               <Button text="🔔"
+                       style="-fx-background-color: #f0ebe1;
+                              -fx-text-fill: #555;
+                              -fx-font-size: 14;
+                              -fx-padding: 7 11;
+                              -fx-background-radius: 6;
+                              -fx-cursor: hand;"/>
             </HBox>
 
-            <Button text="Đăng xuất" onAction="#handleDangXuat"
-                    style="-fx-background-color: transparent;
-                               -fx-text-fill: #aaaaaa;
-                               -fx-font-size: 12;
-                               -fx-cursor: hand;
-                               -fx-border-color: #555;
-                               -fx-border-radius: 5;
-                               -fx-padding: 5 10;"/>
+            <!-- NHÓM KHI ĐÃ ĐĂNG NHẬP -->
+            <HBox fx:id="userBox" spacing="12" alignment="CENTER"
+                  visible="false" managed="false">
+               <Button text="🔔"
+                       style="-fx-background-color: #f0ebe1;
+                              -fx-text-fill: #555;
+                              -fx-font-size: 14;
+                              -fx-padding: 7 11;
+                              -fx-background-radius: 6;
+                              -fx-cursor: hand;"/>
+               <HBox spacing="8" alignment="CENTER"
+                     style="-fx-background-color: #f0ebe1;
+                            -fx-background-radius: 20;
+                            -fx-padding: 6 16;
+                            -fx-cursor: hand;">
+                  <Label text="👤"
+                         style="-fx-text-fill: #555; -fx-font-size: 15;"/>
+                  <Label fx:id="lblUsername" text=""
+                         style="-fx-text-fill: #222;
+                                -fx-font-size: 13;
+                                -fx-font-weight: bold;"/>
+               </HBox>
+               <Button text="Đăng xuất" onAction="#handleDangXuat"
+                       style="-fx-background-color: transparent;
+                              -fx-text-fill: #888;
+                              -fx-font-size: 12;
+                              -fx-cursor: hand;
+                              -fx-border-color: #ccc;
+                              -fx-border-radius: 5;
+                              -fx-padding: 6 12;"/>
+            </HBox>
+
          </HBox>
 
-      </HBox>
+         <!-- Hàng 2: Menu căn giữa -->
+         <HBox alignment="CENTER" spacing="8"
+               style="-fx-padding: 0 36 12 36;">
+
+            <Button fx:id="btnTienSanh"
+                    text="🏠  Tiền sảnh"
+                    onAction="#handleTienSanh"
+                    style="-fx-background-color: #c0392b; -fx-text-fill: white;
+                   -fx-font-size: 13; -fx-font-weight: bold;
+                   -fx-padding: 7 20; -fx-cursor: hand;
+                   -fx-background-radius: 20;"/>
+
+            <Button fx:id="btnBienSoXe"
+                    text="🚗  Biển số xe"
+                    onAction="#handleBienSoXe"
+                    style="-fx-background-color: transparent; -fx-text-fill: #444;
+                   -fx-font-size: 13; -fx-font-weight: bold;
+                   -fx-padding: 7 20; -fx-cursor: hand;
+                   -fx-background-radius: 20;"/>
+
+            <Button fx:id="btnBatDongSan"
+                    text="🏠  Bất động sản"
+                    onAction="#handleBatDongSan"
+                    style="-fx-background-color: transparent; -fx-text-fill: #444;
+                   -fx-font-size: 13; -fx-font-weight: bold;
+                   -fx-padding: 7 20; -fx-cursor: hand;
+                   -fx-background-radius: 20;"/>
+
+            <Button fx:id="btnKhac"
+                    text="✦  Khác"
+                    onAction="#handleKhacMenu"
+                    style="-fx-background-color: transparent; -fx-text-fill: #444;
+                   -fx-font-size: 13; -fx-font-weight: bold;
+                   -fx-padding: 7 20; -fx-cursor: hand;
+                   -fx-background-radius: 20;"/>
+
+         </HBox>
+      </VBox>
    </top>
 
    <!-- ===== CENTER ===== -->
    <center>
       <ScrollPane fitToWidth="true" hbarPolicy="NEVER"
-                  style="-fx-background-color: #d0d0d0; -fx-background: #d0d0d0;">
+                  style="-fx-background-color: #e8e4dc; -fx-background: #e8e4dc;">
          <VBox>
+
             <!-- Search -->
             <VBox alignment="CENTER" spacing="15"
-                  style="-fx-background-color: #fdf6e3; -fx-padding: 30;">
+                  style="-fx-background-color: #fdf6e3; -fx-padding: 36 30;">
                <Label text="Tìm kiếm"
-                      style="-fx-text-fill: #e05252; -fx-font-size: 22; -fx-font-weight: bold;"/>
-               <HBox alignment="CENTER_LEFT" spacing="8" maxWidth="480"
+                      style="-fx-text-fill: #c0392b;
+                             -fx-font-size: 24;
+                             -fx-font-weight: bold;"/>
+               <HBox alignment="CENTER_LEFT" spacing="8" maxWidth="520"
                      style="-fx-background-color: white;
-                                 -fx-border-color: #d9534f;
-                                 -fx-border-radius: 25;
-                                 -fx-background-radius: 25;
-                                 -fx-padding: 8 15;">
+                            -fx-border-color: #c0392b;
+                            -fx-border-radius: 25;
+                            -fx-background-radius: 25;
+                            -fx-padding: 9 16;
+                            -fx-effect: dropshadow(gaussian, rgba(192,57,43,0.12), 8, 0, 0, 2);">
                   <TextField fx:id="txtSearch"
-                             promptText="Tìm kiếm"
+                             promptText="Nhập từ khóa tìm kiếm..."
                              HBox.hgrow="ALWAYS"
                              style="-fx-background-color: transparent;
-                                          -fx-border-color: transparent;
-                                          -fx-font-size: 13;"/>
+                                    -fx-border-color: transparent;
+                                    -fx-font-size: 13;"/>
                   <Button text="🔍" onAction="#handleSearch"
                           style="-fx-background-color: transparent;
-                                       -fx-cursor: hand; -fx-font-size: 14;"/>
+                                 -fx-cursor: hand;
+                                 -fx-font-size: 15;"/>
                </HBox>
             </VBox>
 
             <!-- Cards -->
             <FlowPane fx:id="flowPane"
-                      hgap="20" vgap="20" alignment="CENTER"
-                      style="-fx-background-color: #d0d0d0; -fx-padding: 30;"/>
+                      hgap="24" vgap="24" alignment="CENTER"
+                      style="-fx-background-color: #e8e4dc; -fx-padding: 36;"/>
+
          </VBox>
       </ScrollPane>
    </center>
