@@ -102,39 +102,37 @@
          <HBox alignment="CENTER" spacing="8"
                style="-fx-padding: 0 36 12 36;">
 
-            <Button text="🏠  Tiền sảnh"
-                    style="-fx-background-color: transparent;
-                           -fx-text-fill: #444;
-                           -fx-font-size: 13;
-                           -fx-font-weight: bold;
-                           -fx-padding: 7 20;
-                           -fx-cursor: hand;
-                           -fx-background-radius: 20;"/>
-            <Button text="🚗  Biển số xe"
-                    style="-fx-background-color: transparent;
-                           -fx-text-fill: #444;
-                           -fx-font-size: 13;
-                           -fx-font-weight: bold;
-                           -fx-padding: 7 20;
-                           -fx-cursor: hand;
-                           -fx-background-radius: 20;"/>
-            <Button text="🏠  Bất động sản"
-                    style="-fx-background-color: transparent;
-                           -fx-text-fill: #444;
-                           -fx-font-size: 13;
-                           -fx-font-weight: bold;
-                           -fx-padding: 7 20;
-                           -fx-cursor: hand;
-                           -fx-background-radius: 20;"/>
-            <Button fx:id="btnKhac" text="✦  Khác"
+            <Button fx:id="btnTienSanh"
+                    text="🏠  Tiền sảnh"
+                    onAction="#handleTienSanh"
+                    style="-fx-background-color: #c0392b; -fx-text-fill: white;
+                   -fx-font-size: 13; -fx-font-weight: bold;
+                   -fx-padding: 7 20; -fx-cursor: hand;
+                   -fx-background-radius: 20;"/>
+
+            <Button fx:id="btnBienSoXe"
+                    text="🚗  Biển số xe"
+                    onAction="#handleBienSoXe"
+                    style="-fx-background-color: transparent; -fx-text-fill: #444;
+                   -fx-font-size: 13; -fx-font-weight: bold;
+                   -fx-padding: 7 20; -fx-cursor: hand;
+                   -fx-background-radius: 20;"/>
+
+            <Button fx:id="btnBatDongSan"
+                    text="🏠  Bất động sản"
+                    onAction="#handleBatDongSan"
+                    style="-fx-background-color: transparent; -fx-text-fill: #444;
+                   -fx-font-size: 13; -fx-font-weight: bold;
+                   -fx-padding: 7 20; -fx-cursor: hand;
+                   -fx-background-radius: 20;"/>
+
+            <Button fx:id="btnKhac"
+                    text="✦  Khác"
                     onAction="#handleKhacMenu"
-                    style="-fx-background-color: transparent;
-               -fx-text-fill: #444;
-               -fx-font-size: 13;
-               -fx-font-weight: bold;
-               -fx-padding: 7 20;
-               -fx-cursor: hand;
-               -fx-background-radius: 20;"/>
+                    style="-fx-background-color: transparent; -fx-text-fill: #444;
+                   -fx-font-size: 13; -fx-font-weight: bold;
+                   -fx-padding: 7 20; -fx-cursor: hand;
+                   -fx-background-radius: 20;"/>
 
          </HBox>
       </VBox>
