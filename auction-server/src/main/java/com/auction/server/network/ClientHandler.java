@@ -212,4 +212,9 @@ public class ClientHandler implements Runnable {
             writer.println("GET ITEMS FAIL");
         }
     }
-}
+};
+class PlaceBidRequest {
+    public int auctionId;
+    public String username;
+    public double amount;
+};
