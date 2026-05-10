@@ -2,6 +2,7 @@ package com.auction.server.network;
 
 import com.auction.server.model.*;
 import com.auction.server.repository.*;
+import com.auction.server.service.AuctionObserver;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -12,10 +13,17 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.sql.*;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-public class ClientHandler implements Runnable {
+public class ClientHandler implements Runnable, AuctionObserver {
 
     public static int NumberOfClient = 0;
+
+    @Override
+    public void onNewBidPlaced(int auctionId, String bidderUsername, double newBidAmount) {
+    }
+
+    public static final List<ClientHandler> connectedClient = new CopyOnWriteArrayList<>();
 
     private Socket socket;
     private BufferedReader reader;
@@ -32,15 +40,14 @@ public class ClientHandler implements Runnable {
 
     public ClientHandler(Socket socket) throws Exception {
         this.socket = socket;
+        reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        writer = new PrintWriter(socket.getOutputStream(), true);
+        connectedClient.add(this);
     }
 
     @Override
     public void run() {
-        reader = null;
-        writer = null;
         try {
-            reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            writer = new PrintWriter(socket.getOutputStream(), true);
             String request;
             while ((request = reader.readLine()) != null) {
                 System.out.println("Khách gửi: " + request);
@@ -52,17 +59,18 @@ public class ClientHandler implements Runnable {
         } catch (Exception e) {
             System.out.println("Khách hàng mất mạng hoặc ngắt kết nối đột ngột");
         } finally {
+            connectedClient.remove(this);
             NumberOfClient--;
             System.out.println("Có " + NumberOfClient + " khách đang kết nối");
 
         }
     }
 
-    private void handlerRequest(String request){
+    private void handlerRequest(String request) {
         try {
             String[] parts = request.split("===", 2);
 
-            if (parts.length != 2){
+            if (parts.length != 2) {
                 writer.println("INVAILD FORMAT");
                 return;
             }
@@ -98,22 +106,24 @@ public class ClientHandler implements Runnable {
                 default:
                     writer.println("UNKNOWN ACTION");
             }
-        } catch (Exception e){
+        } catch (Exception e) {
             writer.println("SERVER ERROR");
         }
     }
 
     // ĐĂNG NHẬP TÀI KHOẢN
-// Trong ClientHandler.java — sửa toàn bộ method handlerLogin()
     private void handlerLogin(String json) {
-        // ★ Sửa: parse thủ công thay vì gson.fromJson(json, Seller.class)
-        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-        String inputUsername = obj.get("username").getAsString();
-        String inputPassword = obj.get("password").getAsString();
+        User user;
+        if (json.contains("SELLER")) {
+            user = gson.fromJson(json, Seller.class);
+        } else if (json.contains("BIDDER")) {
+            user = gson.fromJson(json, Bidder.class);
+        } else {
+            user = gson.fromJson(json, Admin.class);
+        }
+        User dbUser = userRepo.getUserByUsername(user.getUsername());
 
-        User dbUser = userRepo.getUserByUsername(inputUsername);
-
-        if (dbUser != null && dbUser.getPassword().equals(inputPassword)) {
+        if (dbUser != null && dbUser.getPassword().equals(user.getPassword())) {
             currentUser = dbUser;
             writer.println("LOGIN SUCCESS");
         } else {
@@ -122,29 +132,15 @@ public class ClientHandler implements Runnable {
     }
 
     // ĐĂNG KÍ TÀI KHOẢN
-    private void handlerRegister(String json) { //sau đổi String thành User
-        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-
-        String username = obj.get("username").getAsString();
-        String password = obj.get("password").getAsString();
-        String role = obj.get("role").getAsString();
-
+    private void handlerRegister(String json) {
         User newUser = null;
 
-        switch (role) {
-            case "ADMIN":
-                newUser = new Admin(null, username, password);
-                break;
-            case "SELLER":
-                newUser = new Seller(null, username, password);
-                break;
-            case "BIDDER":
-                newUser = new Bidder(null, username, password, 0);
-                break;
-
-            case "GET_ITEMS_BY_CATEGORY":
-                handlerGetItemsByCategory(json);
-                break;
+        if (json.contains("SELLER")) {
+            newUser = gson.fromJson(json, Seller.class);
+        } else if (json.contains("BIDDER")) {
+            newUser = gson.fromJson(json, Bidder.class);
+        } else {
+            newUser = gson.fromJson(json, Admin.class);
         }
 
         boolean success = userRepo.registerUser(newUser);
@@ -153,7 +149,7 @@ public class ClientHandler implements Runnable {
     }
 
     // TẠO SẢN PHẨM
-    private void handlerCreateItem(String json){
+    private void handlerCreateItem(String json) {
         if (!(currentUser instanceof Seller)) {
             writer.println("ONLY SELLER CAN CREATE ITEM");
             return;
@@ -176,18 +172,18 @@ public class ClientHandler implements Runnable {
         writer.println("ITEM===" + gson.toJson(items));
     }
 
-   private void handlePlaceBid(String json) {
+    private void handlePlaceBid(String json) {
 
         if (!(currentUser instanceof Bidder)) {
             writer.println("ONLY BIDDER CAN BID");
             return;
         }
-
-        BidTransaction bid = gson.fromJson(json, BidTransaction.class);
+        PlaceBidRequest req = gson.fromJson(json, PlaceBidRequest.class);
+        BidTransaction bid = new BidTransaction(req.auctionId, req.username, req.amount);
         boolean saveBid = bidRepo.insertBid(bid);
         boolean updateAuction = auctionRepo.updateHighestBid(bid.getAuctionId(), bid.getBidAmount(), currentUser.getUsername());
 
-        if (saveBid && updateAuction){
+        if (saveBid && updateAuction) {
             writer.println("BID SUCCESS");
         } else {
             writer.println("BID FAIL");

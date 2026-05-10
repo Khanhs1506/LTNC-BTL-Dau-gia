@@ -72,7 +72,7 @@ public class LoginController implements Initializable {
     private void validateLogin(String username, String password) {
         try {
             // Gửi request tới server, nhận response
-            String response = ServerConnection.getInstance().login(username, password);
+            String response = ServerConnection.getInstance().login(username, password, "Seller");
 
             // ✅ Server trả về "LOGIN SUCCESS" (khớp với ClientHandler)
             if ("LOGIN SUCCESS".equals(response)) {
