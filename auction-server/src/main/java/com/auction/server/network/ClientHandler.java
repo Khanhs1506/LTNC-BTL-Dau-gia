@@ -15,15 +15,11 @@ import java.sql.*;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class ClientHandler implements Runnable, AuctionObserver {
+
+public class ClientHandler implements Runnable {
 
     public static int NumberOfClient = 0;
-
-    @Override
-    public void onNewBidPlaced(int auctionId, String bidderUsername, double newBidAmount) {
-    }
-
-    public static final List<ClientHandler> connectedClient = new CopyOnWriteArrayList<>();
+    public static final List<ClientHandler> connectedClients = new CopyOnWriteArrayList<>();
 
     private Socket socket;
     private BufferedReader reader;
@@ -42,7 +38,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
         this.socket = socket;
         reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         writer = new PrintWriter(socket.getOutputStream(), true);
-        connectedClient.add(this);
+        connectedClients.add(this);
     }
 
     @Override
@@ -59,7 +55,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
         } catch (Exception e) {
             System.out.println("Khách hàng mất mạng hoặc ngắt kết nối đột ngột");
         } finally {
-            connectedClient.remove(this);
+            connectedClients.remove(this);
             NumberOfClient--;
             System.out.println("Có " + NumberOfClient + " khách đang kết nối");
 
@@ -172,6 +168,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
         writer.println("ITEM===" + gson.toJson(items));
     }
 
+    //ĐẶT GIÁ
     private void handlePlaceBid(String json) {
 
         if (!(currentUser instanceof Bidder)) {
@@ -185,6 +182,24 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
         if (saveBid && updateAuction) {
             writer.println("BID SUCCESS");
+
+            String notification = String.format(
+                    "BID_UPDATE==={\"auctionId\":%d,\"bidder\":\"%s\",\"amount\":%.2f}",
+                    bid.getAuctionId(),
+                    currentUser.getUsername(),
+                    bid.getBidAmount()
+            );
+            System.out.println(notification);
+
+            for (ClientHandler client : connectedClients) {
+                if (client != this) { // không gửi lại cho người vừa đặt
+                    client.writer.println(notification);
+                }
+            }
+
+            System.out.println("Broadcast BID_UPDATE đến "
+                    + (connectedClients.size() - 1) + " client(s)");
+
         } else {
             writer.println("BID FAIL");
         }
@@ -208,9 +223,4 @@ public class ClientHandler implements Runnable, AuctionObserver {
             writer.println("GET ITEMS FAIL");
         }
     }
-};
-class PlaceBidRequest {
-    public int auctionId;
-    public String username;
-    public double amount;
-};
+}

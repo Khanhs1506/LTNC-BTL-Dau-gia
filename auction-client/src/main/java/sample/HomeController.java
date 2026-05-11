@@ -34,6 +34,13 @@ public class HomeController {
     @FXML private Button    btnTienSanh;
     @FXML private Button    btnBienSoXe;
     @FXML private Button    btnBatDongSan;
+    @FXML private Button    btnBellGuest;
+    @FXML private Button    btnBellUser;
+    @FXML private StackPane bellStackGuest;
+    @FXML private StackPane bellStackUser;
+
+    private Label badgeGuest;
+    private Label badgeUser;
 
     private ContextMenu khacMenu;
 
@@ -113,6 +120,136 @@ public class HomeController {
         // allItems.addAll(AuctionDataFactory.generate(90));
 
         renderCards(currentCategory);
+
+        setUpNotificationBadge();
+    }
+
+    //TẠO KÍ HIỆU SỐ THÔNG BÁO
+    private Label createBadgeLabel() {
+        Label badge = new Label();
+        badge.setStyle( "-fx-background-color: #e74c3c;" +
+                        "-fx-text-fill: white;" +
+                        "-fx-font-size: 9;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-background-radius: 10;" +
+                        "-fx-padding: 1 4;" +
+                        "-fx-min-width: 16;" +
+                        "-fx-alignment: center;");
+        javafx.scene.layout.StackPane.setAlignment(badge, Pos.TOP_RIGHT);
+        javafx.scene.layout.StackPane.setMargin(badge, new Insets(-4, -4, 0, 0));
+        return badge;
+    }
+
+    //REFRESH SAU KHI NHẤN VÀO
+    private void refreshBadge () {
+        int count = NotificationManager.getInstance().getUnreadCount();
+        String text = count > 99 ? "99+" : String.valueOf(count);
+        boolean show = count > 0;
+
+        badgeGuest.setText(text);
+        badgeUser.setText(text);
+        badgeGuest.setVisible(show);
+        badgeUser.setVisible(show);
+
+    }
+
+    //TẠO THÔNG BÁO CHUÔNG
+    private void setUpNotificationBadge() {
+        badgeGuest = createBadgeLabel();
+        badgeUser = createBadgeLabel();
+
+        if (bellStackGuest != null) bellStackGuest.getChildren().add(badgeGuest);
+        if (bellStackUser != null) bellStackUser.getChildren().add(badgeUser);
+
+        badgeGuest.setVisible(false);
+        badgeUser.setVisible(false);
+
+        NotificationManager.getInstance().setOnNewNotification(() ->
+                javafx.application.Platform.runLater(this::refreshBadge));
+    }
+
+    //KHI BẤM CHUÔNG
+    @FXML
+    private void handleBellClick() {
+
+        //ĐÃ ĐỌC THÌ ẨN CÁC THÔNG BÁO
+        NotificationManager.getInstance().markAllRead();
+        refreshBadge();
+
+        //DANH SÁCH THÔNG BÁO
+        List<NotificationManager.Notification> list = NotificationManager.getInstance().getAll();
+
+        //TẠO HIỆN THỊ
+        javafx.stage.Popup popup = new javafx.stage.Popup();
+        popup.setAutoHide(true);
+
+        VBox box = new VBox(0);
+        box.setPrefWidth(320);
+        box.setMaxHeight(400);
+        box.setStyle("-fx-background-color: white;" +
+                "-fx-border-color: #ddd;" +
+                "-fx-border-width: 1;" +
+                "-fx-border-radius: 10;" +
+                "-fx-background-radius: 10;" +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 16, 0, 0, 6);");
+
+        Label header = new Label("\uD83D\uDD14    Thông báo");
+        header.setStyle("-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #222;" +
+                "-fx-padding: 14 16 12 16;" +
+                "-fx-border-color: #eee; -fx-border-width: 0 0 1 0;");
+        header.setMaxWidth(Double.MAX_VALUE);
+        box.getChildren().add(header);
+
+        //DANH SÁCH CÁC THÔNG BÁO
+        if (list.isEmpty()) {
+            Label empty = new Label("CHƯA CÓ THÔNG BÁO");
+            empty.setStyle("-fx-text-fill: #999; -fx-font-size: 13;" +
+                    "-fx-padding: 20 16;");
+            box.getChildren().add(empty);
+        } else {
+            ScrollPane scroll = new ScrollPane();
+            scroll.setFitToWidth(true);
+            scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            scroll.setPrefViewportHeight(Math.min(list.size() * 68, 340));
+            scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
+            VBox items = new VBox(0);
+            //HIỆN THỊ THEO THỜI GIAN MỚI NHẤT
+            List<NotificationManager.Notification> reversed = new ArrayList<>(list);
+            java.util.Collections.reverse(reversed);
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss dd/MM");
+            for (int i = 0; i < reversed.size(); i++) {
+                NotificationManager.Notification notification = reversed.get(i);
+                VBox row = new VBox(3);
+                row.setPadding(new Insets(10, 16, 10, 16));
+                row.setStyle(i % 2 == 0
+                        ? "-fx-background-color: #ffffff;"
+                        : "-fx-background-color: #fafafa;");
+                Label msgLabel = new Label(notification.message);
+                msgLabel.setWrapText(true);
+                msgLabel.setStyle("-fx-font-size: 13; -fx-text-fill: #222;");
+
+                java.time.LocalDateTime ldt = java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(notification.timestamp),
+                        java.time.ZoneId.systemDefault());
+                Label time = new Label(fmt.format(ldt));
+                time.setStyle("-fx-font-size: 11; -fx-text-fill: #999;");
+
+                //
+                javafx.scene.control.Separator sep = new javafx.scene.control.Separator();
+                sep.setStyle("-fx-opacity: 0.4;");
+                row.getChildren().addAll(msgLabel, time, sep);
+                items.getChildren().add(row);
+            }
+            scroll.setContent(items);
+            box.getChildren().add(scroll);
+        }
+        popup.getContent().add(box);
+
+        Button sourceBell = (userBox.isVisible() && userBox.isManaged()) ? btnBellUser : btnBellGuest;
+        if (sourceBell == null) return;
+
+        javafx.geometry.Bounds b = sourceBell.localToScreen(sourceBell.getBoundsInLocal());
+        popup.show(sourceBell.getScene().getWindow(), b.getMinX() - 260 + sourceBell.getWidth(), b.getMaxY() + 6);
     }
 
     // ===== Render cards theo danh mục =====
@@ -146,6 +283,7 @@ public class HomeController {
         if (btnBatDongSan != null)
             btnBatDongSan.setStyle(category.equals("Bất động sản") ? selected : normal);
     }
+
 
     // ===== Xử lý nút menu =====
     @FXML private void handleTienSanh()    { currentCategory = "Tất cả";        renderCards(currentCategory); }
