@@ -74,10 +74,11 @@ public class LoginController implements Initializable {
             // Nhận response
             String response = NetworkService.getInstance().receive();
 
-            if (response != null && response.startsWith("LOGIN SUCCESS")) {
-                // Parse role từ response
-                String json = response.split("===", 2)[1];
-                JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+    // ===== Xác thực với Server =====
+    private void validateLogin(String username, String password) {
+        try {
+            // Gửi request tới server, nhận response
+            String response = ServerConnection.getInstance().login(username, password, "Seller");
 
                 String role     = obj.get("role").getAsString();
                 String uname    = obj.get("username").getAsString();

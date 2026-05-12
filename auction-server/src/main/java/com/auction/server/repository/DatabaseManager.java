@@ -7,6 +7,7 @@ import java.util.Properties;
 
 public class DatabaseManager {
 
+
     private static class Holder {
         private static final DatabaseManager INSTANCE = new DatabaseManager();
     }
