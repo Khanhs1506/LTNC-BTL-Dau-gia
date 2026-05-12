@@ -1,6 +1,6 @@
 package com.auction.server.repository;
 
-import sample.model.Item;  
+import com.auction.server.model.Item;
 import java.util.List;
 
 public interface IItemDAO {

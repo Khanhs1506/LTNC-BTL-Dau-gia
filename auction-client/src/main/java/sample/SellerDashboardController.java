@@ -1,7 +1,6 @@
 package sample;
 
-import sample.model.Auction;
-import sample.model.Item;
+
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -11,6 +10,8 @@ import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
+import sample.model.Auction;
+import sample.model.Item;
 
 import java.net.URL;
 import java.time.LocalDateTime;

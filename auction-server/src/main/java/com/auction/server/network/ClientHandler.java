@@ -6,8 +6,8 @@ import com.auction.server.service.AuctionObserver;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import sample.model.BidTransaction;
-import sample.model.Item;
+
+
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;

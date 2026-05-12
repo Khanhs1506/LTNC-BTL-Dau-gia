@@ -1,7 +1,5 @@
 package com.auction.server.model;
 
-import sample.model.Item;
-
 public class VehicleItem extends Item {
     public String typeItem = "Vehicle Item";
     private String brand; // Hãng xe
