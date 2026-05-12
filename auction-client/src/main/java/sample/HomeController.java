@@ -6,6 +6,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -42,11 +43,17 @@ public class HomeController {
     private Label badgeGuest;
     private Label badgeUser;
 
+    @FXML private BorderPane rootPane;
+
     private ContextMenu khacMenu;
 
     // ===== State =====
     private String currentCategory = "Tất cả"; // danh mục đang lọc
     private final List<Button> allBidButtons = new ArrayList<>(); // để đổi text khi login/logout
+
+    public Parent getRoot() {
+        return rootPane;
+    }
 
     // ===== Model =====
     static class AuctionItem {

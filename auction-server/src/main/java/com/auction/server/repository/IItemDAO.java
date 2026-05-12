@@ -1,11 +1,9 @@
 package com.auction.server.repository;
 
-import com.auction.server.model.Item;
+import sample.model.Item;  
 import java.util.List;
 
 public interface IItemDAO {
-    // Lấy sản phẩm theo id
-    Item getItemById(int id);
 
     // Lấy tất cả sản phẩm
     List<Item> getAllItems();
@@ -19,14 +17,11 @@ public interface IItemDAO {
     // Xóa sản phẩm theo id
     boolean deleteItem(int id);
 
-    // Cập nhật giá cao nhất hiện tại (gọi sau mỗi bid hợp lệ)
+    // Cập nhật giá cao nhất hiện tại
     boolean updateCurrentHighestBid(int itemId, double newBid);
 
-    /**
-     * Lấy danh sách item theo danh mục.
-     *
-     * @param category tên danh mục cần tìm
-     * @return danh sách item thuộc danh mục
-     */
+    // Lấy danh sách item theo danh mục
     List<Item> getItemsByCategory(String category);
+
+    Item getItemById(int itemId);
 }

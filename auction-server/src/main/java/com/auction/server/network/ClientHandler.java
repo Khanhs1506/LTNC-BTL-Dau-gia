@@ -6,12 +6,13 @@ import com.auction.server.service.AuctionObserver;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import sample.model.BidTransaction;
+import sample.model.Item;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.sql.*;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -121,7 +122,19 @@ public class ClientHandler implements Runnable {
 
         if (dbUser != null && dbUser.getPassword().equals(user.getPassword())) {
             currentUser = dbUser;
-            writer.println("LOGIN SUCCESS");
+
+            // Xác định role
+            String role;
+            if      (dbUser instanceof Seller) role = "SELLER";
+            else if (dbUser instanceof Admin)  role = "ADMIN";
+            else                               role = "BIDDER";
+
+            // Trả về role cho client
+            JsonObject response = new JsonObject();
+            response.addProperty("role",     role);
+            response.addProperty("username", dbUser.getUsername());
+
+            writer.println("LOGIN SUCCESS===" + response);
         } else {
             writer.println("LOGIN FAIL");
         }

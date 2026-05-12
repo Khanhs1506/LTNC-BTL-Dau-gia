@@ -7,4 +7,6 @@ module birdeggsolution {
     requires com.google.gson;
     opens sample to javafx.fxml;
     exports sample;
+    requires com.google.gson;
 }
+

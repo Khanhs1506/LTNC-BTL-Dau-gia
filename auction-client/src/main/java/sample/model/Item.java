@@ -1,6 +1,7 @@
-package com.auction.server.model;
+package sample.model;
 
-abstract public class Item implements Entity<String>{
+abstract public class Item {   // ← bỏ <String>
+
     protected String id;
     protected String name;
     protected double startingPrice;
@@ -16,22 +17,17 @@ abstract public class Item implements Entity<String>{
         this.currentHighestBid = startingPrice;
     }
 
-    @Override
+    // Bỏ @Override vì không implements gì nữa
     public String getId() { return id; }
-    @Override
     public void setId(String id) { this.id = id; }
-    public String getName() {
-        return name;
-    }
-    public double getStartingPrice() {
-        return startingPrice;
-    }
 
-    public String getTypeItem() { return typeItem; };
-
+    public String getName() { return name; }
+    public double getStartingPrice() { return startingPrice; }
+    public String getTypeItem() { return typeItem; }
     public double getCurrentHighestBid() { return currentHighestBid; }
-    public void setCurrentHighestBid(double currentHighestBid) { this.currentHighestBid = currentHighestBid; }
+    public void setCurrentHighestBid(double currentHighestBid) {
+        this.currentHighestBid = currentHighestBid;
+    }
 
-    //Abstract method để lớp con print ra info
     public abstract void printInfo();
 }
