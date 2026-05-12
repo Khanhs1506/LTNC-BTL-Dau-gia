@@ -1,6 +1,6 @@
 package com.auction.server.repository;
 
-import com.auction.server.model.BidTransaction;
+import sample.model.BidTransaction;
 
 import java.sql.*;
 import java.util.ArrayList;

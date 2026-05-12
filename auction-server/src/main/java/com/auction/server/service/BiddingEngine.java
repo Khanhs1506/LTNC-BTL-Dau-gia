@@ -1,6 +1,6 @@
 package com.auction.server.service;
 
-import com.auction.server.model.Auction;
+import sample.model.Auction;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;

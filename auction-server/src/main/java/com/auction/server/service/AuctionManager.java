@@ -1,6 +1,6 @@
 package com.auction.server.service;
 
-import com.auction.server.model.Auction;
+import sample.model.Auction;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;

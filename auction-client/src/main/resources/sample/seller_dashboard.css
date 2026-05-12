@@ -1,0 +1,94 @@
+/* ── Màu chủ đạo ─────────────────────────────────────── */
+.root { -fx-font-family: "Segoe UI"; -fx-background-color: #FDFCF8; }
+
+/* ── Sidebar ─────────────────────────────────────────── */
+.sidebar { -fx-background-color: #F5F2EC; }
+.sidebar-item {
+    -fx-background-color: transparent;
+    -fx-text-fill: #555;
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+    -fx-padding: 9 14;
+    -fx-background-radius: 8;
+}
+.sidebar-item:hover { -fx-background-color: #EDE9E0; }
+.sidebar-item-active {
+    -fx-background-color: white;
+    -fx-text-fill: #c0392b;
+    -fx-font-weight: bold;
+}
+
+/* ── Topbar ──────────────────────────────────────────── */
+.topbar {
+    -fx-background-color: white;
+    -fx-border-color: #E8E0D0;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 0 20;
+}
+
+/* ── Stat card ───────────────────────────────────────── */
+.stat-card {
+    -fx-background-color: #F5F2EC;
+    -fx-background-radius: 10;
+    -fx-padding: 14 16;
+}
+.stat-value      { -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #222; }
+.stat-value-red  { -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #c0392b; }
+.stat-value-green{ -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #27ae60; }
+.stat-value-amber{ -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #e67e22; }
+.stat-label      { -fx-font-size: 12px; -fx-text-fill: #999; }
+
+/* ── Bảng ────────────────────────────────────────────── */
+.table-view { -fx-background-color: white; -fx-border-color: #E8E0D0; -fx-border-radius: 10; }
+.table-view .column-header-background { -fx-background-color: #F5F2EC; }
+.table-view .column-header .label {
+    -fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: #666;
+}
+.table-row-cell:hover { -fx-background-color: #FDF6E3; }
+.table-row-cell:selected { -fx-background-color: #FDECEA; }
+
+/* ── Pills / badge ───────────────────────────────────── */
+.pill-live     { -fx-background-color: #FDECEA; -fx-text-fill: #A32D2D;
+    -fx-background-radius: 10; -fx-padding: 3 10; -fx-font-size: 11px; }
+.pill-upcoming { -fx-background-color: #E6F1FB; -fx-text-fill: #185FA5;
+    -fx-background-radius: 10; -fx-padding: 3 10; -fx-font-size: 11px; }
+.pill-paid     { -fx-background-color: #EAF3DE; -fx-text-fill: #3B6D11;
+    -fx-background-radius: 10; -fx-padding: 3 10; -fx-font-size: 11px; }
+.pill-unpaid   { -fx-background-color: #FAEEDA; -fx-text-fill: #633806;
+    -fx-background-radius: 10; -fx-padding: 3 10; -fx-font-size: 11px; }
+.pill-expired  { -fx-background-color: #F1EFE8; -fx-text-fill: #5F5E5A;
+    -fx-background-radius: 10; -fx-padding: 3 10; -fx-font-size: 11px; }
+
+/* ── Nút ─────────────────────────────────────────────── */
+.btn-primary {
+    -fx-background-color: #c0392b; -fx-text-fill: white;
+    -fx-font-weight: bold; -fx-font-size: 13px;
+    -fx-padding: 8 20; -fx-background-radius: 8; -fx-cursor: hand;
+}
+.btn-primary:hover   { -fx-background-color: #a93226; }
+.btn-secondary {
+    -fx-background-color: transparent; -fx-text-fill: #c0392b;
+    -fx-border-color: #c0392b; -fx-border-width: 1;
+    -fx-padding: 6 14; -fx-background-radius: 8; -fx-cursor: hand;
+}
+.btn-danger {
+    -fx-background-color: #FDECEA; -fx-text-fill: #A32D2D;
+    -fx-font-size: 12px; -fx-padding: 5 10; -fx-background-radius: 6; -fx-cursor: hand;
+}
+.btn-danger:hover { -fx-background-color: #F7C1C1; }
+
+/* ── Search ──────────────────────────────────────────── */
+.search-field {
+    -fx-background-color: white;
+    -fx-border-color: #DDD; -fx-border-radius: 8;
+    -fx-background-radius: 8; -fx-padding: 7 12; -fx-font-size: 13px;
+}
+.search-field:focused { -fx-border-color: #c0392b; }
+
+/* ── Chart ───────────────────────────────────────────── */
+.chart { -fx-background-color: transparent; }
+.chart-plot-background { -fx-background-color: #FDFCF8; }
+.default-color0.chart-series-line { -fx-stroke: #c0392b; -fx-stroke-width: 2.5; }
+.default-color0.chart-line-symbol {
+    -fx-background-color: #c0392b, white; -fx-background-radius: 5;
+}

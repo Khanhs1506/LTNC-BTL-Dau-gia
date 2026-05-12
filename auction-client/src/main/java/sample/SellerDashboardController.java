@@ -1,0 +1,391 @@
+package sample;
+
+import sample.model.Auction;
+import sample.model.Item;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.PieChart;
+import javafx.scene.chart.XYChart;
+import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
+
+import java.net.URL;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.ResourceBundle;
+
+public class SellerDashboardController implements Initializable {
+
+    // ── Topbar ────────────────────────────────────────────────────
+    @FXML private Label lblUsername;
+    @FXML private Label pageTitle;
+
+    // ── Panels ────────────────────────────────────────────────────
+    @FXML private VBox panelOverview;
+    @FXML private VBox panelProducts;
+    @FXML private VBox panelActive;
+    @FXML private VBox panelUnpaid;
+    @FXML private VBox panelPaid;
+    @FXML private VBox panelExpired;
+    @FXML private VBox panelRevenue;
+    @FXML private VBox panelHistory;
+
+    // ── Sidebar buttons ───────────────────────────────────────────
+    @FXML private Button menuOverview, menuActive, menuPaid;
+    @FXML private Button menuUnpaid, menuExpired, menuProducts;
+    @FXML private Button menuRevenue, menuHistory;
+
+    // ── Stat labels ───────────────────────────────────────────────
+    @FXML private Label statTotal, statActive, statUnpaid, statRevenue;
+    @FXML private Label revTotal, revMonth, revFee, revNet;
+    @FXML private Label unpaidBadge;
+
+    // ── Charts ────────────────────────────────────────────────────
+    @FXML private LineChart<String, Number> revenueChart;
+    @FXML private LineChart<String, Number> detailRevenueChart;
+    @FXML private PieChart statusPieChart;
+
+    // ── Tables ───────────────────────────────────────────────────
+    @FXML private TableView<Auction> overviewTable;
+    @FXML private TableView<Auction> productsTable;
+    @FXML private TableView<Auction> activeTable;
+    @FXML private TableView<Auction> unpaidTable;
+    @FXML private TableView<Auction> paidTable;
+    @FXML private TableView<Auction> expiredTable;
+    @FXML private TableView<Auction> historyTable;
+
+    // Table columns – overview
+    @FXML private TableColumn<Auction,String> colOvId, colOvName, colOvBid,
+            colOvBidder, colOvStatus;
+    // Table columns – products
+    @FXML private TableColumn<Auction,String> colPId, colPName, colPPrice,
+            colPCat, colPStatus, colPActions;
+
+    // ── Search / filter ───────────────────────────────────────────
+    @FXML private TextField txtSearch;
+    @FXML private TextField searchProducts;
+    @FXML private ComboBox<String> filterCategory;
+
+    // ── Mock data ────────────────────────────────────────────────
+    private ObservableList<Auction> allAuctions;
+    private final List<Button> sidebarButtons = new java.util.ArrayList<>();
+
+    @Override
+    public void initialize(URL url, ResourceBundle rb) {
+        String user = UserSession.getInstance().getUsername();
+        lblUsername.setText(user != null ? user : "Seller");
+        avatarInitials();
+
+        sidebarButtons.addAll(List.of(
+                menuOverview, menuActive, menuPaid,
+                menuUnpaid, menuExpired, menuProducts,
+                menuRevenue, menuHistory));
+
+        loadMockData();
+        setupOverviewTable();
+        setupProductsTable();
+        setupRevenueChart();
+        setupPieChart();
+        showPanel(panelOverview, menuOverview, "Dashboard");
+    }
+
+    // ── Mock data ────────────────────────────────────────────────
+    private void loadMockData() {
+        allAuctions = FXCollections.observableArrayList(
+                mockAuction("A001", "Windows 11 Pro Key",   500_000, 1_200_000, "bidder_a",  Auction.Status.RUNNING),
+                mockAuction("A002", "Adobe CC 2024",        800_000, 2_500_000, "user_xyz",  Auction.Status.RUNNING),
+                mockAuction("A003", "Office 365 Business",  300_000,   750_000, "user_abc",  Auction.Status.FINISHED),
+                mockAuction("A004", "AutoCAD 2025",       1_200_000, 3_100_000, "bidder_k",  Auction.Status.FINISHED),
+                mockAuction("A005", "Minecraft Java Ed.",   200_000,         0, "",           Auction.Status.CANCELED),
+                mockAuction("A006", "Photoshop 2024",       600_000, 1_800_000, "bidder_m",  Auction.Status.RUNNING)
+        );
+
+        statTotal.setText(String.valueOf(allAuctions.size()));
+        statActive.setText(String.valueOf(count(Auction.Status.RUNNING)));
+        statUnpaid.setText(String.valueOf(count(Auction.Status.FINISHED)));
+        unpaidBadge.setText(count(Auction.Status.FINISHED) + " phiên chờ xử lý");
+
+        // Tính doanh thu: tổng giá cao nhất của các phiên FINISHED
+        long revenue = allAuctions.stream()
+                .filter(a -> a.getStatus() == Auction.Status.FINISHED)
+                .mapToLong(a -> (long) a.getCurrentHighestBid())
+                .sum();
+        statRevenue.setText(formatMoney(revenue));
+    }
+
+    /**
+     * Tạo Auction mock với Item ẩn danh để demo UI.
+     * Khi kết nối server thật, thay bằng dữ liệu nhận từ server.
+     */
+    private Auction mockAuction(String id, String name, long startPrice,
+                                long currentBid, String winner,
+                                Auction.Status status) {
+        // Item ẩn danh (anonymous subclass) vì Item là abstract
+        Item item = new Item(id, name, startPrice) {
+            @Override public String getType_item() { return "SOFTWARE"; }
+            @Override public void printInfo() {
+                System.out.println(id + " - " + name);
+            }
+        };
+        item.setCurrentHighestBid(currentBid);
+
+        Auction a = new Auction(
+                Integer.parseInt(id.replaceAll("[^0-9]", "")),
+                item,
+                LocalDateTime.now().minusDays(2),
+                LocalDateTime.now().plusHours(2)
+        );
+        // Đồng bộ bid + winner vào RAM
+        a.updateHighestBid(currentBid, winner.isEmpty() ? null : winner);
+        // Đồng bộ trạng thái
+        a.updateStatus(status);
+        return a;
+    }
+
+    private long count(Auction.Status status) {
+        return allAuctions.stream()
+                .filter(a -> a.getStatus() == status)
+                .count();
+    }
+
+    // ── Setup tables ─────────────────────────────────────────────
+    private void setupOverviewTable() {
+        colOvId.setCellValueFactory(c ->
+                new javafx.beans.property.SimpleStringProperty(
+                        String.valueOf(c.getValue().getId())));
+
+        colOvName.setCellValueFactory(c ->
+                new javafx.beans.property.SimpleStringProperty(
+                        c.getValue().getItem().getName()));
+
+        colOvBid.setCellValueFactory(c ->
+                new javafx.beans.property.SimpleStringProperty(
+                        formatMoney((long) c.getValue().getCurrentHighestBid())));
+
+        colOvBidder.setCellValueFactory(c -> {
+            String winner = c.getValue().getCurrentWinnerUsername();
+            return new javafx.beans.property.SimpleStringProperty(
+                    winner != null ? winner : "—");
+        });
+
+        colOvStatus.setCellValueFactory(c ->
+                new javafx.beans.property.SimpleStringProperty(
+                        c.getValue().getStatus().name()));
+
+        // Status badge với màu
+        colOvStatus.setCellFactory(col -> new TableCell<>() {
+            @Override protected void updateItem(String s, boolean empty) {
+                super.updateItem(s, empty);
+                if (empty || s == null) { setText(null); setGraphic(null); return; }
+                Label pill = new Label(statusLabel(s));
+                pill.getStyleClass().add(pillStyle(s));
+                setGraphic(pill); setText(null);
+            }
+        });
+
+        overviewTable.setItems(allAuctions);
+    }
+
+    private void setupProductsTable() {
+        colPId.setCellValueFactory(c ->
+                new javafx.beans.property.SimpleStringProperty(
+                        String.valueOf(c.getValue().getId())));
+
+        colPName.setCellValueFactory(c ->
+                new javafx.beans.property.SimpleStringProperty(
+                        c.getValue().getItem().getName()));
+
+        colPPrice.setCellValueFactory(c ->
+                new javafx.beans.property.SimpleStringProperty(
+                        formatMoney((long) c.getValue().getItem().getStartingPrice())));
+
+        colPCat.setCellValueFactory(c ->
+                new javafx.beans.property.SimpleStringProperty(
+                        c.getValue().getItem().getTypeItem()));
+
+        colPStatus.setCellValueFactory(c ->
+                new javafx.beans.property.SimpleStringProperty(
+                        c.getValue().getStatus().name()));
+
+        colPStatus.setCellFactory(col -> new TableCell<>() {
+            @Override protected void updateItem(String s, boolean empty) {
+                super.updateItem(s, empty);
+                if (empty || s == null) { setText(null); setGraphic(null); return; }
+                Label pill = new Label(statusLabel(s));
+                pill.getStyleClass().add(pillStyle(s));
+                setGraphic(pill); setText(null);
+            }
+        });
+
+        colPActions.setCellFactory(col -> new TableCell<>() {
+            private final Button btnEdit   = new Button("Sửa");
+            private final Button btnDelete = new Button("Xóa");
+            {
+                btnEdit.getStyleClass().add("btn-secondary");
+                btnDelete.getStyleClass().add("btn-danger");
+                btnEdit.setOnAction(e -> handleEditProduct(getTableRow().getItem()));
+                btnDelete.setOnAction(e -> handleDeleteProduct(getTableRow().getItem()));
+            }
+            @Override protected void updateItem(String s, boolean empty) {
+                super.updateItem(s, empty);
+                if (empty) { setGraphic(null); return; }
+                javafx.scene.layout.HBox box =
+                        new javafx.scene.layout.HBox(6, btnEdit, btnDelete);
+                setGraphic(box);
+            }
+        });
+
+        productsTable.setItems(allAuctions);
+
+        searchProducts.textProperty().addListener((obs, old, nw) -> {
+            String kw = nw.trim().toLowerCase();
+            productsTable.setItems(kw.isEmpty() ? allAuctions :
+                    allAuctions.filtered(a ->
+                            a.getItem().getName().toLowerCase().contains(kw)));
+        });
+    }
+
+    // ── Charts ───────────────────────────────────────────────────
+    private void setupRevenueChart() {
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        series.setName("Doanh thu (triệu ₫)");
+        series.getData().addAll(
+                new XYChart.Data<>("Th.12", 21.5),
+                new XYChart.Data<>("Th.1",  28.8),
+                new XYChart.Data<>("Th.2",  18.2),
+                new XYChart.Data<>("Th.3",  34.6),
+                new XYChart.Data<>("Th.4",  40.8),
+                new XYChart.Data<>("Th.5",  48.2)
+        );
+        revenueChart.getData().add(series);
+        revenueChart.setLegendVisible(false);
+
+        XYChart.Series<String, Number> series2 = new XYChart.Series<>();
+        series2.setName("Doanh thu");
+        series2.getData().addAll(
+                new XYChart.Data<>("Th.12", 21.5),
+                new XYChart.Data<>("Th.1",  28.8),
+                new XYChart.Data<>("Th.2",  18.2),
+                new XYChart.Data<>("Th.3",  34.6),
+                new XYChart.Data<>("Th.4",  40.8),
+                new XYChart.Data<>("Th.5",  48.2)
+        );
+        detailRevenueChart.getData().add(series2);
+    }
+
+    private void setupPieChart() {
+        statusPieChart.setData(FXCollections.observableArrayList(
+                new PieChart.Data("Đang diễn ra", count(Auction.Status.RUNNING)),
+                new PieChart.Data("Chưa TT",      count(Auction.Status.FINISHED)),
+                new PieChart.Data("Hết hạn",      count(Auction.Status.CANCELED))
+        ));
+        statusPieChart.setLegendVisible(true);
+    }
+
+    // ── Panel switching ───────────────────────────────────────────
+    private final List<VBox> allPanels = new java.util.ArrayList<>();
+
+    private void initPanels() {
+        allPanels.addAll(List.of(panelOverview, panelProducts, panelActive,
+                panelUnpaid, panelPaid, panelExpired, panelRevenue, panelHistory));
+    }
+
+    private void showPanel(VBox target, Button activeBtn, String title) {
+        if (allPanels.isEmpty()) initPanels();
+        allPanels.forEach(p -> { p.setVisible(false); p.setManaged(false); });
+        target.setVisible(true); target.setManaged(true);
+
+        sidebarButtons.forEach(b -> {
+            b.getStyleClass().removeAll("sidebar-item-active");
+            if (!b.getStyleClass().contains("sidebar-item"))
+                b.getStyleClass().add("sidebar-item");
+        });
+        activeBtn.getStyleClass().add("sidebar-item-active");
+        pageTitle.setText(title);
+    }
+
+    // ── FXML handlers ─────────────────────────────────────────────
+    @FXML void showOverview()  { showPanel(panelOverview,  menuOverview,  "Dashboard"); }
+    @FXML void showProducts()  { showPanel(panelProducts,  menuProducts,  "Sản phẩm"); }
+    @FXML void showActive() {
+        showPanel(panelActive, menuActive, "Đang hoạt động");
+        activeTable.setItems(filter(Auction.Status.RUNNING));
+    }
+    @FXML void showUnpaid() {
+        showPanel(panelUnpaid, menuUnpaid, "Chưa thanh toán");
+        unpaidTable.setItems(filter(Auction.Status.FINISHED));
+    }
+    @FXML void showPaid() {
+        // PAID chưa có trong enum → dùng FINISHED làm đại diện
+        showPanel(panelPaid, menuPaid, "Đã thanh toán");
+        paidTable.setItems(filter(Auction.Status.FINISHED));
+    }
+    @FXML void showExpired() {
+        showPanel(panelExpired, menuExpired, "Hết hạn");
+        expiredTable.setItems(filter(Auction.Status.CANCELED));
+    }
+    @FXML void showRevenue()   { showPanel(panelRevenue,   menuRevenue,   "Doanh thu"); }
+    @FXML void showHistory()   { showPanel(panelHistory,   menuHistory,   "Lịch sử giao dịch"); }
+
+    @FXML void handleAddProduct() {
+        // TODO: Mở dialog thêm sản phẩm
+    }
+
+    private void handleEditProduct(Auction a) {
+        // TODO: Mở dialog sửa
+    }
+
+    private void handleDeleteProduct(Auction a) {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Xóa sản phẩm \"" + a.getItem().getName() + "\"?",
+                ButtonType.YES, ButtonType.NO);
+        confirm.showAndWait().ifPresent(bt -> {
+            if (bt == ButtonType.YES) allAuctions.remove(a);
+        });
+    }
+
+    @FXML void handleLogout() {
+        UserSession.getInstance().logout();
+        // TODO: quay về Home
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────
+    private ObservableList<Auction> filter(Auction.Status status) {
+        return allAuctions.filtered(a -> a.getStatus() == status);
+    }
+
+    private String formatMoney(long v) {
+        return String.format("%,d", v).replace(",", ".") + " ₫";
+    }
+
+    /**
+     * Ánh xạ Auction.Status.name() → nhãn tiếng Việt hiển thị trên UI.
+     * Enum server: OPEN, RUNNING, FINISHED, CANCELED
+     */
+    private String statusLabel(String s) {
+        return switch (s.toUpperCase()) {
+            case "RUNNING"  -> "Đang diễn ra";
+            case "FINISHED" -> "Đã kết thúc";
+            case "CANCELED" -> "Hết hạn / Huỷ";
+            case "OPEN"     -> "Sắp diễn ra";
+            default         -> s;
+        };
+    }
+
+    private String pillStyle(String s) {
+        return switch (s.toUpperCase()) {
+            case "RUNNING"  -> "pill-live";
+            case "OPEN"     -> "pill-upcoming";
+            case "FINISHED" -> "pill-paid";
+            case "CANCELED" -> "pill-expired";
+            default         -> "pill-upcoming";
+        };
+    }
+
+    private void avatarInitials() {
+        // TODO: lấy 2 chữ đầu username set vào avatarLabel
+    }
+}
