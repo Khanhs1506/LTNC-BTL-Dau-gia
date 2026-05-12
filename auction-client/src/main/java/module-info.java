@@ -6,4 +6,6 @@ module birdeggsolution {
     requires mysql.connector.j;
     opens sample to javafx.fxml;
     exports sample;
+    requires com.google.gson;
 }
+

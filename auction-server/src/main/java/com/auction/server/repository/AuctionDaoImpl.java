@@ -1,7 +1,7 @@
 package com.auction.server.repository;
 
-import com.auction.server.model.Auction;
-import com.auction.server.model.Item;
+import sample.model.Auction;
+import sample.model.Item;
 
 import java.sql.*;
 import java.time.LocalDateTime;

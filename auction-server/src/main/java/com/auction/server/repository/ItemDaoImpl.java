@@ -2,7 +2,7 @@ package com.auction.server.repository;
 
 import com.auction.server.model.ArtItem;
 import com.auction.server.model.ElectronicsItem;
-import com.auction.server.model.Item;
+import sample.model.Item;
 import com.auction.server.model.VehicleItem;
 
 import java.sql.*;
@@ -70,7 +70,7 @@ public class ItemDaoImpl implements IItemDAO {
     }
 
     @Override
-    public List<Item> getAllItems() {
+    public List<sample.model.Item> getAllItems() {
         String sql = "SELECT i.*, e.warranty_months, a.artist_name, v.brand, v.year " +
                 "FROM Items i " +
                 "LEFT JOIN Electronics_Items e ON i.id = e.item_id " +
@@ -229,7 +229,7 @@ public class ItemDaoImpl implements IItemDAO {
     }
 
     @Override
-    public List<Item> getItemsByCategory(String category) {
+    public List<sample.model.Item> getItemsByCategory(String category) {
         List<Item> list = new ArrayList<>();
 
         // Phải có LEFT JOIN như các method khác để buildItem hoạt động

@@ -1,6 +1,6 @@
 package com.auction.server.factory;
 
-import com.auction.server.model.Item;
+import sample.model.Item;
 
 public interface ItemFactory {
     // Hàm tạo sản phẩm. Tham số extraDetail dùng để linh hoạt truyền:

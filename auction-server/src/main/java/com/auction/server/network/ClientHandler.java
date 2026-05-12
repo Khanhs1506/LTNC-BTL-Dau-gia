@@ -5,12 +5,13 @@ import com.auction.server.repository.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import sample.model.BidTransaction;
+import sample.model.Item;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.sql.*;
 import java.util.List;
 
 public class ClientHandler implements Runnable {
@@ -106,7 +107,6 @@ public class ClientHandler implements Runnable {
     // ĐĂNG NHẬP TÀI KHOẢN
 // Trong ClientHandler.java — sửa toàn bộ method handlerLogin()
     private void handlerLogin(String json) {
-        // ★ Sửa: parse thủ công thay vì gson.fromJson(json, Seller.class)
         JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
         String inputUsername = obj.get("username").getAsString();
         String inputPassword = obj.get("password").getAsString();
@@ -115,7 +115,19 @@ public class ClientHandler implements Runnable {
 
         if (dbUser != null && dbUser.getPassword().equals(inputPassword)) {
             currentUser = dbUser;
-            writer.println("LOGIN SUCCESS");
+
+            // Xác định role
+            String role;
+            if      (dbUser instanceof Seller) role = "SELLER";
+            else if (dbUser instanceof Admin)  role = "ADMIN";
+            else                               role = "BIDDER";
+
+            // Trả về role cho client
+            JsonObject response = new JsonObject();
+            response.addProperty("role",     role);
+            response.addProperty("username", dbUser.getUsername());
+
+            writer.println("LOGIN SUCCESS===" + response);
         } else {
             writer.println("LOGIN FAIL");
         }
