@@ -78,7 +78,7 @@ public class BidTransactionDaoImpl implements IBidTransactionDAO {
         String        transactionId   = rs.getString("transaction_id");
         int           auctionId       = rs.getInt("auction_id");
         String        bidderUsername  = rs.getString("bidder_username");
-        long        bidAmount       = rs.getLong("bid_amount");
+        double        bidAmount       = rs.getDouble("bid_amount");
         java.time.LocalDateTime timestamp = rs.getTimestamp("timestamp").toLocalDateTime();
 
         return new BidTransaction(transactionId, auctionId, bidderUsername, bidAmount, timestamp);

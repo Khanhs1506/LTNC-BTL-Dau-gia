@@ -11,8 +11,7 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
-<?import javafx.scene.layout.StackPane?>
-<BorderPane xmlns="http://javafx.com/javafx/17"
+<BorderPane fx:id="rootPane" xmlns="http://javafx.com/javafx/17"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="sample.HomeController"
             prefWidth="1200" prefHeight="800">
@@ -56,34 +55,25 @@
                               -fx-border-radius: 6;
                               -fx-border-width: 1.5;
                               -fx-cursor: hand;"/>
-               <StackPane fx:id="bellStackGuest" alignment="CENTER">
-                  <Button fx:id="btnBellGuest"
-                          text="🔔"
-                          onAction="#handleBellClick"
-                          style="-fx-background-color: #f0ebe1;
-                   -fx-text-fill: #555;
-                   -fx-font-size: 14;
-                   -fx-padding: 7 11;
-                   -fx-background-radius: 6;
-                   -fx-cursor: hand;"/>
-                  <!-- Badge được thêm bằng code Java trong setupNotificationBadge() -->
-               </StackPane>
+               <Button text="🔔"
+                       style="-fx-background-color: #f0ebe1;
+                              -fx-text-fill: #555;
+                              -fx-font-size: 14;
+                              -fx-padding: 7 11;
+                              -fx-background-radius: 6;
+                              -fx-cursor: hand;"/>
             </HBox>
 
             <!-- NHÓM KHI ĐÃ ĐĂNG NHẬP -->
             <HBox fx:id="userBox" spacing="12" alignment="CENTER"
                   visible="false" managed="false">
-               <StackPane fx:id="bellStackUser" alignment="CENTER">
-               <Button fx:id="btnBellUser"
-                       text="🔔"
-                       onAction="#handleBellClick"
+               <Button text="🔔"
                        style="-fx-background-color: #f0ebe1;
-                   -fx-text-fill: #555;
-                   -fx-font-size: 14;
-                   -fx-padding: 7 11;
-                   -fx-background-radius: 6;
-                   -fx-cursor: hand;"/>
-            </StackPane>
+                              -fx-text-fill: #555;
+                              -fx-font-size: 14;
+                              -fx-padding: 7 11;
+                              -fx-background-radius: 6;
+                              -fx-cursor: hand;"/>
                <HBox spacing="8" alignment="CENTER"
                      style="-fx-background-color: #f0ebe1;
                             -fx-background-radius: 20;
