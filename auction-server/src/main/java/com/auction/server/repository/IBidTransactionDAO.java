@@ -1,6 +1,6 @@
 package com.auction.server.repository;
 
-import sample.model.BidTransaction;
+import com.auction.server.model.BidTransaction;
 import java.util.List;
 
 public interface IBidTransactionDAO {

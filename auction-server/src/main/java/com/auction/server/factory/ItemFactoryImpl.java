@@ -2,7 +2,7 @@ package com.auction.server.factory;
 
 import com.auction.server.model.ArtItem;
 import com.auction.server.model.ElectronicsItem;
-import sample.model.Item;
+import com.auction.server.model.Item;
 import com.auction.server.model.VehicleItem;
 
 public class ItemFactoryImpl implements ItemFactory {
