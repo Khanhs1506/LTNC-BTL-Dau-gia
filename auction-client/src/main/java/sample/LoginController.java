@@ -12,7 +12,6 @@ import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.stage.Stage;
-import sample.network.NetworkService;
 
 import java.net.URL;
 import java.util.ResourceBundle;
@@ -44,7 +43,7 @@ public class LoginController implements Initializable {
 
         // Kết nối server
         try {
-            NetworkService.getInstance().connect("localhost", 9999);
+            ServerConnection.getInstance();
             System.out.println("✅ Kết nối server thành công!");
         } catch (Exception e) {
             System.out.println("❌ Không kết nối được server!");
@@ -65,29 +64,18 @@ public class LoginController implements Initializable {
         loginMessageLabel.setText("Đang kết nối...");
 
         try {
-            // Gửi request
-            JsonObject req = new JsonObject();
-            req.addProperty("username", username);
-            req.addProperty("password", password);
-            NetworkService.getInstance().send("LOGIN===" + req);
 
-            // Nhận response
-            String response = NetworkService.getInstance().receive();
+            String response = ServerConnection.getInstance().login(username, password);
 
             if (response != null && response.startsWith("LOGIN SUCCESS")) {
                 // Parse role từ response
-                String json = response.split("===", 2)[1];
-                JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-
-                String role     = obj.get("role").getAsString();
-                String uname    = obj.get("username").getAsString();
-
+                String role = response.split("===", 2)[1];
                 // Lưu session
                 UserSession.getInstance().login(username, role);
 
                 // Cập nhật Home nếu đang mở
                 if (HomeController.getInstance() != null) {
-                    HomeController.getInstance().onLoginSuccess(uname);
+                    HomeController.getInstance().onLoginSuccess(username);
                 }
 
                 // Điều hướng theo role

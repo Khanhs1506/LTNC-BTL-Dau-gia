@@ -1,7 +1,5 @@
 package com.auction.server.model;
 
-import sample.model.Item;
-
 public class ElectronicsItem extends Item {
     public String typeItem = "Electronics Item";
     private int warrantyMonths;

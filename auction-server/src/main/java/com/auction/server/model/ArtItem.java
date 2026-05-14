@@ -1,7 +1,5 @@
 package com.auction.server.model;
 
-import sample.model.Item;
-
 public class ArtItem extends Item {
     public String typeItem = "Art Item";
     private String artist;
