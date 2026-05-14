@@ -5,7 +5,7 @@ public class ElectronicsItem extends Item {
     private int warrantyMonths;
 
     public ElectronicsItem(String id, String name, double startingPrice, int warrantyMonths) {
-        super(id, name, startingPrice); // Gọi constructor của class cha (Item)
+        super(id, name, startingPrice);
         this.warrantyMonths = warrantyMonths;
     }
 
