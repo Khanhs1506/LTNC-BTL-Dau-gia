@@ -23,7 +23,7 @@
         </dependency>
         <dependency>
             <groupId>sample</groupId>
-            <artifactId>birdeggsolution</artifactId>
+            <artifactId>auction-client</artifactId>
             <version>1.0-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>

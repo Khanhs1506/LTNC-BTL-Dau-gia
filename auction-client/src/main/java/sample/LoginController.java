@@ -69,8 +69,12 @@ public class LoginController implements Initializable {
 
             if (response != null && response.startsWith("LOGIN SUCCESS")) {
                 // Parse role từ response
-                String role = response.split("===", 2)[1];
-                // Lưu session
+                String json = response.split("===", 2)[1];
+                JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+
+                String role     = obj.get("role").getAsString();
+                String uname    = obj.get("username").getAsString();
+
                 UserSession.getInstance().login(username, role);
 
                 // Cập nhật Home nếu đang mở
@@ -96,6 +100,7 @@ public class LoginController implements Initializable {
         }
     }
 
+    // =====MỞ GIAO DIỆN THEO ĐÚNG ROLE=====
     private void navigateByRole(String role) {
         try {
             if (role.equalsIgnoreCase("SELLER")) {
@@ -125,18 +130,30 @@ public class LoginController implements Initializable {
                 }
 
             } else if (role.equalsIgnoreCase("ADMIN")) {
+                // Mở Seller Dashboard trong Stage mới 1200x800
                 FXMLLoader loader = new FXMLLoader(
                         getClass().getResource("/sample/admin_dashboard.fxml"));
                 Parent root = loader.load();
 
-                Stage stage = new Stage();
-                stage.setTitle("Admin Dashboard");
-                stage.setScene(new Scene(root, 1200, 800));
-                stage.centerOnScreen();
-                stage.show();
+                Stage adminStage = new Stage();
+                adminStage.setTitle("Admin Dashboard");
+                adminStage.setScene(new Scene(root, 1200, 800));
+                adminStage.setResizable(true);
 
-                ((Stage) cancelButton.getScene().getWindow()).close();
-                // Đóng Home tương tự
+                // Căn giữa màn hình
+                adminStage.centerOnScreen();
+                adminStage.show();
+
+                // Đóng cửa sổ Login
+                Stage loginStage = (Stage) cancelButton.getScene().getWindow();
+                loginStage.close();
+
+                // Đóng cửa sổ Home
+                if (HomeController.getInstance() != null) {
+                    Stage homeStage = (Stage) HomeController.getInstance()
+                            .getRoot().getScene().getWindow();
+                    homeStage.close();
+                }
 
             } else {
                 // BIDDER — chỉ đóng Login, giữ Home
@@ -144,7 +161,7 @@ public class LoginController implements Initializable {
             }
 
         } catch (Exception e) {
-            loginMessageLabel.setText("⚠ Không tải được giao diện!");
+            loginMessageLabel.setText("⚠ Không tải được giao diện! (LoginController.java)");
             e.printStackTrace();
         }
     }

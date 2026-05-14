@@ -1,0 +1,50 @@
+/* ── Dark theme chủ đạo ──────────────────────────────── */
+.root { -fx-font-family: "Segoe UI"; -fx-background-color: #1A1D21; }
+
+/* ── Sidebar ─────────────────────────────────────────── */
+.admin-sidebar { -fx-background-color: #22262B; }
+.admin-sidebar-item {
+    -fx-background-color: transparent; -fx-text-fill: #AAA;
+    -fx-font-size: 13px; -fx-cursor: hand;
+    -fx-padding: 9 14; -fx-background-radius: 8;
+}
+.admin-sidebar-item:hover { -fx-background-color: #2D3138; -fx-text-fill: #EEE; }
+.admin-sidebar-item-active { -fx-background-color: #2D3138; -fx-text-fill: white; -fx-font-weight: bold; }
+
+/* ── Topbar ──────────────────────────────────────────── */
+.admin-topbar {
+    -fx-background-color: #22262B;
+    -fx-border-color: rgba(255,255,255,0.08); -fx-border-width: 0 0 1 0;
+}
+
+/* ── Stat cards ──────────────────────────────────────── */
+.admin-stat-card { -fx-background-color: #22262B; -fx-background-radius: 10; -fx-padding: 14 16; }
+.admin-stat-value { -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #F0F0F0; }
+.admin-stat-label { -fx-font-size: 12px; -fx-text-fill: #666; }
+
+/* ── Table ───────────────────────────────────────────── */
+.admin-table { -fx-background-color: #22262B; -fx-border-color: rgba(255,255,255,0.08); }
+.admin-table .column-header-background { -fx-background-color: #22262B; }
+.admin-table .column-header .label { -fx-text-fill: #888; -fx-font-size: 12px; -fx-font-weight: bold; }
+.admin-table .table-row-cell { -fx-background-color: #1A1D21; -fx-text-fill: #CCC; }
+.admin-table .table-row-cell:hover { -fx-background-color: #2D3138; }
+.admin-table .table-row-cell:selected { -fx-background-color: #3D1F1F; }
+
+/* ── Input ───────────────────────────────────────────── */
+.admin-input {
+    -fx-background-color: #22262B; -fx-text-fill: #F0F0F0;
+    -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 8;
+    -fx-background-radius: 8; -fx-padding: 7 12; -fx-font-size: 13px;
+}
+.admin-input:focused { -fx-border-color: #c0392b; }
+
+/* ── Nút ─────────────────────────────────────────────── */
+.admin-btn-primary {
+    -fx-background-color: #c0392b; -fx-text-fill: white;
+    -fx-font-weight: bold; -fx-padding: 7 18; -fx-background-radius: 8;
+}
+.admin-btn-primary:hover { -fx-background-color: #a93226; }
+.admin-btn-danger {
+    -fx-background-color: #3D1F1F; -fx-text-fill: #E05252;
+    -fx-padding: 5 10; -fx-background-radius: 6;
+}

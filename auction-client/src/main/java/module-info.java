@@ -8,5 +8,6 @@ module birdeggsolution {
     opens sample.model to com.google.gson;
     exports sample;
     requires com.google.gson;
+    requires java.desktop;
 }
 
