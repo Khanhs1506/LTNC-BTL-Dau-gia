@@ -1,4 +1,5 @@
-package sample.model;
+package com.auction.server.model;
+
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -24,8 +25,6 @@ public class Auction implements Serializable {
     private final LocalDateTime startTime;
     private LocalDateTime endTime;
     private Status status;
-
-    private String itemName;
 
     // Lưu lịch sử đặt giá.
     private final List<BidTransaction> bidHistory;
@@ -93,9 +92,6 @@ public class Auction implements Serializable {
     public LocalDateTime getEndTime() { return endTime; }
     public Status getStatus() { return status; }
     public List<BidTransaction> getBidHistory() { return new ArrayList<>(bidHistory); }
-
-    public String getItemName() { return itemName; }
-    public void setItemName(String itemName) { this.itemName = itemName; }
 
     // Dùng khi load dữ liệu từ DB — đồng bộ giá và người thắng vào RAM
     public void updateHighestBid(double highestBid, String winnerUsername) {

@@ -85,7 +85,7 @@ public class SellerDashboardController implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle rb) {
         String user = UserSession.getInstance().getUsername();
-        lblUsername.setText(user != null ? user : "Seller");
+        lblUsername.setText(user != null ? user : "SELLER");
         avatarInitials();
 
         sidebarButtons.addAll(List.of(

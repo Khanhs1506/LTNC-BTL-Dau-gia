@@ -5,18 +5,18 @@ import com.auction.server.repository.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import sample.model.BidTransaction;
-import sample.model.Item;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ClientHandler implements Runnable {
 
     public static int NumberOfClient = 0;
+    public static final List<ClientHandler> connectedClients = new CopyOnWriteArrayList<>();
 
     private Socket socket;
     private BufferedReader reader;
@@ -33,6 +33,7 @@ public class ClientHandler implements Runnable {
 
     public ClientHandler(Socket socket) throws Exception {
         this.socket = socket;
+        connectedClients.add(this);
     }
 
     @Override
@@ -53,6 +54,7 @@ public class ClientHandler implements Runnable {
         } catch (Exception e) {
             System.out.println("Khách hàng mất mạng hoặc ngắt kết nối đột ngột");
         } finally {
+            connectedClients.remove(this);
             NumberOfClient--;
             System.out.println("Có " + NumberOfClient + " khách đang kết nối");
 
@@ -105,29 +107,15 @@ public class ClientHandler implements Runnable {
     }
 
     // ĐĂNG NHẬP TÀI KHOẢN
-// Trong ClientHandler.java — sửa toàn bộ method handlerLogin()
     private void handlerLogin(String json) {
-        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-        String inputUsername = obj.get("username").getAsString();
-        String inputPassword = obj.get("password").getAsString();
-
-        User dbUser = userRepo.getUserByUsername(inputUsername);
-
-        if (dbUser != null && dbUser.getPassword().equals(inputPassword)) {
+        JsonObject object = JsonParser.parseString(json).getAsJsonObject();
+        String username = object.get("username").getAsString();
+        String password = object.get("password").getAsString();
+        User dbUser = userRepo.getUserByUsername(username);
+        if (dbUser != null && dbUser.getPassword().equals(password)) {
             currentUser = dbUser;
-
-            // Xác định role
-            String role;
-            if      (dbUser instanceof Seller) role = "SELLER";
-            else if (dbUser instanceof Admin)  role = "ADMIN";
-            else                               role = "BIDDER";
-
-            // Trả về role cho client
-            JsonObject response = new JsonObject();
-            response.addProperty("role",     role);
-            response.addProperty("username", dbUser.getUsername());
-
-            writer.println("LOGIN SUCCESS===" + response);
+            String role = dbUser.getRole();
+            writer.println("LOGIN SUCCESS===" + role);
         } else {
             writer.println("LOGIN FAIL");
         }
@@ -188,19 +176,34 @@ public class ClientHandler implements Runnable {
         writer.println("ITEM===" + gson.toJson(items));
     }
 
+
+    //ĐẶT GIÁ
    private void handlePlaceBid(String json) {
 
         if (!(currentUser instanceof Bidder)) {
             writer.println("ONLY BIDDER CAN BID");
             return;
         }
-
-        BidTransaction bid = gson.fromJson(json, BidTransaction.class);
+        PlacedBidResquest res = gson.fromJson(json, PlacedBidResquest.class);
+        BidTransaction bid = new BidTransaction(res.auctionId, res.username, res.amount);
         boolean saveBid = bidRepo.insertBid(bid);
         boolean updateAuction = auctionRepo.updateHighestBid(bid.getAuctionId(), bid.getBidAmount(), currentUser.getUsername());
 
         if (saveBid && updateAuction){
             writer.println("BID SUCCESS");
+            String notification = String.format(
+                    "BID_UPDATE==={\"auctionId\":%d,\"bidder\":\"%s\",\"amount\":%.2f}",
+                    bid.getAuctionId(),
+                    currentUser.getUsername(),
+                    bid.getBidAmount()
+            );
+            for (ClientHandler client : connectedClients) {
+                if (client != this) { // không gửi lại cho người vừa đặt
+                    client.writer.println(notification);
+                }
+            }
+            System.out.println("BID_UPDATE đến "
+                    + (connectedClients.size() - 1) + " client(s)");
         } else {
             writer.println("BID FAIL");
         }

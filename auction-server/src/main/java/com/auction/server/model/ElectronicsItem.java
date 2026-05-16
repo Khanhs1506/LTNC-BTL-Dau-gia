@@ -1,13 +1,11 @@
 package com.auction.server.model;
 
-import sample.model.Item;
-
 public class ElectronicsItem extends Item {
     public String typeItem = "Electronics Item";
     private int warrantyMonths;
 
     public ElectronicsItem(String id, String name, double startingPrice, int warrantyMonths) {
-        super(id, name, startingPrice); // Gọi constructor của class cha (Item)
+        super(id, name, startingPrice);
         this.warrantyMonths = warrantyMonths;
     }
 
