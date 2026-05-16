@@ -71,16 +71,16 @@ public class AuctionDetailController {
 
     private void loadAuctionDetail() {
         itemNameLabel.setText(auction.title);
-        startingPriceLabel.setText(formatVND(auction.giaKhoiDiem));
-        currentBidLabel.setText(formatVND(auction.giaCaoNhat));
-        endTimeLabel.setText(auction.endTime);
+        startingPriceLabel.setText(formatVND(auction.startingPrice));
+        currentBidLabel.setText(formatVND(auction.currentHighest));
+        endTimeLabel.setText(String.valueOf(auction.endTime));
     }
 
     private void startCountdown() {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
         LocalDateTime end;
         try {
-            end = LocalDateTime.parse(auction.endTime, fmt);
+            end = LocalDateTime.parse(String.valueOf(auction.endTime), fmt);
         } catch (Exception e) {
             countdownLabel.setText("⏳ --:--:--");
             return;
@@ -108,10 +108,10 @@ public class AuctionDetailController {
         XYChart.Series<String, Number> series = new XYChart.Series<>();
         series.setName("Giá thầu");
         // Dữ liệu mẫu — thay bằng ServerConnection.getBidHistory(auction.id)
-        series.getData().add(new XYChart.Data<>("10:00", auction.giaKhoiDiem));
-        series.getData().add(new XYChart.Data<>("10:15", auction.giaKhoiDiem * 1.05));
-        series.getData().add(new XYChart.Data<>("10:30", auction.giaCaoNhat * 0.9));
-        series.getData().add(new XYChart.Data<>("10:45", auction.giaCaoNhat));
+        series.getData().add(new XYChart.Data<>("10:00", auction.startingPrice));
+        series.getData().add(new XYChart.Data<>("10:15", auction.startingPrice * 1.05));
+        series.getData().add(new XYChart.Data<>("10:30", auction.currentHighest * 0.9));
+        series.getData().add(new XYChart.Data<>("10:45", auction.currentHighest));
         bidChart.getData().add(series);
     }
 
@@ -120,16 +120,26 @@ public class AuctionDetailController {
         try {
             double amount = Double.parseDouble(
                     bidAmountField.getText().replace(".", "").replace(",", "").trim());
-            if (amount <= auction.giaCaoNhat) {
-                messageLabel.setText("⚠ Giá phải lớn hơn " + formatVND(auction.giaCaoNhat));
+            if (amount <= auction.currentHighest) {
+                messageLabel.setText("⚠ Giá phải lớn hơn " + formatVND(auction.currentHighest));
                 return;
             }
+<<<<<<< Updated upstream
             // TODO: ServerConnection.getInstance().placeBid(auction.id, username, amount);
             auction.giaCaoNhat = amount;
             currentBidLabel.setText(formatVND(amount));
             messageLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 13;");
             messageLabel.setText("✅ Đặt giá thành công!");
             bidAmountField.clear();
+=======
+            String response = ServerConnection.getInstance().placeBid(auction.id, UserSession.getInstance().getUsername(), amount);
+            if (response.equalsIgnoreCase("Bid success"))
+                auction.currentHighest = amount;
+                currentBidLabel.setText(formatVND(amount));
+                messageLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 13;");
+                messageLabel.setText("✅ Đặt giá thành công!");
+                bidAmountField.clear();
+>>>>>>> Stashed changes
         } catch (NumberFormatException e) {
             messageLabel.setText("⚠ Vui lòng nhập số hợp lệ");
         }

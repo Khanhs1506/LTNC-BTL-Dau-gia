@@ -1,7 +1,5 @@
 package sample;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -75,6 +73,7 @@ public class LoginController implements Initializable {
             String response = NetworkService.getInstance().receive();
 
             if (response != null && response.startsWith("LOGIN SUCCESS")) {
+<<<<<<< Updated upstream
                 // Parse role từ response
 <<<<<<< Updated upstream
                 String json = response.split("===", 2)[1];
@@ -82,6 +81,10 @@ public class LoginController implements Initializable {
 
                 String role     = obj.get("role").getAsString();
                 String uname    = obj.get("username").getAsString();
+=======
+                //
+                String role = response.split("===", 2)[1]; // trực tiếp lấy "ADMIN" / "SELLER" / "BIDDER"
+>>>>>>> Stashed changes
 
                 // Lưu session
 =======

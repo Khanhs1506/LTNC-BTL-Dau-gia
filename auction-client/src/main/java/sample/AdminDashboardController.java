@@ -24,6 +24,9 @@ import java.util.ResourceBundle;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.Image;
 
+import java.awt.Desktop;
+import java.net.URI;
+
 public class AdminDashboardController implements Initializable {
 
     // ── Topbar ────────────────────────────────────────────────────
@@ -89,7 +92,7 @@ public class AdminDashboardController implements Initializable {
 
         // Load logo giống hệt LoginController
         try {
-            URL logoUrl = getClass().getResource("/images/logo_new.png");
+            URL logoUrl = getClass().getResource("/images/logo_app.png");
             if (logoUrl != null)
                 logoImageView.setImage(new Image(logoUrl.toString()));
         } catch (Exception e) {
@@ -302,5 +305,15 @@ public class AdminDashboardController implements Initializable {
                     + "-fx-background-radius:10; -fx-padding:2 8; -fx-font-size:11;";
             default        -> "";
         };
+    }
+
+    // =====SỰ KIỆN CỦA CHUÔNG THÔNG BÁO=====
+    @FXML
+    private void handleBellClick() {
+        try {
+            Desktop.getDesktop().browse(new URI("https://youtu.be/dQw4w9WgXcQ?si=pkMnzjiXULSLfJeH"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

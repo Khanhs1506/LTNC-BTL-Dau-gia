@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+
+<?import javafx.scene.control.MenuButton?>
+<?import javafx.scene.control.MenuItem?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="sample.SellerCreateAuctionController"
+            prefWidth="900" prefHeight="720"
+            stylesheets="@seller_create_auction.css">
+
+    <fx:define>
+        <ToggleGroup fx:id="tgType"/>
+    </fx:define>
+
+    <!-- ══ HEADER ══ -->
+    <top>
+        <HBox fx:id="headerBar" alignment="CENTER_LEFT" spacing="12" styleClass="s-header">
+            <Label text="🔨" style="-fx-font-size:18;"/>
+            <VBox spacing="1">
+                <Label text="Đăng bán sản phẩm đấu giá"
+                       style="-fx-font-size:15; -fx-font-weight:bold; -fx-text-fill:#1a1a1a;"/>
+                <Label text="Điền đầy đủ thông tin để tạo phiên đấu giá"
+                       style="-fx-font-size:11; -fx-text-fill:#999;"/>
+            </VBox>
+            <Region HBox.hgrow="ALWAYS"/>
+            <!-- Step indicator -->
+            <HBox spacing="6" alignment="CENTER">
+                <Label fx:id="step1Dot" text="① Sản phẩm" styleClass="step-active"/>
+                <Label text="›" style="-fx-text-fill:#ccc;"/>
+                <Label fx:id="step2Dot" text="② Đấu giá"  styleClass="step-inactive"/>
+                <Label text="›" style="-fx-text-fill:#ccc;"/>
+                <Label fx:id="step3Dot" text="③ Xác nhận" styleClass="step-inactive"/>
+            </HBox>
+            <Button onAction="#handleClose"
+                    style="-fx-background-color:transparent; -fx-text-fill:#bbb;
+                           -fx-font-size:16; -fx-cursor:hand;" text="✕"/>
+        </HBox>
+    </top>
+
+    <!-- ══ BODY ══ -->
+    <center>
+        <StackPane fx:id="stepContainer">
+
+            <!-- ─── STEP 1: Thông tin sản phẩm ─── -->
+            <ScrollPane fx:id="step1" fitToWidth="true" styleClass="s-scroll">
+                <VBox spacing="20" style="-fx-padding:24 28;">
+
+                    <!-- Loại sản phẩm -->
+                    <VBox spacing="10">
+                        <Label text="Loại sản phẩm *" styleClass="s-section-title"/>
+                        <HBox spacing="10">
+                            <ToggleButton fx:id="btnTypeSoftware" text="🎨  Tác phẩm nghệ thuật"
+                                          styleClass="type-btn" onAction="#onTypeChanged"
+                                          toggleGroup="$tgType" selected="true" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                            <ToggleButton fx:id="btnTypePhysical" text="🚗  Phương tiện"
+                                          styleClass="type-btn" onAction="#onTypeChanged"
+                                          toggleGroup="$tgType" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                            <ToggleButton fx:id="btnTypeCollect"  text="🏆💻  Thiết bị điện tử"
+                                          styleClass="type-btn" onAction="#onTypeChanged"
+                                          toggleGroup="$tgType" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+
+                            <!-- Khác dùng MenuButton để có submenu -->
+                            <MenuButton fx:id="btnOther" text="📦  Khác" styleClass="category-btn">
+                                <items>
+                                    <MenuItem fx:id="menuFurniture"  text="🛋  Nội thất" />
+                                    <MenuItem fx:id="menuRealEstate" text="🏠  Bất động sản" />
+                                    <MenuItem fx:id="menuEvent"      text="🎟  Vé sự kiện" />
+                                    <MenuItem fx:id="menuGame"       text="🎮  Trò chơi điện tử" />
+                                    <MenuItem fx:id="menuSport"      text="⚽  Thể thao" />
+                                    <MenuItem fx:id="menuBook"       text="📚  Sách" />
+                                    <MenuItem fx:id="menuFashion"    text="👗  Thời trang" />
+                                </items>
+                            </MenuButton>
+                        </HBox>
+                    </VBox>
+
+                    <Separator/>
+
+                    <!-- Ảnh + Thông tin cơ bản -->
+                    <HBox spacing="20">
+
+                        <!-- Upload ảnh -->
+                        <VBox spacing="10" prefWidth="220" minWidth="220">
+                            <Label text="Hình ảnh sản phẩm *" styleClass="s-section-title"/>
+                            <StackPane fx:id="imageDropZone" styleClass="image-drop-zone"
+                                       prefHeight="200" onMouseClicked="#handlePickImage">
+                                <VBox alignment="CENTER" spacing="8">
+                                    <Label fx:id="lblImageIcon" text="📷"
+                                           style="-fx-font-size:36; -fx-opacity:0.4;"/>
+                                    <Label text="Click để chọn ảnh"
+                                           style="-fx-font-size:12; -fx-text-fill:#aaa;"/>
+                                    <Label text="PNG · JPG · GIF · tối đa 5MB"
+                                           style="-fx-font-size:10; -fx-text-fill:#ccc;"/>
+                                </VBox>
+                                <ImageView fx:id="imgPreview" fitWidth="218" fitHeight="198"
+                                           preserveRatio="true" smooth="true"
+                                           visible="false" managed="false"/>
+                            </StackPane>
+                            <HBox spacing="6">
+                                <Button fx:id="btnPickImage" onAction="#handlePickImage"
+                                        styleClass="btn-upload-sm" text="📁 Chọn file"
+                                        HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                                <Button fx:id="btnRemoveImage" onAction="#handleRemoveImage"
+                                        styleClass="btn-remove-sm" text="✕"
+                                        visible="false" managed="false"/>
+                            </HBox>
+                            <Label fx:id="lblImageStatus" text="Chưa chọn ảnh"
+                                   style="-fx-font-size:11; -fx-text-fill:#bbb;" wrapText="true"/>
+
+                            <!-- Thêm ảnh phụ -->
+                            <Label text="Ảnh bổ sung (tùy chọn)" styleClass="s-label"/>
+                            <HBox spacing="6" fx:id="extraImagesBox">
+                                <StackPane styleClass="extra-img-slot" prefWidth="58" prefHeight="58"
+                                           onMouseClicked="#handleAddExtraImage">
+                                    <Label text="+" style="-fx-font-size:20; -fx-text-fill:#ccc;"/>
+                                </StackPane>
+                                <StackPane styleClass="extra-img-slot" prefWidth="58" prefHeight="58"
+                                           onMouseClicked="#handleAddExtraImage">
+                                    <Label text="+" style="-fx-font-size:20; -fx-text-fill:#ccc;"/>
+                                </StackPane>
+                                <StackPane styleClass="extra-img-slot" prefWidth="58" prefHeight="58"
+                                           onMouseClicked="#handleAddExtraImage">
+                                    <Label text="+" style="-fx-font-size:20; -fx-text-fill:#ccc;"/>
+                                </StackPane>
+                            </HBox>
+                        </VBox>
+
+                        <!-- Thông tin cơ bản -->
+                        <VBox spacing="14" HBox.hgrow="ALWAYS">
+                            <Label text="Thông tin cơ bản" styleClass="s-section-title"/>
+
+                            <VBox spacing="5">
+                                <Label text="Tên sản phẩm *" styleClass="s-label"/>
+                                <TextField fx:id="txtTitle"
+                                           promptText="VD: Bộ LEGO Technic 42154, Adobe CC 2024..."
+                                           styleClass="s-field"/>
+                                <Label fx:id="lblTitleHint" text="" styleClass="s-hint"/>
+                            </VBox>
+
+                            <HBox spacing="12">
+                                <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                    <Label text="Danh mục *" styleClass="s-label"/>
+                                    <ComboBox fx:id="cmbCategory" maxWidth="Infinity"
+                                              promptText="Chọn danh mục" styleClass="s-combo"/>
+                                </VBox>
+                                <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                    <Label text="Thương hiệu / Nhà phát hành" styleClass="s-label"/>
+                                    <TextField fx:id="txtBrand"
+                                               promptText="VD: Adobe, LEGO, Apple..."
+                                               styleClass="s-field"/>
+                                </VBox>
+                            </HBox>
+
+                            <VBox spacing="5">
+                                <Label text="Mô tả chi tiết *" styleClass="s-label"/>
+                                <TextArea fx:id="txtDescription" prefRowCount="4"
+                                          promptText="Mô tả tình trạng, xuất xứ, điều kiện sử dụng, bảo hành..."
+                                          styleClass="s-field" wrapText="true"/>
+                                <Label fx:id="lblDescCount" text="0 / 500 ký tự"
+                                       style="-fx-font-size:10; -fx-text-fill:#bbb;" alignment="CENTER_RIGHT"/>
+                            </VBox>
+
+                            <!-- Fields động theo loại sản phẩm -->
+                            <!-- SOFTWARE fields -->
+                            <VBox fx:id="panelSoftware" spacing="12">
+                                <HBox spacing="12">
+                                    <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                        <Label text="Nền tảng" styleClass="s-label"/>
+                                        <ComboBox fx:id="cmbPlatform" maxWidth="Infinity"
+                                                  promptText="Chọn nền tảng" styleClass="s-combo"/>
+                                    </VBox>
+                                    <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                        <Label text="Phiên bản" styleClass="s-label"/>
+                                        <TextField fx:id="txtVersion" promptText="VD: 2024, v11..."
+                                                   styleClass="s-field"/>
+                                    </VBox>
+                                    <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                        <Label text="Số lượng key" styleClass="s-label"/>
+                                        <Spinner fx:id="spnKeyCount" min="1" max="100"
+                                                 initialValue="1" styleClass="s-spinner"/>
+                                    </VBox>
+                                </HBox>
+                                <VBox spacing="5">
+                                    <Label text="Key sản phẩm (chỉ hiện sau khi winner thanh toán)"
+                                           styleClass="s-label"/>
+                                    <TextField fx:id="txtProductKey"
+                                               promptText="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+                                               styleClass="s-field-key"/>
+                                </VBox>
+                            </VBox>
+
+                            <!-- PHYSICAL fields -->
+                            <VBox fx:id="panelPhysical" spacing="12" visible="false" managed="false">
+                                <HBox spacing="12">
+                                    <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                        <Label text="Tình trạng *" styleClass="s-label"/>
+                                        <ComboBox fx:id="cmbCondition" maxWidth="Infinity"
+                                                  promptText="Chọn tình trạng" styleClass="s-combo"/>
+                                    </VBox>
+                                    <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                        <Label text="Xuất xứ" styleClass="s-label"/>
+                                        <TextField fx:id="txtOrigin"
+                                                   promptText="VD: Hàn Quốc, USA..."
+                                                   styleClass="s-field"/>
+                                    </VBox>
+                                </HBox>
+                                <HBox spacing="12">
+                                    <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                        <Label text="Kích thước / Trọng lượng" styleClass="s-label"/>
+                                        <TextField fx:id="txtSize" promptText="VD: 30x20x10cm, 500g"
+                                                   styleClass="s-field"/>
+                                    </VBox>
+                                    <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                        <Label text="Đơn vị vận chuyển" styleClass="s-label"/>
+                                        <ComboBox fx:id="cmbShipping" maxWidth="Infinity"
+                                                  promptText="Phí ship" styleClass="s-combo"/>
+                                    </VBox>
+                                </HBox>
+                            </VBox>
+
+                            <!-- COLLECTIBLE fields -->
+                            <VBox fx:id="panelCollect" spacing="12" visible="false" managed="false">
+                                <HBox spacing="12">
+                                    <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                        <Label text="Số phiên bản giới hạn" styleClass="s-label"/>
+                                        <TextField fx:id="txtEdition"
+                                                   promptText="VD: #0042 / 1000"
+                                                   styleClass="s-field"/>
+                                    </VBox>
+                                    <VBox spacing="5" HBox.hgrow="ALWAYS">
+                                        <Label text="Chứng nhận / Nguồn gốc" styleClass="s-label"/>
+                                        <TextField fx:id="txtCertificate"
+                                                   promptText="VD: COA, NFT contract..."
+                                                   styleClass="s-field"/>
+                                    </VBox>
+                                </HBox>
+                            </VBox>
+
+                        </VBox>
+                    </HBox>
+                </VBox>
+            </ScrollPane>
+
+            <!-- ─── STEP 2: Thông tin đấu giá ─── -->
+            <ScrollPane fx:id="step2" fitToWidth="true" styleClass="s-scroll"
+                        visible="false" managed="false">
+                <VBox spacing="20" style="-fx-padding:24 28;">
+
+                    <Label text="Cấu hình phiên đấu giá" styleClass="s-section-title"/>
+
+                    <!-- Giá -->
+                    <HBox spacing="16">
+                        <VBox spacing="5" HBox.hgrow="ALWAYS">
+                            <Label text="Giá khởi điểm (₫) *" styleClass="s-label"/>
+                            <TextField fx:id="txtStartPrice" promptText="0"
+                                       styleClass="s-field-money"/>
+                            <Label text="Giá thấp nhất người dùng có thể đặt"
+                                   style="-fx-font-size:10; -fx-text-fill:#bbb;"/>
+                        </VBox>
+                        <VBox spacing="5" HBox.hgrow="ALWAYS">
+                            <Label text="Bước giá tối thiểu (₫) *" styleClass="s-label"/>
+                            <TextField fx:id="txtStepPrice" promptText="0"
+                                       styleClass="s-field-money"/>
+                            <Label text="Mỗi lần đặt phải cao hơn ít nhất bước này"
+                                   style="-fx-font-size:10; -fx-text-fill:#bbb;"/>
+                        </VBox>
+                        <VBox spacing="5" HBox.hgrow="ALWAYS">
+                            <Label text="Giá đặt cọc (₫, tùy chọn)" styleClass="s-label"/>
+                            <TextField fx:id="txtDepositPrice" promptText="Không bắt buộc"
+                                       styleClass="s-field-money"/>
+                            <Label text="Người đặt giá phải cọc trước số này"
+                                   style="-fx-font-size:10; -fx-text-fill:#bbb;"/>
+                        </VBox>
+                    </HBox>
+
+                    <HBox spacing="16">
+                        <VBox spacing="5" HBox.hgrow="ALWAYS">
+                            <Label text="Giá mua ngay (₫, tùy chọn)" styleClass="s-label"/>
+                            <TextField fx:id="txtBuyNow" promptText="Để trống = không có"
+                                       styleClass="s-field-money"/>
+                            <Label text="Người mua có thể kết thúc ngay với giá này"
+                                   style="-fx-font-size:10; -fx-text-fill:#bbb;"/>
+                        </VBox>
+                        <VBox spacing="5" HBox.hgrow="ALWAYS">
+                            <Label text="Giá bảo lưu (₫, tùy chọn)" styleClass="s-label"/>
+                            <TextField fx:id="txtReservePrice" promptText="Để trống = không có"
+                                       styleClass="s-field-money"/>
+                            <Label text="Chỉ bán nếu đạt giá này (ẩn với bidder)"
+                                   style="-fx-font-size:10; -fx-text-fill:#bbb;"/>
+                        </VBox>
+                    </HBox>
+
+                    <Separator/>
+
+                    <!-- Thời gian -->
+                    <Label text="Thời gian phiên đấu giá" styleClass="s-section-title"/>
+
+                    <HBox spacing="16">
+                        <VBox spacing="5" HBox.hgrow="ALWAYS">
+                            <Label text="Ngày bắt đầu *" styleClass="s-label"/>
+                            <DatePicker fx:id="dpStart" maxWidth="Infinity" styleClass="s-combo"/>
+                        </VBox>
+                        <VBox spacing="5" prefWidth="100">
+                            <Label text="Giờ *" styleClass="s-label"/>
+                            <TextField fx:id="txtStartHour" promptText="08:00"
+                                       styleClass="s-field"/>
+                        </VBox>
+                        <VBox spacing="5" HBox.hgrow="ALWAYS">
+                            <Label text="Ngày kết thúc *" styleClass="s-label"/>
+                            <DatePicker fx:id="dpEnd" maxWidth="Infinity" styleClass="s-combo"/>
+                        </VBox>
+                        <VBox spacing="5" prefWidth="100">
+                            <Label text="Giờ *" styleClass="s-label"/>
+                            <TextField fx:id="txtEndHour" promptText="23:59"
+                                       styleClass="s-field"/>
+                        </VBox>
+                    </HBox>
+
+                    <!-- Thời lượng nhanh -->
+                    <HBox spacing="8">
+                        <Label text="Chọn nhanh:" styleClass="s-label"/>
+                        <Button text="1 ngày"   onAction="#setDuration1d"  styleClass="btn-duration"/>
+                        <Button text="3 ngày"   onAction="#setDuration3d"  styleClass="btn-duration"/>
+                        <Button text="7 ngày"   onAction="#setDuration7d"  styleClass="btn-duration"/>
+                        <Button text="14 ngày"  onAction="#setDuration14d" styleClass="btn-duration"/>
+                        <Button text="30 ngày"  onAction="#setDuration30d" styleClass="btn-duration"/>
+                    </HBox>
+
+                    <Separator/>
+
+                    <!-- Cài đặt thêm -->
+                    <Label text="Cài đặt nâng cao" styleClass="s-section-title"/>
+
+                    <VBox spacing="10">
+                        <CheckBox fx:id="chkAutoExtend"
+                                  text="Tự động gia hạn 5 phút nếu có đặt giá trong 5 phút cuối"
+                                  styleClass="s-check"/>
+                        <CheckBox fx:id="chkNotifyBid"
+                                  text="Nhận thông báo khi có người đặt giá"
+                                  styleClass="s-check" selected="true"/>
+                        <CheckBox fx:id="chkPublic"
+                                  text="Hiển thị công khai (bỏ tích = chỉ người có link mới thấy)"
+                                  styleClass="s-check" selected="true"/>
+                        <CheckBox fx:id="chkAllowBuyNowEnd"
+                                  text="Kết thúc phiên ngay khi có người mua ngay"
+                                  styleClass="s-check" selected="true"/>
+                    </VBox>
+
+                    <!-- Preview giá -->
+                    <VBox styleClass="price-preview" spacing="8">
+                        <Label text="📊 XEM TRƯỚC PHÍ &amp; LỢI NHUẬN" styleClass="s-section-title"/>
+                        <HBox spacing="0">
+                            <VBox HBox.hgrow="ALWAYS" alignment="CENTER" spacing="3">
+                                <Label text="Giá khởi điểm" style="-fx-font-size:11; -fx-text-fill:#888;"/>
+                                <Label fx:id="previewStart" text="0 ₫"
+                                       style="-fx-font-size:16; -fx-font-weight:bold; -fx-text-fill:#f0f0f0;"/>
+                            </VBox>
+                            <Label text="→" style="-fx-text-fill:#555; -fx-font-size:16;"/>
+                            <VBox HBox.hgrow="ALWAYS" alignment="CENTER" spacing="3">
+                                <Label text="Phí nền tảng (5%)" style="-fx-font-size:11; -fx-text-fill:#888;"/>
+                                <Label fx:id="previewFee" text="0 ₫"
+                                       style="-fx-font-size:16; -fx-font-weight:bold; -fx-text-fill:#e74c3c;"/>
+                            </VBox>
+                            <Label text="→" style="-fx-text-fill:#555; -fx-font-size:16;"/>
+                            <VBox HBox.hgrow="ALWAYS" alignment="CENTER" spacing="3">
+                                <Label text="Thực nhận (ước tính)" style="-fx-font-size:11; -fx-text-fill:#888;"/>
+                                <Label fx:id="previewNet" text="0 ₫"
+                                       style="-fx-font-size:16; -fx-font-weight:bold; -fx-text-fill:#27ae60;"/>
+                            </VBox>
+                        </HBox>
+                    </VBox>
+
+                </VBox>
+            </ScrollPane>
+
+            <!-- ─── STEP 3: Xác nhận ─── -->
+            <ScrollPane fx:id="step3" fitToWidth="true" styleClass="s-scroll"
+                        visible="false" managed="false">
+                <VBox spacing="20" style="-fx-padding:24 28;">
+
+                    <Label text="Xác nhận thông tin trước khi đăng"
+                           styleClass="s-section-title"/>
+
+                    <HBox spacing="20">
+                        <!-- Ảnh preview -->
+                        <StackPane styleClass="confirm-img-box" prefWidth="160" prefHeight="160">
+                            <ImageView fx:id="imgConfirm" fitWidth="158" fitHeight="158"
+                                       preserveRatio="true" smooth="true"/>
+                            <Label text="📦" style="-fx-font-size:40; -fx-opacity:0.3;"/>
+                        </StackPane>
+
+                        <!-- Tóm tắt thông tin -->
+                        <VBox spacing="10" HBox.hgrow="ALWAYS">
+                            <Label fx:id="confirmTitle" text="—"
+                                   style="-fx-font-size:17; -fx-font-weight:bold; -fx-text-fill:#1a1a1a;"/>
+                            <HBox spacing="6">
+                                <Label fx:id="confirmCategory" text="—" styleClass="confirm-tag"/>
+                                <Label fx:id="confirmType"     text="—" styleClass="confirm-tag-outline"/>
+                            </HBox>
+                            <Label fx:id="confirmDesc" text="—"
+                                   style="-fx-font-size:12; -fx-text-fill:#666;" wrapText="true"/>
+                        </VBox>
+                    </HBox>
+
+                    <!-- Bảng tóm tắt -->
+                    <VBox styleClass="confirm-table" spacing="0">
+                        <HBox styleClass="confirm-row">
+                            <Label text="Giá khởi điểm"    styleClass="confirm-key" HBox.hgrow="ALWAYS"/>
+                            <Label fx:id="cRowStart"  text="—" styleClass="confirm-val"/>
+                        </HBox>
+                        <HBox styleClass="confirm-row">
+                            <Label text="Bước giá"          styleClass="confirm-key" HBox.hgrow="ALWAYS"/>
+                            <Label fx:id="cRowStep"   text="—" styleClass="confirm-val"/>
+                        </HBox>
+                        <HBox styleClass="confirm-row">
+                            <Label text="Giá mua ngay"      styleClass="confirm-key" HBox.hgrow="ALWAYS"/>
+                            <Label fx:id="cRowBuyNow" text="Không có" styleClass="confirm-val"/>
+                        </HBox>
+                        <HBox styleClass="confirm-row">
+                            <Label text="Thời gian bắt đầu" styleClass="confirm-key" HBox.hgrow="ALWAYS"/>
+                            <Label fx:id="cRowStart2" text="—" styleClass="confirm-val"/>
+                        </HBox>
+                        <HBox styleClass="confirm-row">
+                            <Label text="Thời gian kết thúc" styleClass="confirm-key" HBox.hgrow="ALWAYS"/>
+                            <Label fx:id="cRowEnd"    text="—" styleClass="confirm-val"/>
+                        </HBox>
+                        <HBox styleClass="confirm-row confirm-row-last">
+                            <Label text="Phí nền tảng (5%)" styleClass="confirm-key" HBox.hgrow="ALWAYS"/>
+                            <Label fx:id="cRowFee"    text="—"
+                                   style="-fx-text-fill:#e74c3c; -fx-font-weight:bold; -fx-font-size:13;"/>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Điều khoản -->
+                    <VBox styleClass="tos-box" spacing="8">
+                        <CheckBox fx:id="chkTos"
+                                  text="Tôi xác nhận thông tin trên là chính xác và đồng ý với điều khoản dịch vụ của Tiny Hoarder's Key Market."
+                                  styleClass="s-check" wrapText="true"/>
+                        <CheckBox fx:id="chkRefund"
+                                  text="Tôi hiểu rằng phiên đấu giá không thể hủy sau khi có người đặt giá."
+                                  styleClass="s-check" wrapText="true"/>
+                    </VBox>
+
+                    <Label fx:id="lblSubmitError" text="" styleClass="s-error" wrapText="true"/>
+
+                </VBox>
+            </ScrollPane>
+
+        </StackPane>
+    </center>
+
+    <!-- ══ FOOTER ══ -->
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" spacing="12" styleClass="s-footer">
+            <Label fx:id="lblProgress" text="Bước 1 / 3"
+                   style="-fx-font-size:12; -fx-text-fill:#bbb;" HBox.hgrow="ALWAYS"/>
+            <Button fx:id="btnBack" onAction="#handleBack"
+                    styleClass="btn-back" text="← Quay lại"
+                    visible="false" managed="false"/>
+            <Button fx:id="btnNext" onAction="#handleNext"
+                    styleClass="btn-next" text="Tiếp theo →"/>
+            <Button fx:id="btnSubmit" onAction="#handleSubmit"
+                    styleClass="btn-submit" text="🚀 Đăng bán ngay"
+                    visible="false" managed="false"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>
