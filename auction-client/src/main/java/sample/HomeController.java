@@ -428,13 +428,7 @@ public class HomeController {
                     getClass().getResource("/sample/AuctionDetail.fxml"));
             Parent root = loader.load();
 
-            AuctionItemDTO dto = new AuctionItemDTO(
-                    0, item.title,
-                    parseAmount(item.giaKhoiDiem),
-                    parseAmount(item.giaCaoNhat),
-                    item.hanDangKi + " 23:59:59",
-                    "RUNNING"
-            );
+            AuctionItemDTO dto = new AuctionItemDTO();
 
             AuctionDetailController ctrl = loader.getController();
             ctrl.setAuction(dto);

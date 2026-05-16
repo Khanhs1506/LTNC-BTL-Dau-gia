@@ -1,5 +1,10 @@
 package sample;
 
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import sample.model.Auction;
 import sample.model.Item;
 import javafx.collections.FXCollections;
@@ -12,10 +17,14 @@ import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 
+import java.io.IOException;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ResourceBundle;
+
+import sample.AuctionItemDTO;
+import javafx.stage.Modality;
 
 public class SellerDashboardController implements Initializable {
 
@@ -330,8 +339,36 @@ public class SellerDashboardController implements Initializable {
     @FXML void showRevenue()   { showPanel(panelRevenue,   menuRevenue,   "Doanh thu"); }
     @FXML void showHistory()   { showPanel(panelHistory,   menuHistory,   "Lịch sử giao dịch"); }
 
-    @FXML void handleAddProduct() {
-        // TODO: Mở dialog thêm sản phẩm
+    // =====THÊM SẢN PHẨM=====
+    @FXML
+    void handleAddProduct() throws IOException {
+        FXMLLoader loader = new FXMLLoader(
+                getClass().getResource("/sample/seller_create_auction.fxml"));
+        Parent root = loader.load();
+        SellerCreateAuctionController ctrl = loader.getController();
+
+        Stage stage = new Stage();
+        stage.initOwner(menuProducts.getScene().getWindow()); // ← thêm owner
+        stage.initModality(Modality.WINDOW_MODAL);
+        stage.setScene(new Scene(root, 900, 720));
+        stage.showAndWait();
+
+        AuctionItemDTO result = ctrl.getResult();
+        if (result != null) {
+            // Convert DTO → Auction mock rồi thêm vào bảng
+            Auction newAuction = mockAuction(
+                    "A00" + (allAuctions.size() + 1),
+                    result.title,
+                    (long) result.startingPrice,
+                    0,
+                    "",
+                    Auction.Status.OPEN
+            );
+            allAuctions.add(newAuction);
+
+            // Cập nhật lại stat cards
+            statTotal.setText(String.valueOf(allAuctions.size()));
+        }
     }
 
     private void handleEditProduct(Auction a) {
