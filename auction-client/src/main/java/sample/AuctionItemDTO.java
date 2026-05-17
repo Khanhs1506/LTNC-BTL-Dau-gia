@@ -8,6 +8,10 @@ public class AuctionItemDTO {
     public String description;
     public String category;
     public String status;
+    public int    warrantyMonths;
+    public String artist;
+    public String brand;
+    public int    year;
 
     // ── THÊM những fields này vào ─────────────────────────────
     public double startingPrice;

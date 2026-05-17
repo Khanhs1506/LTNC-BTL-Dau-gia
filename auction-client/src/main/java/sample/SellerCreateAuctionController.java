@@ -12,6 +12,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import javax.swing.plaf.TableHeaderUI;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.net.URL;
@@ -495,18 +496,36 @@ public class SellerCreateAuctionController implements Initializable {
 
         try {
             result = buildDTO();
-            // TODO: gọi ServerConnection
-            // String resp = ServerConnection.getInstance().createAuction(result);
 
-            lblSubmitError.setStyle("-fx-text-fill:#27ae60;");
-            lblSubmitError.setText("✅ Đăng bán thành công! Đang đóng...");
-
-            new Timeline(new KeyFrame(Duration.seconds(1.2),
-                    e -> getStage().close())).play();
-
+            Thread task = new Thread(() -> {
+                try {
+                    String res = ServerConnection.getInstance().createItem(result);
+                    javafx.application.Platform.runLater(() -> {
+                        if ("CREATE_ITEM_SUCCESS".equalsIgnoreCase(res)) {
+                            lblSubmitError.setStyle("-fx-text-fill:#27ae60;");
+                            lblSubmitError.setText("✅ Đăng bán thành công! Đang đóng...");
+                            new Timeline(new KeyFrame(Duration.seconds(1.2), e -> getStage().close())).play();
+                        } else {
+                            lblSubmitError.setStyle("-fx-text-fill:#e74c3c;");
+                            lblSubmitError.setText("⚠ Server từ chối: " + res);
+                            btnSubmit.setDisable(false);
+                            btnSubmit.setText("🚀 Đăng bán ngay");
+                        }
+                    });
+                } catch (Exception e) {
+                    javafx.application.Platform.runLater(() -> {
+                        lblSubmitError.setStyle("-fx-text-fill:#e74c3c;");
+                        lblSubmitError.setText("⚠ Lỗi kết nối: " + e.getMessage());
+                        btnSubmit.setDisable(false);
+                        btnSubmit.setText("🚀 Đăng bán ngay");
+                    });
+                }
+            });
+            task.setDaemon(true);
+            task.start();
         } catch (Exception e) {
             lblSubmitError.setStyle("-fx-text-fill:#e74c3c;");
-            lblSubmitError.setText("⚠ Lỗi: " + e.getMessage());
+            lblSubmitError.setText("⚠ Lỗi dữ liệu: " + e.getMessage());
             btnSubmit.setDisable(false);
             btnSubmit.setText("🚀 Đăng bán ngay");
         }
@@ -532,11 +551,48 @@ public class SellerCreateAuctionController implements Initializable {
             dto.productKey = txtProductKey.getText().trim();
         }
 
-        // Thời gian
-        // TODO: parse dpStart + txtStartHour → dto.startTime
-        // TODO: parse dpEnd   + txtEndHour   → dto.endTime
+        //THỜI GIAN
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        if (dpStart.getValue() != null) {
+            String startStr = dpStart.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " " + (txtStartHour.getText().isBlank() ? "08:00" : txtStartHour.getText());
+            try {
+                dto.startTime = LocalDateTime.parse(startStr, fmt);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        if (dpEnd.getValue() != null) {
+            String endStr = dpEnd.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " " + (txtEndHour.getText().isBlank() ? "23:59" : txtEndHour.getText());
+            try {
+                dto.endTime = LocalDateTime.parse(endStr, fmt);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
 
+        //THÔNG TIN THEO TỪNG LOẠI
+        switch (selectedCategory) {
+            case "ArtItem" -> {
+                dto.artist = txtBrand.getText().trim();
+            }
+            case "ElectronicsItem" -> {
+                dto.brand          = txtBrand.getText().trim();
+                dto.warrantyMonths = parseIntSafe(txtVersion.getText());
+            }
+            case "VehicleItem" -> {
+                dto.brand = txtBrand.getText().trim();
+                dto.year  = parseIntSafe(txtVersion.getText());
+            }
+        }
         return dto;
+    }
+
+    private int parseIntSafe(String s) {
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     // ── Getter kết quả ────────────────────────────────────────
