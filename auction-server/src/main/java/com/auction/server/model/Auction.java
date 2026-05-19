@@ -1,11 +1,11 @@
 package com.auction.server.model;
 
-import com.auction.server.exception.AuctionClosedException;
-import com.auction.server.exception.InvalidBidException;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
 
 public class Auction implements Serializable {
     private static final long serialVersionUID = 1L; // gửi nhận qua mạng
@@ -40,20 +40,20 @@ public class Auction implements Serializable {
         this.bidHistory = new ArrayList<>();
     }
 
-    public synchronized boolean placeBid(String username, double bidAmount) throws AuctionClosedException, InvalidBidException {
+    public synchronized boolean placeBid(String username, double bidAmount) throws Exception {
         //  Kiểm tra trạng thái phiên
         if (this.status != Status.RUNNING) {
-            throw new AuctionClosedException("Lỗi: Phiên đấu giá không trong trạng thái mở!");
+            throw new Exception("Lỗi: Phiên đấu giá không trong trạng thái mở!");
         }
 
         // 2. Kiểm tra thời gian thực tế
         if (LocalDateTime.now().isAfter(endTime)) {
             this.status = Status.FINISHED;
-            throw new AuctionClosedException("Lỗi: Phiên đấu giá đã kết thúc thời gian!");
+            throw new Exception ("Lỗi: Phiên đấu giá đã kết thúc thời gian!");
         }
 
         if (bidAmount <= currentHighestBid) {
-            throw new InvalidBidException("Lỗi: Giá đặt (" + bidAmount + ") phải lớn hơn giá hiện tại (" + currentHighestBid + ")!");
+            throw new Exception ("Lỗi: Giá đặt (" + bidAmount + ") phải lớn hơn giá hiện tại (" + currentHighestBid + ")!");
         }
 
         //  Cập nhật thông tin người thắng hiện tại

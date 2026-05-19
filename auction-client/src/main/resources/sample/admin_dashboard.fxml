@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.chart.BarChart?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane prefHeight="800" prefWidth="1200" stylesheets="@admin_dashboard.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="sample.AdminDashboardController">
+
+    <left>
+        <VBox prefWidth="210" style="-fx-border-color: rgba(255,255,255,0.08); -fx-border-width: 0 1 0 0;" styleClass="admin-sidebar">
+
+            <!-- Brand với Logo -->
+            <HBox alignment="CENTER_LEFT" style="-fx-padding:12 16; -fx-spacing:10;
+    -fx-border-color:rgba(255,255,255,0.08); -fx-border-width:0 0 1 0;">
+                <ImageView fx:id="logoImageView" fitHeight="42" fitWidth="42"
+                           preserveRatio="true" smooth="true" />
+                <Label style="-fx-font-size:14; -fx-font-weight:bold; -fx-text-fill:#f0f0f0;"
+                       text="Trang Admin" />
+            </HBox>
+
+            <Label style="-fx-font-size:10; -fx-text-fill:#555;                          -fx-padding:14 14 4 14; -fx-font-weight:bold;" text="TỔNG QUAN" />
+            <Button fx:id="adminMenuOverview" maxWidth="Infinity" onAction="#showOverview" styleClass="admin-sidebar-item,admin-sidebar-item-active" text="Bảng điều khiển" />
+
+            <Label style="-fx-font-size:10; -fx-text-fill:#555;                          -fx-padding:12 14 4 14; -fx-font-weight:bold;" text="QUẢN LÝ" />
+            <Button fx:id="adminMenuUsers" maxWidth="Infinity" onAction="#showUsers" styleClass="admin-sidebar-item" text="   Người dùng" />
+            <Button fx:id="adminMenuAuctions" maxWidth="Infinity" onAction="#showAuctions" styleClass="admin-sidebar-item" text="   Phiên đấu giá" />
+            <Button fx:id="adminMenuBids" maxWidth="Infinity" onAction="#showBids" styleClass="admin-sidebar-item" text="Lịch sử đặt giá" />
+            <Button fx:id="adminMenuReports" maxWidth="Infinity" onAction="#showReports" styleClass="admin-sidebar-item" text="   Báo cáo vi phạm" />
+
+            <Label style="-fx-font-size:10; -fx-text-fill:#555;                          -fx-padding:12 14 4 14; -fx-font-weight:bold;" text="HỆ THỐNG" />
+            <Button fx:id="adminMenuSettings" maxWidth="Infinity" onAction="#showSettings" styleClass="admin-sidebar-item" text="   Cài đặt" />
+
+            <Region VBox.vgrow="ALWAYS" />
+            <VBox style="-fx-padding:10 8; -fx-border-color:rgba(255,255,255,0.08);                          -fx-border-width:1 0 0 0;">
+                <Button maxWidth="Infinity" onAction="#handleLogout" styleClass="admin-sidebar-item" text="   Đăng xuất" />
+            </VBox>
+        </VBox>
+    </left>
+
+    <center>
+        <VBox>
+            <HBox alignment="CENTER_LEFT" prefHeight="52" spacing="12" style="-fx-padding:0 20;" styleClass="admin-topbar">
+                <Label fx:id="adminPageTitle" style="-fx-font-size:15; -fx-font-weight:bold; -fx-text-fill:#f0f0f0;" text="Bảng điều khiển" />
+                <Region HBox.hgrow="ALWAYS" />
+                <Button fx:id="btnBell" onAction="#handleBellClick"
+                        style="-fx-background-color:transparent; -fx-border-color:transparent;
+               -fx-font-size:16; -fx-cursor:hand; -fx-text-fill:#888;
+               -fx-padding:4 8;" text="🔔" />
+                <Label style="-fx-background-color:#534ab7; -fx-text-fill:white;                               -fx-font-weight:bold; -fx-font-size:12;                               -fx-padding:6 10; -fx-background-radius:20;" text="AD" />
+                <Label style="-fx-font-size:13; -fx-text-fill:#aaa;" text="Tài khoản Admin" />
+            </HBox>
+
+            <ScrollPane fitToWidth="true" style="-fx-background-color:#1A1D21; -fx-background:#1A1D21;" VBox.vgrow="ALWAYS">
+                <StackPane fx:id="adminContent" style="-fx-padding: 20 24;">
+
+                    <!-- Overview panel -->
+                    <VBox fx:id="adminPanelOverview" spacing="16">
+                        <HBox spacing="12">
+                            <VBox styleClass="admin-stat-card" HBox.hgrow="ALWAYS">
+                                <Label styleClass="admin-stat-label" text="Tổng người dùng" />
+                                <Label fx:id="adminStatUsers" styleClass="admin-stat-value" text="1,248" />
+                            </VBox>
+                            <VBox styleClass="admin-stat-card" HBox.hgrow="ALWAYS">
+                                <Label styleClass="admin-stat-label" text="Tổng phiên đấu giá" />
+                                <Label fx:id="adminStatAuctions" styleClass="admin-stat-value" text="342" />
+                            </VBox>
+                            <VBox styleClass="admin-stat-card" HBox.hgrow="ALWAYS">
+                                <Label styleClass="admin-stat-label" text="Tổng doanh thu" />
+                                <Label fx:id="adminStatRevenue" styleClass="admin-stat-value" text="2.84 tỷ ₫" />
+                            </VBox>
+                        </HBox>
+                        <HBox spacing="12">
+                            <VBox styleClass="admin-stat-card" HBox.hgrow="ALWAYS">
+                                <Label styleClass="admin-stat-label" text="Đang diễn ra" />
+                                <Label fx:id="adminStatLive" style="-fx-font-size:20; -fx-font-weight:bold; -fx-text-fill:#c0392b;" text="28" />
+                            </VBox>
+                            <VBox styleClass="admin-stat-card" HBox.hgrow="ALWAYS">
+                                <Label styleClass="admin-stat-label" text="KT – Đã thanh toán" />
+                                <Label fx:id="adminStatPaid" style="-fx-font-size:20; -fx-font-weight:bold; -fx-text-fill:#27ae60;" text="198" />
+                            </VBox>
+                            <VBox styleClass="admin-stat-card" HBox.hgrow="ALWAYS">
+                                <Label styleClass="admin-stat-label" text="KT – Chưa thanh toán" />
+                                <Label fx:id="adminStatUnpaid" style="-fx-font-size:20; -fx-font-weight:bold; -fx-text-fill:#e67e22;" text="24" />
+                            </VBox>
+                        </HBox>
+                        <BarChart fx:id="adminRevenueChart" prefHeight="250" title="Doanh thu theo tháng">
+                            <xAxis><CategoryAxis label="Tháng" /></xAxis>
+                            <yAxis><NumberAxis label="Triệu VNĐ" /></yAxis>
+                        </BarChart>
+                    </VBox>
+
+                    <!-- Users panel -->
+                    <VBox fx:id="adminPanelUsers" managed="false" spacing="14" visible="false">
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label style="-fx-font-size:15; -fx-font-weight:bold; -fx-text-fill:#f0f0f0;" text="Quản lý người dùng" />
+                            <Region HBox.hgrow="ALWAYS" />
+                            <Button styleClass="admin-btn-primary" text="+ Thêm user" />
+                        </HBox>
+                        <HBox spacing="10">
+                            <TextField fx:id="userSearchField" prefWidth="280" promptText="Tìm người dùng..." styleClass="admin-input" />
+                            <ComboBox fx:id="roleFilter" prefWidth="140" promptText="Vai trò" style="-fx-background-color:#22262B; -fx-text-fill:#f0f0f0;" />
+                        </HBox>
+                        <TableView fx:id="usersTable" styleClass="admin-table" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="colUId" prefWidth="50" text="ID" />
+                                <TableColumn fx:id="colUName" prefWidth="160" text="Username" />
+                                <TableColumn fx:id="colURole" prefWidth="100" text="Vai trò" />
+                                <TableColumn fx:id="colUEmail" prefWidth="180" text="Email" />
+                                <TableColumn fx:id="colUDate" prefWidth="110" text="Đăng ký" />
+                                <TableColumn fx:id="colUStatus" prefWidth="110" text="Trạng thái" />
+                                <TableColumn fx:id="colUAction" prefWidth="100" text="Hành động" />
+                            </columns>
+                        </TableView>
+                    </VBox>
+
+                    <!-- Auctions panel -->
+                    <VBox fx:id="adminPanelAuctions" managed="false" spacing="14" visible="false">
+                        <Label style="-fx-font-size:15; -fx-font-weight:bold; -fx-text-fill:#f0f0f0;" text="Quản lý phiên đấu giá" />
+                        <HBox spacing="10">
+                            <TextField fx:id="auctionSearch" prefWidth="280" promptText="Tìm phiên đấu giá..." styleClass="admin-input" />
+                            <ComboBox fx:id="auctionStatusFilter" prefWidth="140" promptText="Trạng thái" style="-fx-background-color:#22262B; -fx-text-fill:#f0f0f0;" />
+                        </HBox>
+                        <TableView fx:id="auctionsTable" styleClass="admin-table" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="colAAId" prefWidth="70" text="ID" />
+                                <TableColumn fx:id="colAAName" prefWidth="180" text="Sản phẩm" />
+                                <TableColumn fx:id="colAASeller" prefWidth="120" text="Seller" />
+                                <TableColumn fx:id="colAAPrice" prefWidth="120" text="Giá chốt" />
+                                <TableColumn fx:id="colAAWinner" prefWidth="120" text="Người thắng" />
+                                <TableColumn fx:id="colAAStatus" prefWidth="110" text="Trạng thái" />
+                                <TableColumn fx:id="colAAAction" prefWidth="90" text="Hành động" />
+                            </columns>
+                        </TableView>
+                    </VBox>
+
+                    <!-- Bids panel -->
+                    <VBox fx:id="adminPanelBids" managed="false" spacing="14" visible="false">
+                        <Label style="-fx-font-size:15; -fx-font-weight:bold; -fx-text-fill:#f0f0f0;" text="Bid Transactions" />
+                        <TableView fx:id="bidsTable" styleClass="admin-table" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="colBId" prefWidth="80" text="Mã GD" />
+                                <TableColumn fx:id="colBAuction" prefWidth="100" text="Auction ID" />
+                                <TableColumn fx:id="colBBidder" prefWidth="150" text="Người đặt" />
+                                <TableColumn fx:id="colBAmount" prefWidth="140" text="Số tiền" />
+                                <TableColumn fx:id="colBTime" prefWidth="140" text="Thời gian" />
+                                <TableColumn fx:id="colBResult" prefWidth="110" text="Kết quả" />
+                            </columns>
+                        </TableView>
+                    </VBox>
+
+                    <!-- Reports panel -->
+                    <VBox fx:id="adminPanelReports" managed="false" spacing="14" visible="false">
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label style="-fx-font-size:15; -fx-font-weight:bold; -fx-text-fill:#f0f0f0;" text="Báo cáo vi phạm" />
+                            <Label styleClass="pill-unpaid" text="2 chờ xử lý" />
+                        </HBox>
+                        <TableView fx:id="reportsTable" styleClass="admin-table" VBox.vgrow="ALWAYS">
+                            <columns>
+                                <TableColumn fx:id="colRId" prefWidth="70" text="ID" />
+                                <TableColumn fx:id="colRReporter" prefWidth="140" text="Người báo cáo" />
+                                <TableColumn fx:id="colRTarget" prefWidth="140" text="Đối tượng" />
+                                <TableColumn fx:id="colRReason" prefWidth="220" text="Lý do" />
+                                <TableColumn fx:id="colRDate" prefWidth="100" text="Ngày" />
+                                <TableColumn fx:id="colRAction" prefWidth="90" text="Xử lý" />
+                            </columns>
+                        </TableView>
+                    </VBox>
+
+                    <!-- Settings panel -->
+                    <VBox fx:id="adminPanelSettings" managed="false" spacing="16" visible="false">
+                        <Label style="-fx-font-size:15; -fx-font-weight:bold; -fx-text-fill:#f0f0f0;" text="Cài đặt hệ thống" />
+                        <VBox maxWidth="420" spacing="8" styleClass="admin-stat-card">
+                            <Label style="-fx-text-fill:#aaa; -fx-font-size:13;" text="Phí nền tảng (%)" />
+                            <TextField fx:id="platformFeeField" styleClass="admin-input" text="5" />
+                        </VBox>
+                        <VBox maxWidth="420" spacing="8" styleClass="admin-stat-card">
+                            <Label style="-fx-text-fill:#aaa; -fx-font-size:13;" text="Thời gian phiên mặc định (giờ)" />
+                            <TextField fx:id="sessionDurationField" styleClass="admin-input" text="72" />
+                        </VBox>
+                        <Button onAction="#handleSaveSettings" styleClass="admin-btn-primary" text="Lưu cài đặt" />
+                    </VBox>
+
+                </StackPane>
+            </ScrollPane>
+        </VBox>
+    </center>
+
+</BorderPane>

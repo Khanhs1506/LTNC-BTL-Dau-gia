@@ -1,136 +1,177 @@
 package sample;
 
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.control.Button;
-import javafx.event.ActionEvent;
-import javafx.scene.control.PasswordField;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.stage.Stage;
 
-import javafx.scene.image.ImageView;
-import javafx.stage.StageStyle;
-import org.w3c.dom.Text;
-import javafx.scene.control.TextField;     // <-- THÊM MỚI
-import javafx.scene.control.PasswordField; // <-- THÊM MỚI
-
-import javafx.application.Application;
-
-import javafx.scene.image.Image;
-import java.io.IOException;
 import java.net.URL;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.ResourceBundle;
 
-public class LoginController extends Application implements Initializable {
+public class LoginController implements Initializable {
 
-    @FXML
-    private Button cancelButton;
-
-    @FXML
-    private Label loginMessageLabel;
-
-    @FXML
-    private ImageView brandingImageView;
-
-    @FXML
-    private ImageView lockImageView;
-
-    @FXML
-    private TextField usernameTextField;
-    @FXML
-    private PasswordField enterPasswordField;
+    @FXML private Button        cancelButton;
+    @FXML private Label         loginMessageLabel;
+    @FXML private ImageView     brandingImageView;
+    @FXML private ImageView     lockImageView;
+    @FXML private TextField     usernameTextField;
+    @FXML private PasswordField enterPasswordField;
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        // CÓ THỂ KHÔNG CẦN VIẾT CODE PHẦN NÀy
+        // Load ảnh
         try {
-            // Ảnh con sóc
-            URL brandingUrl = getClass().getResource("images/logo_new.png");
-            if (brandingUrl != null) {
-                // Biến URL thành Image và nhét vào khung ImageView
-                Image brandingImage = new Image(brandingUrl.toString());
-                brandingImageView.setImage(brandingImage);
-            } else {
-                System.out.println("Lỗi: Không tìm thấy ảnh logo_new.png");
-            }
+            URL brandingUrl = getClass().getResource("/images/logo_new.png");
+            if (brandingUrl != null)
+                brandingImageView.setImage(new Image(brandingUrl.toString()));
 
-            // Ảnh ổ khóa màu cam
             URL lockUrl = getClass().getResource("/images/o_khoa.png");
-            if (lockUrl != null) {
-                Image lockImage = new Image(lockUrl.toString());
-                lockImageView.setImage(lockImage);
-            } else {
-                System.out.println("Lỗi: Không tìm thấy ảnh o_khoa.png");
-            }
+            if (lockUrl != null)
+                lockImageView.setImage(new Image(lockUrl.toString()));
 
         } catch (Exception e) {
-            System.out.println("Có lỗi xảy ra khi tải ảnh!");
-            e.printStackTrace();
+            System.out.println("Lỗi khi tải ảnh!");
+        }
+
+        // Kết nối server
+        try {
+            ServerConnection.getInstance();
+            System.out.println("✅ Kết nối server thành công!");
+        } catch (Exception e) {
+            System.out.println("❌ Không kết nối được server!");
         }
     }
 
-    public void loginButtonOnAction(ActionEvent event) throws IOException {
-        if (usernameTextField.getText().isEmpty() == false && enterPasswordField.getText().isEmpty() == false) {
-            validateLogin();
-        } else {
-            loginMessageLabel.setText("Không được bỏ trống thông tin");
+    @FXML
+    public void loginButtonOnAction(ActionEvent event) {
+        String username = usernameTextField.getText().trim();
+        String password = enterPasswordField.getText().trim();
+
+        if (username.isEmpty() || password.isEmpty()) {
+            loginMessageLabel.setText("⚠ Không được bỏ trống thông tin!");
+            return;
         }
-    }
 
-    // Xác thực đăng nhập (Kiểm tra đăng nhập)
-    private void validateLogin() {
-        DatabaseConnection connectNow = new DatabaseConnection();
-        Connection connectDB = connectNow.getConnection();
-
-        String verifyLogin = "SELECT count(1) FROM user_account WHERE username = '" + usernameTextField.getText() + "' AND password = '" + enterPasswordField.getText() + "'";
+        cancelButton.setDisable(true);
+        loginMessageLabel.setText("Đang kết nối...");
 
         try {
-            Statement statement = connectDB.createStatement();
-            ResultSet queryReaults = statement.executeQuery(verifyLogin);
 
-            while (queryReaults.next()) {
-                if (queryReaults.getInt(1) == 1) {
-                    //loginMessageLabel.setText("Đăng nhập thành công!");
-                    createAccountForm();
-                } else {
-                    loginMessageLabel.setText("Đăng nhập không hợp lệ.");
+            String response = ServerConnection.getInstance().login(username, password);
+
+            if (response != null && response.startsWith("LOGIN SUCCESS")) {
+<<<<<<< Updated upstream
+                // Parse role từ response
+                String json = response.split("===", 2)[1];
+                JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+
+                String role     = obj.get("role").getAsString();
+                String uname    = obj.get("username").getAsString();
+=======
+                //
+                String role = response.split("===", 2)[1]; // trực tiếp lấy "ADMIN" / "SELLER" / "BIDDER"
+>>>>>>> Stashed changes
+
+                UserSession.getInstance().login(username, role);
+
+                // Cập nhật Home nếu đang mở
+                if (HomeController.getInstance() != null) {
+                    HomeController.getInstance().onLoginSuccess(username);
                 }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            e.getCause();
-        }
 
+                // Điều hướng theo role
+                navigateByRole(role);
+
+            } else if ("LOGIN FAIL".equals(response)) {
+                loginMessageLabel.setText("❌ Sai tên đăng nhập hoặc mật khẩu!");
+                enterPasswordField.clear();
+            } else {
+                loginMessageLabel.setText("⚠ Phản hồi không hợp lệ: " + response);
+            }
+
+        } catch (Exception e) {
+            loginMessageLabel.setText("⚠ Lỗi kết nối server!");
+            e.printStackTrace();
+        } finally {
+            cancelButton.setDisable(false);
+        }
     }
 
-    public void cancelButtonAction(ActionEvent event) throws IOException {
+    // =====MỞ GIAO DIỆN THEO ĐÚNG ROLE=====
+    private void navigateByRole(String role) {
+        try {
+            if (role.equalsIgnoreCase("SELLER")) {
+                // Mở Seller Dashboard trong Stage mới 1200x800
+                FXMLLoader loader = new FXMLLoader(
+                        getClass().getResource("/sample/seller_dashboard.fxml"));
+                Parent root = loader.load();
+
+                Stage sellerStage = new Stage();
+                sellerStage.setTitle("Seller Dashboard");
+                sellerStage.setScene(new Scene(root, 1200, 800));
+                sellerStage.setResizable(true);
+
+                // Căn giữa màn hình
+                sellerStage.centerOnScreen();
+                sellerStage.show();
+
+                // Đóng cửa sổ Login
+                Stage loginStage = (Stage) cancelButton.getScene().getWindow();
+                loginStage.close();
+
+                // Đóng cửa sổ Home
+                if (HomeController.getInstance() != null) {
+                    Stage homeStage = (Stage) HomeController.getInstance()
+                            .getRoot().getScene().getWindow();
+                    homeStage.close();
+                }
+
+            } else if (role.equalsIgnoreCase("ADMIN")) {
+                // Mở Seller Dashboard trong Stage mới 1200x800
+                FXMLLoader loader = new FXMLLoader(
+                        getClass().getResource("/sample/admin_dashboard.fxml"));
+                Parent root = loader.load();
+
+                Stage adminStage = new Stage();
+                adminStage.setTitle("Admin Dashboard");
+                adminStage.setScene(new Scene(root, 1200, 800));
+                adminStage.setResizable(true);
+
+                // Căn giữa màn hình
+                adminStage.centerOnScreen();
+                adminStage.show();
+
+                // Đóng cửa sổ Login
+                Stage loginStage = (Stage) cancelButton.getScene().getWindow();
+                loginStage.close();
+
+                // Đóng cửa sổ Home
+                if (HomeController.getInstance() != null) {
+                    Stage homeStage = (Stage) HomeController.getInstance()
+                            .getRoot().getScene().getWindow();
+                    homeStage.close();
+                }
+
+            } else {
+                // BIDDER — chỉ đóng Login, giữ Home
+                ((Stage) cancelButton.getScene().getWindow()).close();
+            }
+
+        } catch (Exception e) {
+            loginMessageLabel.setText("⚠ Không tải được giao diện! (LoginController.java)");
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    public void cancelButtonAction(ActionEvent event) {
         Stage stage = (Stage) cancelButton.getScene().getWindow();
         stage.close();
-    }
-
-    public void createAccountForm() throws IOException {
-
-        Parent root = FXMLLoader.load(getClass().getResource("/sample/register.fxml"));
-        Stage registerStage = new Stage();
-        registerStage.initStyle(StageStyle.UNDECORATED);
-        registerStage.setScene(new Scene(root, 520, 527));
-        registerStage.show();
-
-        // Đóng cửa sổ đăng nhập hiện tại (nếu muốn)
-        Stage loginStage = (Stage) loginMessageLabel.getScene().getWindow();
-        loginStage.close();
-
-    }
-
-    @Override
-    public void start(Stage primaryStage) throws Exception {
-
     }
 }
