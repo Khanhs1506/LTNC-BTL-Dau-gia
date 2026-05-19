@@ -11,6 +11,7 @@ import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import sample.form.CategoryPanelManager;
 
 import javax.swing.plaf.TableHeaderUI;
 import java.awt.event.ActionEvent;
@@ -109,16 +110,37 @@ public class SellerCreateAuctionController implements Initializable {
     @FXML private MenuItem menuFurniture, menuRealEstate, menuEvent;
     @FXML private MenuItem menuGame, menuSport, menuBook, menuFashion;
 
+    @FXML private VBox dynamicFormContainer;
+    private CategoryPanelManager panelManager;
+
+
     @Override
     public void initialize(URL url, ResourceBundle rb) {
-        // Gán onAction cho từng MenuItem
-        menuFurniture.setOnAction(e  -> selectOtherCategory("Nội thất"));
-        menuRealEstate.setOnAction(e -> selectOtherCategory("Bất động sản"));
-        menuEvent.setOnAction(e      -> selectOtherCategory("Vé sự kiện"));
-        menuGame.setOnAction(e       -> selectOtherCategory("Trò chơi điện tử"));
-        menuSport.setOnAction(e      -> selectOtherCategory("Thể thao"));
-        menuBook.setOnAction(e       -> selectOtherCategory("Sách"));
-        menuFashion.setOnAction(e    -> selectOtherCategory("Thời trang"));
+        panelManager = new CategoryPanelManager(dynamicFormContainer);
+
+        // MenuItem bindings
+        menuFurniture.setOnAction(e  -> switchCategory("Nội thất"));
+        menuRealEstate.setOnAction(e -> switchCategory("Bất động sản"));
+        menuEvent.setOnAction(e      -> switchCategory("Vé sự kiện"));
+        menuGame.setOnAction(e       -> switchCategory("Trò chơi điện tử"));
+        menuSport.setOnAction(e      -> switchCategory("Thể thao"));
+        menuBook.setOnAction(e       -> switchCategory("Sách"));
+        menuFashion.setOnAction(e    -> switchCategory("Thời trang"));
+
+        setupCategories();
+        setupDescCounter();
+        setupMoneyListeners();
+
+        // Mặc định: Tác phẩm nghệ thuật
+        switchCategory("ArtItem");
+        btnArt.getStyleClass().add("category-btn-active");
+        showStep(1);
+    }
+
+    /** Điểm vào duy nhất để chuyển category */
+    private void switchCategory(String key) {
+        selectedCategory = key;
+        panelManager.switchTo(key);
     }
 
     // Sửa lại method này nhận String thay vì ActionEvent
@@ -138,23 +160,29 @@ public class SellerCreateAuctionController implements Initializable {
 
     // Xử lý 3 nút chính
     @FXML
-    private void selectCategory(ActionEvent e) {
+    private void selectCategory(javafx.event.ActionEvent e) {
         Button clicked = (Button) e.getSource();
+        clearCategoryStyles();
+        clicked.getStyleClass().add("category-btn-active");
+        btnOther.setText("📦  Khác");
 
-        // Reset style tất cả
+        if      (clicked == btnArt)         switchCategory("ArtItem");
+        else if (clicked == btnVehicle)     switchCategory("VehicleItem");
+        else if (clicked == btnElectronics) switchCategory("ElectronicsItem");
+    }
+
+    private void switchCategoryFromMenu(String name) {
+        clearCategoryStyles();
+        btnOther.setText("📦  " + name);
+        btnOther.getStyleClass().add("category-btn-active");
+        switchCategory(name);
+    }
+
+    private void clearCategoryStyles() {
         btnArt.getStyleClass().remove("category-btn-active");
         btnVehicle.getStyleClass().remove("category-btn-active");
         btnElectronics.getStyleClass().remove("category-btn-active");
         btnOther.getStyleClass().remove("category-btn-active");
-
-        // Active nút được chọn
-        clicked.getStyleClass().add("category-btn-active");
-
-        if (clicked == btnArt)         selectedCategory = "ArtItem";
-        else if (clicked == btnVehicle)     selectedCategory = "VehicleItem";
-        else if (clicked == btnElectronics) selectedCategory = "ElectronicsItem";
-
-        updateFormByCategory(); // cập nhật form bên dưới
     }
 
     // Xử lý submenu "Khác"
@@ -380,9 +408,6 @@ public class SellerCreateAuctionController implements Initializable {
         showStep(currentStep);
     }
 
-    @FXML
-    private void handleClose() { getStage().close(); }
-
     private void showStep(int step) {
         // Hide all
         step1.setVisible(false); step1.setManaged(false);
@@ -412,22 +437,20 @@ public class SellerCreateAuctionController implements Initializable {
     private boolean validateStep1() {
         if (selectedImageFile == null) {
             lblImageStatus.setText("⚠ Vui lòng chọn ảnh sản phẩm");
-            lblImageStatus.setStyle("-fx-text-fill:#e74c3c;");
             return false;
         }
         if (txtTitle.getText().isBlank()) {
             lblTitleHint.setText("⚠ Tên sản phẩm không được trống");
-            txtTitle.requestFocus();
-            return false;
-        }
-        if (cmbCategory.getValue() == null) {
-            lblTitleHint.setText("⚠ Vui lòng chọn danh mục");
             return false;
         }
         if (txtDescription.getText().isBlank()) {
-            lblTitleHint.setText("⚠ Vui lòng nhập mô tả sản phẩm");
+            lblTitleHint.setText("⚠ Vui lòng nhập mô tả");
             return false;
         }
+        // Delegate validate xuống panel đang active
+        String err = panelManager.validate();
+        if (err != null) { lblTitleHint.setText(err); return false; }
+
         lblTitleHint.setText("");
         return true;
     }
@@ -535,8 +558,8 @@ public class SellerCreateAuctionController implements Initializable {
     private AuctionItemDTO buildDTO() {
         AuctionItemDTO dto = new AuctionItemDTO();
         dto.title         = txtTitle.getText().trim();
-        dto.category      = cmbCategory.getValue();
         dto.description   = txtDescription.getText().trim();
+        dto.category      = selectedCategory;
         dto.startingPrice = parseMoney(txtStartPrice.getText());
         dto.stepPrice     = parseMoney(txtStepPrice.getText());
         dto.buyNowPrice   = txtBuyNow.getText().isBlank() ? 0 : parseMoney(txtBuyNow.getText());
@@ -544,45 +567,20 @@ public class SellerCreateAuctionController implements Initializable {
         dto.imageUrl      = selectedImageFile != null ? selectedImageFile.toURI().toString() : null;
         dto.status        = "OPEN";
 
-        // Type-specific
-        if (btnTypeSoftware.isSelected()) {
-            dto.platform   = cmbPlatform.getValue();
-            dto.version    = txtVersion.getText().trim();
-            dto.productKey = txtProductKey.getText().trim();
-        }
+        // Delegate fill xuống panel đang active
+        panelManager.fillDTO(dto);
 
-        //THỜI GIAN
+        // Thời gian
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         if (dpStart.getValue() != null) {
-            String startStr = dpStart.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " " + (txtStartHour.getText().isBlank() ? "08:00" : txtStartHour.getText());
-            try {
-                dto.startTime = LocalDateTime.parse(startStr, fmt);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            String s = dpStart.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    + " " + nvl(txtStartHour.getText(), "08:00");
+            try { dto.startTime = LocalDateTime.parse(s, fmt); } catch (Exception ignored) {}
         }
         if (dpEnd.getValue() != null) {
-            String endStr = dpEnd.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " " + (txtEndHour.getText().isBlank() ? "23:59" : txtEndHour.getText());
-            try {
-                dto.endTime = LocalDateTime.parse(endStr, fmt);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        //THÔNG TIN THEO TỪNG LOẠI
-        switch (selectedCategory) {
-            case "ArtItem" -> {
-                dto.artist = txtBrand.getText().trim();
-            }
-            case "ElectronicsItem" -> {
-                dto.brand          = txtBrand.getText().trim();
-                dto.warrantyMonths = parseIntSafe(txtVersion.getText());
-            }
-            case "VehicleItem" -> {
-                dto.brand = txtBrand.getText().trim();
-                dto.year  = parseIntSafe(txtVersion.getText());
-            }
+            String s = dpEnd.getValue().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    + " " + nvl(txtEndHour.getText(), "23:59");
+            try { dto.endTime = LocalDateTime.parse(s, fmt); } catch (Exception ignored) {}
         }
         return dto;
     }
@@ -638,5 +636,11 @@ public class SellerCreateAuctionController implements Initializable {
 
     private String nvl(String s, String fallback) {
         return (s != null && !s.isBlank()) ? s : fallback;
+    }
+
+    @FXML
+    private void handleClose() {
+        panelManager.resetAll(); // Reset toàn bộ khi đóng
+        getStage().close();
     }
 }

@@ -31,6 +31,8 @@ public class AuctionItemDTO {
     // Thời gian
     public java.time.LocalDateTime startTime;
     public java.time.LocalDateTime endTime;
+    public String author;
+    public String certificate;
 
     // ── Constructor rỗng
     public AuctionItemDTO() {}
