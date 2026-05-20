@@ -141,7 +141,7 @@ public class HomeController {
         badgeUser .setVisible(false);
 
         //TẠO THÔNG BÁO
-        NotificationManager.getInstance().setOnNewNotification(() ->
+        NotificationManager.getInstance().addNotificationListener(() ->
                 javafx.application.Platform.runLater(this::refreshBadge)
         );
     }

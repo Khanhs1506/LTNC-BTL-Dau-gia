@@ -8,6 +8,10 @@ public class AuctionItemDTO {
     public String description;
     public String category;
     public String status;
+    public int    warrantyMonths;
+    public String artist;
+    public String brand;
+    public int    year;
 
     // ── THÊM những fields này vào ─────────────────────────────
     public double startingPrice;
@@ -27,6 +31,8 @@ public class AuctionItemDTO {
     // Thời gian
     public java.time.LocalDateTime startTime;
     public java.time.LocalDateTime endTime;
+    public String author;
+    public String certificate;
 
     // ── Constructor rỗng
     public AuctionItemDTO() {}

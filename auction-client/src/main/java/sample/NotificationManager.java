@@ -33,7 +33,7 @@ public class NotificationManager {
     private int unreadCount = 0;
 
     //GỌI LẠI ĐỂ CẬP NHẬT
-    private Runnable onNewNotification;
+    private final List<Runnable> listeners = new ArrayList<>();
 
     private NotificationManager() {}
 
@@ -41,8 +41,8 @@ public class NotificationManager {
     public synchronized void addNotification(String message) {
         notifications.add(new Notification(message));
         unreadCount++;
-        if (onNewNotification != null) {
-            onNewNotification.run();
+        for (Runnable callback : listeners) {
+            callback.run();
         }
     }
 
@@ -58,7 +58,7 @@ public class NotificationManager {
     }
 
     //TẠO CALLBACK
-    public void setOnNewNotification(Runnable callback) {
-        this.onNewNotification = callback;
+    public synchronized void addNotificationListener(Runnable callback) {
+        listeners.add(callback);
     }
 }
