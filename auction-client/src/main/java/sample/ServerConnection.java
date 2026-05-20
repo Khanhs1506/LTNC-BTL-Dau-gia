@@ -42,29 +42,57 @@ public class ServerConnection {
         return responseQueue.take();
     }
 
-    /** Trả về "LOGIN SUCCESS" hoặc "LOGIN FAIL" */
-    public String login(String username, String password) throws Exception {
-        String json = String.format(
-                "{\"username\":\"%s\",\"password\":\"%s\"}", username, password);
+    //ĐĂNG NHẬP
+    public String  login(String username, String password) throws Exception {
+        String json = String.format("{\"username\":\"%s\",\"password\":\"%s\"}",
+                                    username, password);
         return sendRequest("LOGIN", json);
     }
 
-    /**
-     * role: "ADMIN" | "SELLER" | "BIDDER"
-     * Trả về "REGISTER SUCCESS" hoặc "REGISTER FAIL"
-     */
+    //ĐĂNG KÍ
     public String register(String username, String password, String role) throws Exception {
-        String json = String.format(
-                "{\"username\":\"%s\",\"password\":\"%s\",\"role\":\"%s\"}",
-                username, password, role);
+        String json = String.format("{\"username\":\"%s\",\"password\":\"%s\",\"role\":\"%s\"}",
+                                    username, password, role);
         return sendRequest("REGISTER", json);
     }
 
+    //ĐẶT GIÁ
     public String placeBid(int auctionId, String username, double amount) throws Exception {
-        String json = String.format(
-                "{\"auctionId\":%d,\"username\":\"%s\",\"amount\":%.2f}",
-                auctionId, username, amount);
-        return sendRequest("PLACE_BID", json);
+        String json = String.format("{\"auctionId\":%d,\"username\":\"%s\",\"amount\":%.2f}",
+                                   auctionId, username, amount);
+        return sendRequest("PLACE_BID", json) ;
+    }
+
+    //THÊM SẢN PHẨM
+    public String createItem(AuctionItemDTO dto) throws Exception {
+        String json = String.format( "{\"name\":\"%s\",\"itemType\":\"%s\",\"startingPrice\":%.2f," +
+                "\"description\":\"%s\",\"warrantyMonths\":%d," +
+                "\"artist\":\"%s\",\"brand\":\"%s\",\"year\":%d}", escape(dto.title),
+                mapCategoryToItemType(dto.category),
+                dto.startingPrice,
+                escape(dto.description),
+                dto.warrantyMonths,
+                escape(dto.artist),
+                escape(dto.brand),
+                dto.year);
+        return sendRequest("CREATE_ITEM", json);
+    }
+
+    //PHÂN LOẠI SẢN PHẨM
+    private String mapCategoryToItemType(String category) {
+        if (category == null) return "OTHER";
+        return switch (category) {
+            case "ArtItem"         -> "ART";
+            case "ElectronicsItem" -> "ELECTRONICS";
+            case "VehicleItem"     -> "VEHICLE";
+            default                -> "OTHER";
+        };
+    }
+
+    private String escape(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "");
     }
 
     public String getItems() throws Exception {

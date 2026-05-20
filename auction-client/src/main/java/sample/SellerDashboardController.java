@@ -1,9 +1,13 @@
 package sample;
 
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Modality;
+import javafx.stage.Popup;
 import javafx.stage.Stage;
 import sample.model.Auction;
 import sample.model.Item;
@@ -20,6 +24,7 @@ import javafx.scene.layout.VBox;
 import java.io.IOException;
 import java.net.URL;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
 
@@ -78,6 +83,10 @@ public class SellerDashboardController implements Initializable {
     @FXML private TextField searchProducts;
     @FXML private ComboBox<String> filterCategory;
 
+    //FXML PHẦN NÚT
+    @FXML private StackPane bellStackSeller;
+    private Label notifBadgeSeller;
+
     // ── Mock data ────────────────────────────────────────────────
     private ObservableList<Auction> allAuctions;
     private final List<Button> sidebarButtons = new java.util.ArrayList<>();
@@ -99,7 +108,130 @@ public class SellerDashboardController implements Initializable {
         setupRevenueChart();
         setupPieChart();
         showPanel(panelOverview, menuOverview, "Dashboard");
+        setupNotificationBadge();
     }
+
+    //SET UP NÚT CHUÔNG THÔNG BÁO
+    private void setupNotificationBadge() {
+        notifBadgeSeller = creatBadgeLabel();
+        if (bellStackSeller != null) bellStackSeller.getChildren().add(notifBadgeSeller);
+        notifBadgeSeller.setVisible(false);
+        NotificationManager.getInstance().addNotificationListener(() -> javafx.application.Platform.runLater(this :: refreshBadge));
+    }
+
+    //TẠO NÚT ĐỎ HIỆN SỐ LƯỢNG THÔNG BÁO CHƯA ĐỌC
+    private Label creatBadgeLabel() {
+        Label badge = new Label();
+        badge.setStyle(
+                "-fx-background-color: #e74c3c;" +
+                        "-fx-text-fill: white;" +
+                        "-fx-font-size: 9;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-background-radius: 10;" +
+                        "-fx-padding: 1 4;" +
+                        "-fx-min-width: 16;" +
+                        "-fx-alignment: center;"
+        );
+        StackPane.setAlignment(badge, Pos.TOP_RIGHT);
+        StackPane.setMargin(badge, new Insets(-4, -4, 0, 0));
+        return badge;
+    }
+
+    //CẬP NHẬT DẤU ĐỎ
+    private void refreshBadge() {
+        int count = NotificationManager.getInstance().getUnreadCount();
+        String text = count > 99 ? "99+" : String.valueOf(count);
+        boolean show = count > 0;
+        notifBadgeSeller.setText(text);
+        notifBadgeSeller.setVisible(show);
+    }
+
+    //XỬ LÍ BẤM CHUÔNG
+    @FXML
+    private void handleBellClick() {
+        NotificationManager.getInstance().markAllRead();
+        refreshBadge();
+
+        List<NotificationManager.Notification> list = NotificationManager.getInstance().getAll();
+
+        Popup popup = new Popup();
+        popup.setAutoHide(true);
+
+        VBox box = new VBox(0);
+        box.setPrefWidth(320);
+        box.setMaxHeight(400);
+        box.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-border-color: #ddd;" +
+                        "-fx-border-width: 1;" +
+                        "-fx-border-radius: 10;" +
+                        "-fx-background-radius: 10;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 16, 0, 0, 6);"
+        );
+
+        Label header = new Label("🔔  Thông báo đấu giá");
+        header.setStyle(
+                "-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #222;" +
+                        "-fx-padding: 14 16 12 16;" +
+                        "-fx-border-color: #eee; -fx-border-width: 0 0 1 0;"
+        );
+        header.setMaxWidth(Double.MAX_VALUE);
+        box.getChildren().add(header);
+
+        if (list.isEmpty()) {
+            Label empty = new Label("Chưa có thông báo nào.");
+            empty.setStyle("-fx-text-fill: #999; -fx-font-size: 13; -fx-padding: 20 16;");
+            box.getChildren().add(empty);
+        } else {
+            ScrollPane scroll = new ScrollPane();
+            scroll.setFitToWidth(true);
+            scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            scroll.setPrefViewportHeight(Math.min(list.size() * 68.0, 340));
+            scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
+            VBox items = new VBox(0);
+            List<NotificationManager.Notification> reversed = new ArrayList<>(list);
+            java.util.Collections.reverse(reversed);
+
+            java.time.format.DateTimeFormatter fmt =
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss dd/MM");
+
+            for (int i = 0; i < reversed.size(); i++) {
+                NotificationManager.Notification notif = reversed.get(i);
+
+                VBox row = new VBox(3);
+                row.setPadding(new Insets(10, 16, 10, 16));
+                row.setStyle(i % 2 == 0
+                        ? "-fx-background-color: #ffffff;"
+                        : "-fx-background-color: #fafafa;");
+
+                Label msgLabel = new Label(notif.message);
+                msgLabel.setWrapText(true);
+                msgLabel.setStyle("-fx-font-size: 13; -fx-text-fill: #222;");
+
+                java.time.LocalDateTime ldt = java.time.Instant
+                        .ofEpochMilli(notif.timestamp)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDateTime();
+                Label timeLabel = new Label(fmt.format(ldt));
+                timeLabel.setStyle("-fx-font-size: 11; -fx-text-fill: #999;");
+
+                row.getChildren().addAll(msgLabel, timeLabel);
+                items.getChildren().add(row);
+            }
+            scroll.setContent(items);
+            box.getChildren().add(scroll);
+        }
+
+        popup.getContent().add(box);
+
+        javafx.geometry.Bounds bounds = bellStackSeller.localToScreen(bellStackSeller.getBoundsInLocal());
+        popup.show(bellStackSeller.getScene().getWindow(),
+                bounds.getMaxX() - 320,
+                bounds.getMaxY() + 4);
+    }
+
+
 
     // ── Mock data ────────────────────────────────────────────────
     private void loadMockData() {

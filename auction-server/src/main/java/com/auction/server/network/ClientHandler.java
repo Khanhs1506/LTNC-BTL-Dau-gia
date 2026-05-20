@@ -11,6 +11,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ClientHandler implements Runnable {
@@ -90,6 +91,10 @@ public class ClientHandler implements Runnable {
                     handlePlaceBid(json);
                     break;
 
+                case "CREATE_ITEM":
+                    handlerCreateItem(json);
+                    break;
+
                 case "LOGOUT":
                     handleLogout();
                     break;
@@ -158,15 +163,46 @@ public class ClientHandler implements Runnable {
             writer.println("ONLY SELLER CAN CREATE ITEM");
             return;
         }
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            String name = obj.get("name").getAsString();
+            String itemType = obj.get("itemType").getAsString();
+            double startPrice = obj.get("startingPrice").getAsDouble();
 
-        Item item = gson.fromJson(json, Item.class);
+            //TẠO SẢN PHẨM ĐÚNG LOẠI
+            Item item;
+            switch (itemType) {
+                case "ART" -> {
+                    String artist = obj.has("artist") ? obj.get("artist").getAsString() : "";
+                    item = new ArtItem(null, name, startPrice, artist);
+                }
+                case "ELECTRONICS" -> {
+                    int warranty = obj.has("warrantyMonths") ? obj.get("warrantyMonths").getAsInt() : 0;
+                    item = new ElectronicsItem(null, name, startPrice, warranty);
+                }
+                case "VEHICLE" -> {
+                    String brand = obj.has("brand") ? obj.get("brand").getAsString() : "";
+                    int year = obj.has("year")  ? obj.get("year").getAsInt() : 0;
+                    item = new VehicleItem(null, name, startPrice, brand, year);
+                }
+                default -> {
+                    // "OTHER" → dùng ArtItem với artist rỗng làm fallback
+                    item = new ArtItem(null, name, startPrice, "");
+                }
+            }
 
-        int itemId = itemRepo.insertItem(item, currentUser.getId());
+            int itemId = itemRepo.insertItem(item, currentUser.getId());
 
-        if (itemId > 0) {
-            writer.println("CREATE ITEM SUCCESS");
-        } else {
-            writer.println("CREATE ITEM FAIL");
+            if (itemId > 0) {
+                System.out.println("[Server] Seller \"" + currentUser.getUsername() + "\" tạo sản phẩm \"" + name + "\" (id=" + itemId + ")");
+                writer.println("CREATE_ITEM_SUCCESS");
+            } else {
+                writer.println("CREATE_ITEM_FAIL");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("CREATE_ITEM_FAIL");
         }
     }
 
@@ -178,7 +214,7 @@ public class ClientHandler implements Runnable {
 
 
     //ĐẶT GIÁ
-   private void handlePlaceBid(String json) {
+    private void handlePlaceBid(String json) {
 
         if (!(currentUser instanceof Bidder)) {
             writer.println("ONLY BIDDER CAN BID");
