@@ -1,7 +1,5 @@
 package sample;
 
-import com.google.gson.JsonObject;
-import com.mysql.cj.xdevapi.JsonParser;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -68,14 +66,9 @@ public class LoginController implements Initializable {
             String response = ServerConnection.getInstance().login(username, password);
 
             if (response != null && response.startsWith("LOGIN SUCCESS")) {
-                // Parse role từ response
-                String json = response.split("===", 2)[1];
-                JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
 
-                String role     = obj.get("role").getAsString();
-                String uname    = obj.get("username").getAsString();
-                //
-                String role = response.split("===", 2)[1]; // trực tiếp lấy "ADMIN" / "SELLER" / "BIDDER"
+                String role = response.split("===", 2)[1];
+
 
                 UserSession.getInstance().login(username, role);
 
