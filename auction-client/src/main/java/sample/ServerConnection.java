@@ -43,31 +43,31 @@ public class ServerConnection {
     }
 
     //ĐĂNG NHẬP
-    public String  login(String username, String password) throws Exception {
+    public String login(String username, String password) throws Exception {
         String json = String.format("{\"username\":\"%s\",\"password\":\"%s\"}",
-                                    username, password);
+                username, password);
         return sendRequest("LOGIN", json);
     }
 
     //ĐĂNG KÍ
     public String register(String username, String password, String role) throws Exception {
         String json = String.format("{\"username\":\"%s\",\"password\":\"%s\",\"role\":\"%s\"}",
-                                    username, password, role);
+                username, password, role);
         return sendRequest("REGISTER", json);
     }
 
     //ĐẶT GIÁ
     public String placeBid(int auctionId, String username, double amount) throws Exception {
         String json = String.format("{\"auctionId\":%d,\"username\":\"%s\",\"amount\":%.2f}",
-                                   auctionId, username, amount);
-        return sendRequest("PLACE_BID", json) ;
+                auctionId, username, amount);
+        return sendRequest("PLACE_BID", json);
     }
 
     //THÊM SẢN PHẨM
     public String createItem(AuctionItemDTO dto) throws Exception {
-        String json = String.format( "{\"name\":\"%s\",\"itemType\":\"%s\",\"startingPrice\":%.2f," +
-                "\"description\":\"%s\",\"warrantyMonths\":%d," +
-                "\"artist\":\"%s\",\"brand\":\"%s\",\"year\":%d}", escape(dto.title),
+        String json = String.format("{\"name\":\"%s\",\"itemType\":\"%s\",\"startingPrice\":%.2f," +
+                        "\"description\":\"%s\",\"warrantyMonths\":%d," +
+                        "\"artist\":\"%s\",\"brand\":\"%s\",\"year\":%d}", escape(dto.title),
                 mapCategoryToItemType(dto.category),
                 dto.startingPrice,
                 escape(dto.description),
@@ -78,25 +78,24 @@ public class ServerConnection {
         return sendRequest("CREATE_ITEM", json);
     }
 
-    //PHÂN LOẠI SẢN PHẨM
-    private String mapCategoryToItemType(String category) {
-        if (category == null) return "OTHER";
-        return switch (category) {
-            case "ArtItem"         -> "ART";
-            case "ElectronicsItem" -> "ELECTRONICS";
-            case "VehicleItem"     -> "VEHICLE";
-            default                -> "OTHER";
-        };
-    }
-
-    private String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"")
-                .replace("\n", "\\n").replace("\r", "");
-    }
-
     public String getItems() throws Exception {
         return sendRequest("GET_ITEMS", "{}");
+    }
+
+    //LÂ PHIÊN ĐẤU GIÁ
+    public String getAuctions() throws Exception {
+        return sendRequest("GET_AUCTIONS", "{}");
+    }
+
+    //LẤY PHIÊN ĐẤU GIÁ SELLER ĐANG ĐĂNG NHẬP
+    public String getAuctionsBySeller() throws Exception {
+        return sendRequest("GET_AUCTIONS_BY_SELLER", "{}");
+    }
+
+    //LẤY LỊCH SỬ ĐẶT GIÁ
+    public String getBidHistory(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("GET_BID_HISTORY", json);
     }
 
     public String logout() throws Exception {
@@ -116,11 +115,6 @@ public class ServerConnection {
         return sendRequest("GET_ITEMS_BY_CATEGORY", json);
     }
 
-    public String getBidHistory(int auctionId) throws Exception {
-        String json = String.format("{\"auctionId\":%d}", auctionId);
-        return sendRequest("GET_BID_HISTORY", json);
-    }
-
     private void startListenerThread() {
         Thread t = new Thread(() -> {
             try {
@@ -130,7 +124,7 @@ public class ServerConnection {
 
                     if (line.startsWith("BID_UPDATE===")) {
                         // Parse JSON: {"auctionId":1,"bidder":"Alice","amount":250000000.00}
-                        String json    = line.split("===")[1];
+                        String json = line.split("===")[1];
                         PlacedBidRequest res = gson.fromJson(json, PlacedBidRequest.class);
                         String msg = "🔔 " + res.bidder + " vừa đặt giá " + formatVND(res.amount);
 
@@ -154,5 +148,22 @@ public class ServerConnection {
 
     private String formatVND(double amount) {
         return String.format("%,.0f VNĐ", amount);
+    }
+
+    //PHÂN LOẠI SẢN PHẨM
+    private String mapCategoryToItemType(String category) {
+        if (category == null) return "OTHER";
+        return switch (category) {
+            case "ArtItem" -> "ART";
+            case "ElectronicsItem" -> "ELECTRONICS";
+            case "VehicleItem" -> "VEHICLE";
+            default -> "OTHER";
+        };
+    }
+
+    private String escape(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "");
     }
 }

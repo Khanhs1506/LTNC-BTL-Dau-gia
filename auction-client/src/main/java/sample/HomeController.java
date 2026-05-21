@@ -1,12 +1,16 @@
 package sample;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
-import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -15,6 +19,9 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -88,46 +95,152 @@ public class HomeController {
 
         buildKhacMenu();
 
-        // ── Dữ liệu mẫu có category ──────────────────────────
-        allItems = Arrays.asList(
-                new AuctionItem("G.5 - BKS 30K - 888.88",
-                        "120.000.000 VNĐ", "215.000.000 VNĐ", "22:01:45", 36, "23/12/2026",
-                        "Biển số xe"),
-                new AuctionItem("H.5 - BKS 51K - 777.77",
-                        "80.000.000 VNĐ", "150.000.000 VNĐ", "18:30:00", 12, "15/11/2026",
-                        "Biển số xe"),
-                new AuctionItem("Biệt thự Hồ Tây",
-                        "5.000.000.000 VNĐ", "6.200.000.000 VNĐ", "10:00:00", 8, "01/08/2026",
-                        "Bất động sản"),
-                new AuctionItem("Căn hộ Quận 1 - Tầng 15",
-                        "3.500.000.000 VNĐ", "4.100.000.000 VNĐ", "14:30:00", 5, "20/07/2026",
-                        "Bất động sản"),
-                new AuctionItem("Tranh sơn dầu - Bùi Xuân Phái",
-                        "200.000.000 VNĐ", "380.000.000 VNĐ", "09:15:00", 19, "10/06/2026",
-                        "Nghệ thuật"),
-                new AuctionItem("Tượng đồng cổ - Thế kỷ 18",
-                        "450.000.000 VNĐ", "520.000.000 VNĐ", "16:00:00", 7, "25/06/2026",
-                        "Nghệ thuật"),
-                new AuctionItem("Mercedes-Benz S500 2020",
-                        "2.800.000.000 VNĐ", "3.100.000.000 VNĐ", "11:00:00", 14, "05/07/2026",
-                        "Xe cộ"),
-                new AuctionItem("Porsche 911 GT3 2022",
-                        "6.500.000.000 VNĐ", "7.200.000.000 VNĐ", "17:45:00", 22, "30/06/2026",
-                        "Xe cộ"),
-                new AuctionItem("Rolex Submariner Date",
-                        "180.000.000 VNĐ", "245.000.000 VNĐ", "13:20:00", 31, "18/06/2026",
-                        "Đồng hồ"),
-                new AuctionItem("Patek Philippe Nautilus",
-                        "950.000.000 VNĐ", "1.200.000.000 VNĐ", "20:00:00", 11, "12/07/2026",
-                        "Đồng hồ")
-        );
-
-        // Thêm dữ liệu random từ factory nếu cần 100 items
-        // allItems.addAll(AuctionDataFactory.generate(90));
-
-        renderCards(currentCategory);
+        //LẤY DỮ LIỆU TỪ SERVER
+        loadFromServer();
         setupNotificationBadge();
+
+//        // ── Dữ liệu mẫu có category ──────────────────────────
+//        allItems = Arrays.asList(
+//                new AuctionItem("G.5 - BKS 30K - 888.88",
+//                        "120.000.000 VNĐ", "215.000.000 VNĐ", "22:01:45", 36, "23/12/2026",
+//                        "Biển số xe"),
+//                new AuctionItem("H.5 - BKS 51K - 777.77",
+//                        "80.000.000 VNĐ", "150.000.000 VNĐ", "18:30:00", 12, "15/11/2026",
+//                        "Biển số xe"),
+//                new AuctionItem("Biệt thự Hồ Tây",
+//                        "5.000.000.000 VNĐ", "6.200.000.000 VNĐ", "10:00:00", 8, "01/08/2026",
+//                        "Bất động sản"),
+//                new AuctionItem("Căn hộ Quận 1 - Tầng 15",
+//                        "3.500.000.000 VNĐ", "4.100.000.000 VNĐ", "14:30:00", 5, "20/07/2026",
+//                        "Bất động sản"),
+//                new AuctionItem("Tranh sơn dầu - Bùi Xuân Phái",
+//                        "200.000.000 VNĐ", "380.000.000 VNĐ", "09:15:00", 19, "10/06/2026",
+//                        "Nghệ thuật"),
+//                new AuctionItem("Tượng đồng cổ - Thế kỷ 18",
+//                        "450.000.000 VNĐ", "520.000.000 VNĐ", "16:00:00", 7, "25/06/2026",
+//                        "Nghệ thuật"),
+//                new AuctionItem("Mercedes-Benz S500 2020",
+//                        "2.800.000.000 VNĐ", "3.100.000.000 VNĐ", "11:00:00", 14, "05/07/2026",
+//                        "Xe cộ"),
+//                new AuctionItem("Porsche 911 GT3 2022",
+//                        "6.500.000.000 VNĐ", "7.200.000.000 VNĐ", "17:45:00", 22, "30/06/2026",
+//                        "Xe cộ"),
+//                new AuctionItem("Rolex Submariner Date",
+//                        "180.000.000 VNĐ", "245.000.000 VNĐ", "13:20:00", 31, "18/06/2026",
+//                        "Đồng hồ"),
+//                new AuctionItem("Patek Philippe Nautilus",
+//                        "950.000.000 VNĐ", "1.200.000.000 VNĐ", "20:00:00", 11, "12/07/2026",
+//                        "Đồng hồ")
+//        );
+//
+//        // Thêm dữ liệu random từ factory nếu cần 100 items
+//        // allItems.addAll(AuctionDataFactory.generate(90));
+//
+//        renderCards(currentCategory);
     }
+
+    private void loadFromServer() {
+        new Thread(() -> {
+           try {
+               String response = ServerConnection.getInstance().getAuctions();
+
+               if (response != null && response.startsWith("AUCTIONS===")) {
+                   String json = response.substring(("AUCTIONS===".length()));
+                   JsonArray arr = JsonParser.parseString(json).getAsJsonArray();
+                   List<AuctionItem> loaded = new ArrayList<>();
+                   DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+                   for (JsonElement el : arr) {
+                       JsonObject obj = el.getAsJsonObject();
+
+                       //CHỈ HIỆN THỊ PHIÊN ĐANG MỞ HOẶC ĐANG CHẠY
+                       String status = obj.get("status").getAsString();
+                       if (!status.equals("RUNNING") && !status.equals("OPEN")) continue;
+
+                       String name       = obj.get("itemName").getAsString();
+                       double startPrice = obj.get("startingPrice").getAsDouble();
+                       double highBid    = obj.get("currentHighestBid").getAsDouble();
+                       String itemType   = obj.get("itemType").getAsString();
+                       String endTimeStr = obj.get("endTime").getAsString();
+
+                       LocalDateTime endTime   = LocalDateTime.parse(endTimeStr, fmt);
+                       String timeLeft         = computeTimeLeft(endTime);
+                       String endDateFormatted = endTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                       String category         = mapItemTypeToCategory(itemType);
+
+                       loaded.add(new AuctionItem(name, formatVND(startPrice), formatVND(highBid), timeLeft, 0, endDateFormatted, category));
+                       Platform.runLater(() -> {
+                           allItems = loaded;
+                           renderCards(currentCategory);
+                       });
+                   }
+               } else {
+                   System.err.println("[HomeController] Phản hồi không hợp lệ: " + response);
+                   Platform.runLater(() -> renderCards(currentCategory));
+               }
+           } catch (Exception e) {
+               System.err.println("[HomeController] Không kết nối được server: " + e.getMessage());
+               // Fallback offline
+               Platform.runLater(() -> {
+                   allItems = buildMockItems();
+                   renderCards(currentCategory);
+               });
+           }
+        }, "HomeLoader").start();
+    }
+
+    private String formatVND(double amount) {
+        return String.format("%,.0f VNĐ", amount);
+    }
+
+    //TÍNH THỜI GIAN CÒN LAẠI
+    private String computeTimeLeft(LocalDateTime endTime) {
+        Duration d = Duration.between(LocalDateTime.now(), endTime);
+        if (d.isNegative()) return "Đã kết thúc";
+        long hours   = d.toHours();
+        long minutes = d.toMinutesPart();
+        long seconds = d.toSecondsPart();
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+    }
+
+    //PHÂN LOẠI SẢN PHẨM
+    private String mapItemTypeToCategory(String itemType) {
+        if (itemType == null) return "Khác";
+        return switch (itemType.toUpperCase()) {
+            case "ART"         -> "Nghệ thuật";
+            case "ELECTRONICS" -> "Điện tử";
+            case "VEHICLE"     -> "Xe cộ";
+            default            -> "Khác";
+        };
+    }
+
+    /**
+     * Dữ liệu mẫu – chỉ dùng khi server chưa khởi động (chạy offline).
+     * Có thể xóa khi ứng dụng hoàn thiện.
+     */
+    private List<AuctionItem> buildMockItems() {
+        return Arrays.asList(
+                new AuctionItem("G.5 - BKS 30K - 888.88",
+                        "120.000.000 VNĐ", "215.000.000 VNĐ",
+                        "22:01:45", 36, "23/12/2026", "Biển số xe"),
+                new AuctionItem("H.5 - BKS 51K - 777.77",
+                        "80.000.000 VNĐ", "150.000.000 VNĐ",
+                        "18:30:00", 12, "15/11/2026", "Biển số xe"),
+                new AuctionItem("Biệt thự Hồ Tây",
+                        "5.000.000.000 VNĐ", "6.200.000.000 VNĐ",
+                        "10:00:00", 8, "01/08/2026", "Bất động sản"),
+                new AuctionItem("Tranh sơn dầu - Bùi Xuân Phái",
+                        "200.000.000 VNĐ", "380.000.000 VNĐ",
+                        "09:15:00", 19, "10/06/2026", "Nghệ thuật"),
+                new AuctionItem("Mercedes-Benz S500 2020",
+                        "2.800.000.000 VNĐ", "3.100.000.000 VNĐ",
+                        "11:00:00", 14, "05/07/2026", "Xe cộ"),
+                new AuctionItem("Rolex Submariner Date",
+                        "180.000.000 VNĐ", "245.000.000 VNĐ",
+                        "13:20:00", 31, "18/06/2026", "Khác")
+        );
+    }
+
 
     private void setupNotificationBadge() {
         //TẠO CHUÔNG
