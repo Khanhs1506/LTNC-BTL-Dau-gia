@@ -1,7 +1,5 @@
 package sample;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonParser;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -26,9 +24,16 @@ import javafx.scene.layout.VBox;
 import java.io.IOException;
 import java.net.URL;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import javafx.application.Platform;
 
 import sample.AuctionItemDTO;
 import javafx.stage.Modality;
@@ -73,10 +78,8 @@ public class SellerDashboardController implements Initializable {
     @FXML private TableView<Auction> expiredTable;
     @FXML private TableView<Auction> historyTable;
 
-    // Table columns – overview
     @FXML private TableColumn<Auction,String> colOvId, colOvName, colOvBid,
             colOvBidder, colOvStatus;
-    // Table columns – products
     @FXML private TableColumn<Auction,String> colPId, colPName, colPPrice,
             colPCat, colPStatus, colPActions;
 
@@ -85,7 +88,6 @@ public class SellerDashboardController implements Initializable {
     @FXML private TextField searchProducts;
     @FXML private ComboBox<String> filterCategory;
 
-    //FXML PHẦN NÚT
     @FXML private StackPane bellStackSeller;
     private Label notifBadgeSeller;
 
@@ -104,7 +106,8 @@ public class SellerDashboardController implements Initializable {
                 menuUnpaid, menuExpired, menuProducts,
                 menuRevenue, menuHistory));
 
-        loadMockData();
+        //HIỆN THỊ DỮ LIỆU TỪ SERVER
+        loadFromServer();
         setupOverviewTable();
         setupProductsTable();
         setupRevenueChart();
@@ -121,7 +124,6 @@ public class SellerDashboardController implements Initializable {
         NotificationManager.getInstance().addNotificationListener(() -> javafx.application.Platform.runLater(this :: refreshBadge));
     }
 
-    //TẠO NÚT ĐỎ HIỆN SỐ LƯỢNG THÔNG BÁO CHƯA ĐỌC
     private Label creatBadgeLabel() {
         Label badge = new Label();
         badge.setStyle(
@@ -139,7 +141,6 @@ public class SellerDashboardController implements Initializable {
         return badge;
     }
 
-    //CẬP NHẬT DẤU ĐỎ
     private void refreshBadge() {
         int count = NotificationManager.getInstance().getUnreadCount();
         String text = count > 99 ? "99+" : String.valueOf(count);
@@ -148,17 +149,13 @@ public class SellerDashboardController implements Initializable {
         notifBadgeSeller.setVisible(show);
     }
 
-    //XỬ LÍ BẤM CHUÔNG
     @FXML
     private void handleBellClick() {
         NotificationManager.getInstance().markAllRead();
         refreshBadge();
-
         List<NotificationManager.Notification> list = NotificationManager.getInstance().getAll();
-
         Popup popup = new Popup();
         popup.setAutoHide(true);
-
         VBox box = new VBox(0);
         box.setPrefWidth(320);
         box.setMaxHeight(400);
@@ -179,7 +176,6 @@ public class SellerDashboardController implements Initializable {
         );
         header.setMaxWidth(Double.MAX_VALUE);
         box.getChildren().add(header);
-
         if (list.isEmpty()) {
             Label empty = new Label("Chưa có thông báo nào.");
             empty.setStyle("-fx-text-fill: #999; -fx-font-size: 13; -fx-padding: 20 16;");
@@ -190,41 +186,33 @@ public class SellerDashboardController implements Initializable {
             scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
             scroll.setPrefViewportHeight(Math.min(list.size() * 68.0, 340));
             scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-
             VBox items = new VBox(0);
             List<NotificationManager.Notification> reversed = new ArrayList<>(list);
             java.util.Collections.reverse(reversed);
-
             java.time.format.DateTimeFormatter fmt =
                     java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss dd/MM");
-
             for (int i = 0; i < reversed.size(); i++) {
                 NotificationManager.Notification notif = reversed.get(i);
-
                 VBox row = new VBox(3);
                 row.setPadding(new Insets(10, 16, 10, 16));
                 row.setStyle(i % 2 == 0
                         ? "-fx-background-color: #ffffff;"
                         : "-fx-background-color: #fafafa;");
-
                 Label msgLabel = new Label(notif.message);
                 msgLabel.setWrapText(true);
                 msgLabel.setStyle("-fx-font-size: 13; -fx-text-fill: #222;");
-
                 java.time.LocalDateTime ldt = java.time.Instant
                         .ofEpochMilli(notif.timestamp)
                         .atZone(java.time.ZoneId.systemDefault())
                         .toLocalDateTime();
                 Label timeLabel = new Label(fmt.format(ldt));
                 timeLabel.setStyle("-fx-font-size: 11; -fx-text-fill: #999;");
-
                 row.getChildren().addAll(msgLabel, timeLabel);
                 items.getChildren().add(row);
             }
             scroll.setContent(items);
             box.getChildren().add(scroll);
         }
-
         popup.getContent().add(box);
 
         javafx.geometry.Bounds bounds = bellStackSeller.localToScreen(bellStackSeller.getBoundsInLocal());
@@ -233,7 +221,84 @@ public class SellerDashboardController implements Initializable {
                 bounds.getMaxY() + 4);
     }
 
+    //LẤY DỮ LIỆU TỪ SERVER
+    private void loadFromServer() {
+        new Thread(() -> {
+            try {
+                String response = ServerConnection.getInstance().getAuctionsBySeller();
 
+                if (response != null && response.startsWith("AUCTIONS===")) {
+                    String json = response.substring("AUCTIONS===".length());
+                    JsonArray arr = JsonParser.parseString(json).getAsJsonArray();
+
+                    ObservableList<Auction> loaded = FXCollections.observableArrayList();
+                    DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+                    for (JsonElement el : arr) {
+                        JsonObject obj = el.getAsJsonObject();
+
+                        int    auctionId  = obj.get("auctionId").getAsInt();
+                        String itemName   = obj.get("itemName").getAsString();
+                        String itemType   = obj.get("itemType").getAsString();
+                        double startPrice = obj.get("startingPrice").getAsDouble();
+                        double highBid    = obj.get("currentHighestBid").getAsDouble();
+                        String winner     = (obj.has("currentWinnerUsername")
+                                && !obj.get("currentWinnerUsername").isJsonNull())
+                                ? obj.get("currentWinnerUsername").getAsString() : null;
+                        String statusStr  = obj.get("status").getAsString();
+                        LocalDateTime startTime =
+                                LocalDateTime.parse(obj.get("startTime").getAsString(), fmt);
+                        LocalDateTime endTime   =
+                                LocalDateTime.parse(obj.get("endTime").getAsString(), fmt);
+
+                        // Tạo Item ẩn danh vì Item là abstract
+                        final String finalItemType = itemType;
+                        Item item = new Item(String.valueOf(auctionId), itemName, startPrice) {
+                            @Override public String getType_item() { return finalItemType; }
+                            @Override public void printInfo() { System.out.println(getName()); }
+                        };
+                        item.setCurrentHighestBid(highBid);
+
+                        Auction a = new Auction(auctionId, item, startTime, endTime);
+                        a.updateHighestBid(highBid, winner);
+                        a.updateStatus(Auction.Status.valueOf(statusStr));
+                        loaded.add(a);
+                    }
+
+                    Platform.runLater(() -> {
+                        allAuctions = loaded;
+                        updateStatsFromData();
+                        setupPieChart();
+                        overviewTable.setItems(allAuctions);
+                        productsTable.setItems(allAuctions);
+                    });
+
+                } else {
+                    System.err.println("[SellerDashboard] Server trả về: " + response);
+                    Platform.runLater(() -> loadMockData());
+                }
+
+            } catch (Exception e) {
+                System.err.println("[SellerDashboard] Không kết nối được server: "
+                        + e.getMessage());
+                Platform.runLater(() -> loadMockData());
+            }
+        }, "SellerLoader").start();
+    }
+
+    //LÀM MỚI TRẠNG THÁI
+    private void updateStatsFromData() {
+        statTotal.setText(String.valueOf(allAuctions.size()));
+        statActive.setText(String.valueOf(count(Auction.Status.RUNNING)));
+        statUnpaid.setText(String.valueOf(count(Auction.Status.FINISHED)));
+        unpaidBadge.setText(count(Auction.Status.FINISHED) + " phiên chờ xử lý");
+
+        long revenue = allAuctions.stream()
+                .filter(a -> a.getStatus() == Auction.Status.FINISHED)
+                .mapToLong(a -> (long) a.getCurrentHighestBid())
+                .sum();
+        statRevenue.setText(formatMoney(revenue));
+    }
 
     // ── Mock data ────────────────────────────────────────────────
     private void loadMockData() {
@@ -245,45 +310,26 @@ public class SellerDashboardController implements Initializable {
                 mockAuction("A005", "Minecraft Java Ed.",   200_000,         0, "",           Auction.Status.CANCELED),
                 mockAuction("A006", "Photoshop 2024",       600_000, 1_800_000, "bidder_m",  Auction.Status.RUNNING)
         );
-
-        statTotal.setText(String.valueOf(allAuctions.size()));
-        statActive.setText(String.valueOf(count(Auction.Status.RUNNING)));
-        statUnpaid.setText(String.valueOf(count(Auction.Status.FINISHED)));
-        unpaidBadge.setText(count(Auction.Status.FINISHED) + " phiên chờ xử lý");
-
-        // Tính doanh thu: tổng giá cao nhất của các phiên FINISHED
-        long revenue = allAuctions.stream()
-                .filter(a -> a.getStatus() == Auction.Status.FINISHED)
-                .mapToLong(a -> (long) a.getCurrentHighestBid())
-                .sum();
-        statRevenue.setText(formatMoney(revenue));
+        updateStatsFromData();
     }
 
-    /**
-     * Tạo Auction mock với Item ẩn danh để demo UI.
-     * Khi kết nối server thật, thay bằng dữ liệu nhận từ server.
-     */
     private Auction mockAuction(String id, String name, long startPrice,
                                 long currentBid, String winner,
                                 Auction.Status status) {
-        // Item ẩn danh (anonymous subclass) vì Item là abstract
-        Item item = new Item(id, name, startPrice) {
+        final String sid = id;
+        final String sname = name;
+        Item item = new Item(sid, sname, startPrice) {
             @Override public String getType_item() { return "SOFTWARE"; }
-            @Override public void printInfo() {
-                System.out.println(id + " - " + name);
-            }
+            @Override public void printInfo() { System.out.println(sid + " - " + sname); }
         };
         item.setCurrentHighestBid(currentBid);
-
         Auction a = new Auction(
                 Integer.parseInt(id.replaceAll("[^0-9]", "")),
                 item,
                 LocalDateTime.now().minusDays(2),
                 LocalDateTime.now().plusHours(2)
         );
-        // Đồng bộ bid + winner vào RAM
         a.updateHighestBid(currentBid, winner.isEmpty() ? null : winner);
-        // Đồng bộ trạng thái
         a.updateStatus(status);
         return a;
     }
@@ -299,26 +345,20 @@ public class SellerDashboardController implements Initializable {
         colOvId.setCellValueFactory(c ->
                 new javafx.beans.property.SimpleStringProperty(
                         String.valueOf(c.getValue().getId())));
-
         colOvName.setCellValueFactory(c ->
                 new javafx.beans.property.SimpleStringProperty(
                         c.getValue().getItem().getName()));
-
         colOvBid.setCellValueFactory(c ->
                 new javafx.beans.property.SimpleStringProperty(
                         formatMoney((long) c.getValue().getCurrentHighestBid())));
-
         colOvBidder.setCellValueFactory(c -> {
             String winner = c.getValue().getCurrentWinnerUsername();
             return new javafx.beans.property.SimpleStringProperty(
                     winner != null ? winner : "—");
         });
-
         colOvStatus.setCellValueFactory(c ->
                 new javafx.beans.property.SimpleStringProperty(
                         c.getValue().getStatus().name()));
-
-        // Status badge với màu
         colOvStatus.setCellFactory(col -> new TableCell<>() {
             @Override protected void updateItem(String s, boolean empty) {
                 super.updateItem(s, empty);
@@ -328,7 +368,6 @@ public class SellerDashboardController implements Initializable {
                 setGraphic(pill); setText(null);
             }
         });
-
         overviewTable.setItems(allAuctions);
     }
 
@@ -336,23 +375,18 @@ public class SellerDashboardController implements Initializable {
         colPId.setCellValueFactory(c ->
                 new javafx.beans.property.SimpleStringProperty(
                         String.valueOf(c.getValue().getId())));
-
         colPName.setCellValueFactory(c ->
                 new javafx.beans.property.SimpleStringProperty(
                         c.getValue().getItem().getName()));
-
         colPPrice.setCellValueFactory(c ->
                 new javafx.beans.property.SimpleStringProperty(
                         formatMoney((long) c.getValue().getItem().getStartingPrice())));
-
         colPCat.setCellValueFactory(c ->
                 new javafx.beans.property.SimpleStringProperty(
                         c.getValue().getItem().getTypeItem()));
-
         colPStatus.setCellValueFactory(c ->
                 new javafx.beans.property.SimpleStringProperty(
                         c.getValue().getStatus().name()));
-
         colPStatus.setCellFactory(col -> new TableCell<>() {
             @Override protected void updateItem(String s, boolean empty) {
                 super.updateItem(s, empty);
@@ -362,7 +396,6 @@ public class SellerDashboardController implements Initializable {
                 setGraphic(pill); setText(null);
             }
         });
-
         colPActions.setCellFactory(col -> new TableCell<>() {
             private final Button btnEdit   = new Button("Sửa");
             private final Button btnDelete = new Button("Xóa");
@@ -380,9 +413,7 @@ public class SellerDashboardController implements Initializable {
                 setGraphic(box);
             }
         });
-
         productsTable.setItems(allAuctions);
-
         searchProducts.textProperty().addListener((obs, old, nw) -> {
             String kw = nw.trim().toLowerCase();
             productsTable.setItems(kw.isEmpty() ? allAuctions :
@@ -420,6 +451,7 @@ public class SellerDashboardController implements Initializable {
     }
 
     private void setupPieChart() {
+        if (allAuctions == null) return;
         statusPieChart.setData(FXCollections.observableArrayList(
                 new PieChart.Data("Đang diễn ra", count(Auction.Status.RUNNING)),
                 new PieChart.Data("Chưa TT",      count(Auction.Status.FINISHED)),
@@ -440,7 +472,6 @@ public class SellerDashboardController implements Initializable {
         if (allPanels.isEmpty()) initPanels();
         allPanels.forEach(p -> { p.setVisible(false); p.setManaged(false); });
         target.setVisible(true); target.setManaged(true);
-
         sidebarButtons.forEach(b -> {
             b.getStyleClass().removeAll("sidebar-item-active");
             if (!b.getStyleClass().contains("sidebar-item"))
@@ -450,7 +481,6 @@ public class SellerDashboardController implements Initializable {
         pageTitle.setText(title);
     }
 
-    // ── FXML handlers ─────────────────────────────────────────────
     @FXML void showOverview()  { showPanel(panelOverview,  menuOverview,  "Dashboard"); }
     @FXML void showProducts()  { showPanel(panelProducts,  menuProducts,  "Sản phẩm"); }
     @FXML void showActive() {
@@ -462,7 +492,6 @@ public class SellerDashboardController implements Initializable {
         unpaidTable.setItems(filter(Auction.Status.FINISHED));
     }
     @FXML void showPaid() {
-        // PAID chưa có trong enum → dùng FINISHED làm đại diện
         showPanel(panelPaid, menuPaid, "Đã thanh toán");
         paidTable.setItems(filter(Auction.Status.FINISHED));
     }
@@ -473,14 +502,12 @@ public class SellerDashboardController implements Initializable {
     @FXML void showRevenue()   { showPanel(panelRevenue,   menuRevenue,   "Doanh thu"); }
     @FXML void showHistory()   { showPanel(panelHistory,   menuHistory,   "Lịch sử giao dịch"); }
 
-    // =====THÊM SẢN PHẨM=====
     @FXML
     void handleAddProduct() throws IOException {
         FXMLLoader loader = new FXMLLoader(
                 getClass().getResource("/sample/seller_create_auction.fxml"));
         Parent root = loader.load();
         SellerCreateAuctionController ctrl = loader.getController();
-
         Stage stage = new Stage();
         stage.initOwner(menuProducts.getScene().getWindow()); // ← thêm owner
         stage.initModality(Modality.WINDOW_MODAL);
@@ -489,19 +516,8 @@ public class SellerDashboardController implements Initializable {
 
         AuctionItemDTO result = ctrl.getResult();
         if (result != null) {
-            // Convert DTO → Auction mock rồi thêm vào bảng
-            Auction newAuction = mockAuction(
-                    "A00" + (allAuctions.size() + 1),
-                    result.title,
-                    (long) result.startingPrice,
-                    0,
-                    "",
-                    Auction.Status.OPEN
-            );
-            allAuctions.add(newAuction);
-
-            // Cập nhật lại stat cards
-            statTotal.setText(String.valueOf(allAuctions.size()));
+            // Sau khi tạo thành công, reload lại từ server để đồng bộ
+            loadFromServer();
         }
     }
 
@@ -532,10 +548,6 @@ public class SellerDashboardController implements Initializable {
         return String.format("%,d", v).replace(",", ".") + " ₫";
     }
 
-    /**
-     * Ánh xạ Auction.Status.name() → nhãn tiếng Việt hiển thị trên UI.
-     * Enum server: OPEN, RUNNING, FINISHED, CANCELED
-     */
     private String statusLabel(String s) {
         return switch (s.toUpperCase()) {
             case "RUNNING"  -> "Đang diễn ra";
