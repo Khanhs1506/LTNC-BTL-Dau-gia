@@ -7,6 +7,8 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.LinkedBlockingDeque;
 
 public class ServerConnection {
@@ -65,16 +67,24 @@ public class ServerConnection {
 
     //THÊM SẢN PHẨM
     public String createItem(AuctionItemDTO dto) throws Exception {
+        LocalDateTime startTime = dto.startTime != null ? dto.startTime : LocalDateTime.now();
+        LocalDateTime endTime   = dto.endTime   != null ? dto.endTime   : LocalDateTime.now().plusDays(7);
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
         String json = String.format("{\"name\":\"%s\",\"itemType\":\"%s\",\"startingPrice\":%.2f," +
                         "\"description\":\"%s\",\"warrantyMonths\":%d," +
-                        "\"artist\":\"%s\",\"brand\":\"%s\",\"year\":%d}", escape(dto.title),
+                        "\"artist\":\"%s\",\"brand\":\"%s\",\"year\":%d," +
+                        "\"startTime\":\"%s\",\"endTime\":\"%s\"}",
+                escape(dto.title),
                 mapCategoryToItemType(dto.category),
                 dto.startingPrice,
                 escape(dto.description),
                 dto.warrantyMonths,
                 escape(dto.artist),
                 escape(dto.brand),
-                dto.year);
+                dto.year,
+                startTime.format(fmt),
+                endTime.format(fmt));
         return sendRequest("CREATE_ITEM", json);
     }
 

@@ -10,6 +10,9 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.sql.Connection;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
@@ -167,11 +170,14 @@ public class ClientHandler implements Runnable {
 
     // TẠO SẢN PHẨM
     private void handlerCreateItem(String json){
+
         if (!(currentUser instanceof Seller)) {
             writer.println("ONLY SELLER CAN CREATE ITEM");
             return;
         }
         try {
+            Connection conn = DatabaseManager.getInstance().getConnection();
+            conn.setAutoCommit(false);
             JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
             String name = obj.get("name").getAsString();
             String itemType = obj.get("itemType").getAsString();
@@ -202,8 +208,26 @@ public class ClientHandler implements Runnable {
             int itemId = itemRepo.insertItem(item, currentUser.getId());
 
             if (itemId > 0) {
-                System.out.println("[Server] Seller \"" + currentUser.getUsername() + "\" tạo sản phẩm \"" + name + "\" (id=" + itemId + ")");
-                writer.println("CREATE_ITEM_SUCCESS");
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                LocalDateTime startTime = obj.has("startTime") && !obj.get("startTime").getAsString().isBlank()
+                        ? LocalDateTime.parse(obj.get("startTime").getAsString(), fmt)
+                        : LocalDateTime.now();
+
+                LocalDateTime endTime = obj.has("endTime") && !obj.get("endTime").getAsString().isBlank()
+                        ? LocalDateTime.parse(obj.get("endTime").getAsString(), fmt)
+                        : LocalDateTime.now().plusDays(7);
+
+                int auctionId = auctionRepo.insertAuction(itemId, startTime, endTime);
+
+                if (auctionId > 0) {
+                    System.out.println("[Server] Tạo phiên đấu giá tự động cho sản phẩm id=" + itemId + ", auctionId=" + auctionId);
+                    writer.println("CREATE_ITEM_SUCCESS");
+                    conn.commit();
+                } else {
+                    System.err.println("[Server] WARN: Item tạo OK (id=" + itemId + ") nhưng tạo phiên đấu giá thất bại!");
+                    writer.println("CREATE_ITEM_FAIL");
+                    conn.rollback();
+                }
             } else {
                 writer.println("CREATE_ITEM_FAIL");
             }

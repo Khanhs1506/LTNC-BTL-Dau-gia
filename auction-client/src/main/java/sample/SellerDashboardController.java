@@ -35,9 +35,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import javafx.application.Platform;
 
-import sample.AuctionItemDTO;
-import javafx.stage.Modality;
-
 public class SellerDashboardController implements Initializable {
 
     // ── Topbar ────────────────────────────────────────────────────
