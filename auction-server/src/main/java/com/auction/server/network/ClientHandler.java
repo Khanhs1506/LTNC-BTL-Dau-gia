@@ -10,6 +10,10 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.sql.Connection;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -103,6 +107,14 @@ public class ClientHandler implements Runnable {
                     handlerGetItemsByCategory(json);
                     break;
 
+                case "GET_AUCTIONS":
+                    handlerGetAuctions();
+                    break;
+
+                case "GET_AUCTIONS_BY_SELLER":
+                    handleGetAuctionsBySeller();
+                    break;
+
                 default:
                     writer.println("UNKNOWN ACTION");
             }
@@ -129,7 +141,6 @@ public class ClientHandler implements Runnable {
     // ĐĂNG KÍ TÀI KHOẢN
     private void handlerRegister(String json) { //sau đổi String thành User
         JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-
         String username = obj.get("username").getAsString();
         String password = obj.get("password").getAsString();
         String role = obj.get("role").getAsString();
@@ -159,11 +170,14 @@ public class ClientHandler implements Runnable {
 
     // TẠO SẢN PHẨM
     private void handlerCreateItem(String json){
+
         if (!(currentUser instanceof Seller)) {
             writer.println("ONLY SELLER CAN CREATE ITEM");
             return;
         }
         try {
+            Connection conn = DatabaseManager.getInstance().getConnection();
+            conn.setAutoCommit(false);
             JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
             String name = obj.get("name").getAsString();
             String itemType = obj.get("itemType").getAsString();
@@ -194,8 +208,26 @@ public class ClientHandler implements Runnable {
             int itemId = itemRepo.insertItem(item, currentUser.getId());
 
             if (itemId > 0) {
-                System.out.println("[Server] Seller \"" + currentUser.getUsername() + "\" tạo sản phẩm \"" + name + "\" (id=" + itemId + ")");
-                writer.println("CREATE_ITEM_SUCCESS");
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                LocalDateTime startTime = obj.has("startTime") && !obj.get("startTime").getAsString().isBlank()
+                        ? LocalDateTime.parse(obj.get("startTime").getAsString(), fmt)
+                        : LocalDateTime.now();
+
+                LocalDateTime endTime = obj.has("endTime") && !obj.get("endTime").getAsString().isBlank()
+                        ? LocalDateTime.parse(obj.get("endTime").getAsString(), fmt)
+                        : LocalDateTime.now().plusDays(7);
+
+                int auctionId = auctionRepo.insertAuction(itemId, startTime, endTime);
+
+                if (auctionId > 0) {
+                    System.out.println("[Server] Tạo phiên đấu giá tự động cho sản phẩm id=" + itemId + ", auctionId=" + auctionId);
+                    writer.println("CREATE_ITEM_SUCCESS");
+                    conn.commit();
+                } else {
+                    System.err.println("[Server] WARN: Item tạo OK (id=" + itemId + ") nhưng tạo phiên đấu giá thất bại!");
+                    writer.println("CREATE_ITEM_FAIL");
+                    conn.rollback();
+                }
             } else {
                 writer.println("CREATE_ITEM_FAIL");
             }
@@ -263,4 +295,45 @@ public class ClientHandler implements Runnable {
             writer.println("GET ITEMS FAIL");
         }
     }
+
+    //LẤY PHIÊN ĐẤU GIÁ
+    private void handlerGetAuctions() {
+        List<Auction> auctions = auctionRepo.getAllAuctions();
+        writer.println("AUCTIONS===" + gson.toJson(toSummaryList(auctions)));
+    }
+
+    //LẤY PHIÊN ĐẤU GIÁ THEO ID SELLER
+    private void handleGetAuctionsBySeller() {
+        if (!(currentUser instanceof Seller)) {
+            writer.println("ONLY_SELLER_ERROR");
+            return;
+        }
+
+        List<Auction> auctions = auctionRepo.getAuctionsBySellerId(currentUser.getId());
+        writer.println("AUCTIONS===" + gson.toJson(toSummaryList(auctions)));
+    }
+
+    //CHUYỂN TỪ AUCTION SANG AUCTIONSUMMARY
+    private List<AuctionSummary> toSummaryList(List<Auction> auctions) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        List<AuctionSummary> summaries = new java.util.ArrayList<>();
+        for (Auction a : auctions) {
+            AuctionSummary s       = new AuctionSummary();
+            s.auctionId             = a.getId();
+            s.itemId                = a.getItem().getId();
+            s.itemName              = a.getItem().getName();
+            s.itemType              = a.getItem().getType_item();
+            s.startingPrice         = a.getItem().getStartingPrice();
+            s.currentHighestBid     = a.getCurrentHighestBid();
+            s.currentWinnerUsername = a.getCurrentWinnerUsername();
+            s.startTime             = a.getStartTime().format(fmt);
+            s.endTime               = a.getEndTime().format(fmt);
+            s.status                = a.getStatus().name();
+            summaries.add(s);
+        }
+        return summaries;
+    }
+
 }
+
+

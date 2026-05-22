@@ -101,6 +101,25 @@ public class AuctionDaoImpl implements IAuctionDAO {
     }
 
     @Override
+    public List<Auction> getAuctionsBySellerId(String sellerId) {
+        String sql = "SELECT a.* FROM auctions a " + "JOIN Items i ON a.item_id = i.id " + "WHERE i.seller_id = ? ORDER BY a.created_at DESC";
+        List<Auction> auctions = new ArrayList<>();
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, sellerId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Auction auction = buildAuction(rs);
+                    if (auction != null) auctions.add(auction);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return auctions;
+    }
+
+    @Override
     public int insertAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime) {
         // Lấy startingPrice của item để set làm current_highest_bid ban đầu
         Item item = itemDAO.getItemById(itemId);

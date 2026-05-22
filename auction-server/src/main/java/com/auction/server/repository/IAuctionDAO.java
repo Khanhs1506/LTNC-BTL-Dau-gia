@@ -15,6 +15,9 @@ public interface IAuctionDAO {
     // Lấy các phiên theo trạng thái
     List<Auction> getAuctionsByStatus(Auction.Status status);
 
+    //LẤY PHIÊN THEO ID SELLER
+    List<Auction> getAuctionsBySellerId(String sellerId);
+
     // Thêm phiên đấu giá mới
     int insertAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime);
 
