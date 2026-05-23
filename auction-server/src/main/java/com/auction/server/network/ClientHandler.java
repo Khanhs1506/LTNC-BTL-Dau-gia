@@ -1,7 +1,12 @@
 package com.auction.server.network;
 
+import com.auction.server.exception.AuctionClosedException;
+import com.auction.server.exception.InvalidBidException;
 import com.auction.server.model.*;
 import com.auction.server.repository.*;
+import com.auction.server.service.AuctionManager;
+import com.auction.server.service.AuctionObserver;
+import com.auction.server.service.BiddingEngine;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -18,7 +23,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class ClientHandler implements Runnable {
+public class ClientHandler implements Runnable, AuctionObserver {
 
     public static int NumberOfClient = 0;
     public static final List<ClientHandler> connectedClients = new CopyOnWriteArrayList<>();
@@ -39,6 +44,16 @@ public class ClientHandler implements Runnable {
     public ClientHandler(Socket socket) throws Exception {
         this.socket = socket;
         connectedClients.add(this);
+    }
+
+    @Override
+    public void onNewBidPlaced(int auctionId, String bidderUsername, double newBidAmount) {
+        if (writer != null) {
+            String notification = String.format(
+                    "BID_UPDATE==={\"auctionId\":%d,\"bidder\":\"%s\",\"amount\":%.2f}",
+                    auctionId, bidderUsername, newBidAmount);
+            writer.println(notification);
+        }
     }
 
     @Override
@@ -99,6 +114,10 @@ public class ClientHandler implements Runnable {
                     handlerCreateItem(json);
                     break;
 
+                case "DELETE_ITEM":
+                    handlerDeleteItem(json);
+                    break;
+
                 case "LOGOUT":
                     handleLogout();
                     break;
@@ -119,6 +138,7 @@ public class ClientHandler implements Runnable {
                     writer.println("UNKNOWN ACTION");
             }
         } catch (Exception e){
+            e.printStackTrace();
             writer.println("SERVER ERROR");
         }
     }
@@ -139,7 +159,7 @@ public class ClientHandler implements Runnable {
     }
 
     // ĐĂNG KÍ TÀI KHOẢN
-    private void handlerRegister(String json) { //sau đổi String thành User
+    private void handlerRegister(String json) {
         JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
         String username = obj.get("username").getAsString();
         String password = obj.get("password").getAsString();
@@ -157,14 +177,13 @@ public class ClientHandler implements Runnable {
             case "BIDDER":
                 newUser = new Bidder(null, username, password, 0);
                 break;
-
-            case "GET_ITEMS_BY_CATEGORY":
-                handlerGetItemsByCategory(json);
-                break;
         }
 
+        if (newUser == null) {
+            writer.println("REGISTER FAIL");
+            return;
+        }
         boolean success = userRepo.registerUser(newUser);
-
         writer.println(success ? "REGISTER SUCCESS" : "REGISTER FAIL");
     }
 
@@ -176,8 +195,8 @@ public class ClientHandler implements Runnable {
             return;
         }
         try {
-            Connection conn = DatabaseManager.getInstance().getConnection();
-            conn.setAutoCommit(false);
+//            Connection conn = DatabaseManager.getInstance().getConnection();
+//            conn.setAutoCommit(false);
             JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
             String name = obj.get("name").getAsString();
             String itemType = obj.get("itemType").getAsString();
@@ -217,16 +236,13 @@ public class ClientHandler implements Runnable {
                         ? LocalDateTime.parse(obj.get("endTime").getAsString(), fmt)
                         : LocalDateTime.now().plusDays(7);
 
-                int auctionId = auctionRepo.insertAuction(itemId, startTime, endTime);
-
+                //LƯU VÀO DB VÀ RAM
+                int auctionId = AuctionManager.getInstance().createAuction(itemId, startTime, endTime);
                 if (auctionId > 0) {
-                    System.out.println("[Server] Tạo phiên đấu giá tự động cho sản phẩm id=" + itemId + ", auctionId=" + auctionId);
+                    System.out.println("[Server] Tạo phiên đấu giá id=" + auctionId + " cho item id=" + itemId);
                     writer.println("CREATE_ITEM_SUCCESS");
-                    conn.commit();
                 } else {
-                    System.err.println("[Server] WARN: Item tạo OK (id=" + itemId + ") nhưng tạo phiên đấu giá thất bại!");
                     writer.println("CREATE_ITEM_FAIL");
-                    conn.rollback();
                 }
             } else {
                 writer.println("CREATE_ITEM_FAIL");
@@ -235,6 +251,34 @@ public class ClientHandler implements Runnable {
         } catch (Exception e) {
             e.printStackTrace();
             writer.println("CREATE_ITEM_FAIL");
+        }
+    }
+
+    //XÓA SẢN PHẨM
+    private void handlerDeleteItem(String json) {
+        if (!(currentUser instanceof Seller)) {
+            writer.println("ONLY_SELLER CAN DELETE");
+            return;
+        }
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            int itemId = obj.get("itemId").getAsInt();
+
+            boolean success = AuctionManager.getInstance().deleteItemAndAuction(itemId, itemRepo);
+
+            if (success) {
+                writer.println("DELETE_ITEM_SUCCESS");
+                String notification = String.format("DELETE_ITEM_NOTIFY==={\"itemId\":%d}", itemId);
+                for (ClientHandler client : connectedClients) {
+                    if (client != this) client.writer.println(notification);
+                }
+                System.out.println("[Server] Seller \"" + currentUser.getUsername() + "\" đã xóa item id=" + itemId);
+            } else {
+                writer.println("DELETE_ITEM_FAIL===DB_ERROR");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("DELETE_ITEM_FAIL===SERVER_ERROR");
         }
     }
 
@@ -252,28 +296,22 @@ public class ClientHandler implements Runnable {
             writer.println("ONLY BIDDER CAN BID");
             return;
         }
-        PlacedBidResquest res = gson.fromJson(json, PlacedBidResquest.class);
-        BidTransaction bid = new BidTransaction(res.auctionId, res.username, res.amount);
-        boolean saveBid = bidRepo.insertBid(bid);
-        boolean updateAuction = auctionRepo.updateHighestBid(bid.getAuctionId(), bid.getBidAmount(), currentUser.getUsername());
 
-        if (saveBid && updateAuction){
-            writer.println("BID SUCCESS");
-            String notification = String.format(
-                    "BID_UPDATE==={\"auctionId\":%d,\"bidder\":\"%s\",\"amount\":%.2f}",
-                    bid.getAuctionId(),
-                    currentUser.getUsername(),
-                    bid.getBidAmount()
-            );
-            for (ClientHandler client : connectedClients) {
-                if (client != this) { // không gửi lại cho người vừa đặt
-                    client.writer.println(notification);
-                }
+        try {
+            PlacedBidResquest res = gson.fromJson(json, PlacedBidResquest.class);
+            boolean success = BiddingEngine.getInstance().processBid(res.auctionId, currentUser.getUsername(), res.amount);
+
+            if (success) {
+                writer.println("BID SUCCESS");
+            } else {
+                writer.println("BID FAIL");
             }
-            System.out.println("BID_UPDATE đến "
-                    + (connectedClients.size() - 1) + " client(s)");
-        } else {
-            writer.println("BID FAIL");
+        } catch (AuctionClosedException e) {
+            writer.println("BID_FAIL===AUCTION_CLOSED");
+        } catch (InvalidBidException e) {
+            writer.println("BID_FAIL===INVALID_BID: " + e.getMessage());
+        } catch (Exception e) {
+            writer.println("BID_FAIL===" + e.getMessage());
         }
     }
 
