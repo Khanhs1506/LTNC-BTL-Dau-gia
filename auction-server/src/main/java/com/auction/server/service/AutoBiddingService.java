@@ -11,24 +11,20 @@ import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * AutoBiddingService – Dịch vụ đấu giá tự động.
+ * AutoBiddingService – Dịch vụ đấu giá tự động (Auto-Bid).
  *
- * Luồng hoạt động:
- *  1. Bidder đăng ký auto-bid (maxBid + increment) qua registerAutoBid().
- *  2. Sau mỗi lần có bid thủ công thành công, BiddingEngine gọi triggerAutoBids().
- *  3. Service lấy PriorityQueue của phiên (max-heap theo maxBid, tie-break theo
- *     thời gian đăng ký sớm nhất), rồi tự động đặt giá cho người có thể thắng.
- *
- * Yêu cầu đề bài đã đáp ứng:
- *  - maxBid + increment ✓
- *  - Không vượt quá maxBid ✓
- *  - So sánh nhiều auto-bid cùng lúc bằng PriorityQueue ✓
- *  - Ưu tiên theo thời điểm đăng ký (tie-break trong compareTo) ✓
- *  - Xử lý xung đột bid đồng thời (synchronized + delegate sang Auction.placeBid) ✓
+ * Yêu cầu đề bài đáp ứng:
+ *  ✓ Người dùng đặt maxBid + increment
+ *  ✓ Hệ thống tự động trả giá khi có bid mới từ đối thủ
+ *  ✓ So sánh nhiều auto-bid cùng lúc bằng PriorityQueue (max-heap)
+ *  ✓ Không vượt quá maxBid
+ *  ✓ Ưu tiên theo thời điểm đăng ký sớm nhất (tie-break trong compareTo)
+ *  ✓ Xử lý xung đột bid đồng thời (synchronized method)
+ *  ✓ Persist vào DB (auto_bids + bid_transactions + auctions)
  */
 public class AutoBiddingService {
 
-    // ── Singleton
+    // ── Singleton ─────────────────────────────────────────────────────────────
 
     private static final class Holder {
         static final AutoBiddingService INSTANCE = new AutoBiddingService();
@@ -38,16 +34,16 @@ public class AutoBiddingService {
         return Holder.INSTANCE;
     }
 
-    // ── State ─
+    // ── State ─────────────────────────────────────────────────────────────────
 
     /**
-     * Mỗi phiên đấu giá có một PriorityQueue riêng (max-heap).
-     * Dùng ConcurrentHashMap để thread-safe khi nhiều phiên chạy cùng lúc.
+     * Mỗi phiên có một PriorityQueue max-heap riêng (maxBid cao nhất ở đầu).
+     * ConcurrentHashMap đảm bảo thread-safe khi nhiều phiên chạy song song.
      */
     private final Map<Integer, PriorityQueue<AutoBidEntry>> queueMap =
             new ConcurrentHashMap<>();
 
-    private final IAutoBidDAO autoBidDao = new AutoBidDaoImpl();
+    private final IAutoBidDAO    autoBidDao     = new AutoBidDaoImpl();
     private final AuctionManager auctionManager = AuctionManager.getInstance();
 
     private AutoBiddingService() {}
@@ -56,45 +52,48 @@ public class AutoBiddingService {
 
     /**
      * Đăng ký auto-bid cho một bidder.
-     * Nếu bidder đã đăng ký trước → cập nhật entry mới (upsert).
+     * Nếu bidder đã đăng ký → upsert (cập nhật maxBid/increment mới).
      *
-     * @return true nếu lưu DB thành công
+     * @return true nếu thành công
      */
     public synchronized boolean registerAutoBid(AutoBidEntry entry) {
-        // 1. Kiểm tra phiên tồn tại và đang RUNNING
+        // Kiểm tra phiên tồn tại và đang RUNNING
         Auction auction = auctionManager.getAuction(entry.getAuctionId());
         if (auction == null) {
             System.err.println("[AutoBid] Không tìm thấy phiên " + entry.getAuctionId());
             return false;
         }
         if (auction.getStatus() != Auction.Status.RUNNING) {
-            System.err.println("[AutoBid] Phiên " + entry.getAuctionId() + " không RUNNING");
+            System.err.println("[AutoBid] Phiên " + entry.getAuctionId()
+                    + " không ở trạng thái RUNNING (hiện tại: " + auction.getStatus() + ")");
             return false;
         }
         if (entry.getMaxBid() <= auction.getCurrentHighestBid()) {
-            System.err.println("[AutoBid] maxBid phải > giá hiện tại (" +
-                    auction.getCurrentHighestBid() + ")");
+            System.err.println("[AutoBid] maxBid (" + entry.getMaxBid()
+                    + ") phải > giá hiện tại (" + auction.getCurrentHighestBid() + ")");
             return false;
         }
 
-        // 2. Lưu vào DB
+        // Persist vào DB (upsert nhờ ON DUPLICATE KEY UPDATE trong AutoBidDaoImpl)
         boolean saved = autoBidDao.insertAutoBid(entry);
         if (!saved) return false;
 
-        // 3. Cập nhật PriorityQueue trong RAM
+        // Cập nhật PriorityQueue trong RAM
         PriorityQueue<AutoBidEntry> pq = queueMap.computeIfAbsent(
                 entry.getAuctionId(), id -> new PriorityQueue<>());
 
-        // Xóa entry cũ của cùng user nếu có (upsert)
+        // Xóa entry cũ của user này nếu đã tồn tại (upsert)
         pq.removeIf(e -> e.getUsername().equals(entry.getUsername()));
         pq.add(entry);
 
-        System.out.println("[AutoBid] Đã đăng ký: " + entry);
+        System.out.println("[AutoBid] Đăng ký thành công: " + entry);
         return true;
     }
 
     /**
      * Hủy đăng ký auto-bid của một bidder.
+     *
+     * @return true nếu đã có entry và xóa thành công
      */
     public synchronized boolean cancelAutoBid(int auctionId, String username) {
         boolean deleted = autoBidDao.deleteAutoBid(auctionId, username);
@@ -102,34 +101,40 @@ public class AutoBiddingService {
         if (pq != null) {
             pq.removeIf(e -> e.getUsername().equals(username));
         }
+        System.out.println("[AutoBid] Hủy auto-bid: auction=" + auctionId + " user=" + username);
         return deleted;
     }
 
     /**
-     * Nạp lại toàn bộ auto-bid của một phiên từ DB vào RAM (dùng khi server restart).
+     * Nạp lại toàn bộ auto-bid của một phiên từ DB vào RAM.
+     * Gọi khi server restart hoặc khi phiên mới được load.
      */
     public void loadFromDatabase(int auctionId) {
         List<AutoBidEntry> entries = autoBidDao.getAutoBidsByAuction(auctionId);
-        PriorityQueue<AutoBidEntry> pq = new PriorityQueue<>(entries);
+        PriorityQueue<AutoBidEntry> pq = new PriorityQueue<>(entries.isEmpty() ? 1 : entries.size());
+        pq.addAll(entries);
         queueMap.put(auctionId, pq);
-        System.out.println("[AutoBid] Loaded " + entries.size() +
-                " auto-bid entries for auction " + auctionId);
+        System.out.println("[AutoBid] Loaded " + entries.size()
+                + " auto-bid(s) cho phiên " + auctionId);
     }
 
     /**
      * Kích hoạt auto-bid sau khi có bid mới (thủ công hoặc auto).
-     * Phương thức này được gọi từ BiddingEngine mỗi khi placeBid() thành công.
+     * Được gọi từ BiddingEngine.processBid() sau mỗi bid thành công.
      *
      * Thuật toán:
-     *  - Lấy top của PriorityQueue (maxBid cao nhất / đăng ký sớm nhất).
-     *  - Nếu top.maxBid > currentHighest + increment → đặt giá tự động.
-     *  - Xóa entry của bidder hiện tại khỏi queue nếu họ vừa đặt thủ công.
-     *  - Lặp lại cho đến khi không còn ai có thể auto-bid hơn.
+     *  - Lấy top PriorityQueue (maxBid cao nhất / đăng ký sớm nhất).
+     *  - Nếu top là người vừa đặt → dừng (không tự đua với chính mình).
+     *  - Nếu top.maxBid >= currentHighest + increment → auto-bid.
+     *  - Nếu top.maxBid < nextBid → loại khỏi queue và thử người tiếp theo.
+     *  - Lặp đến khi không còn ai có thể auto-bid cao hơn.
      *
-     * @param auctionId    phiên đấu giá vừa có bid mới
-     * @param triggerUser  username vừa đặt giá (để bỏ qua auto-bid của chính họ)
+     * @param auctionId   phiên vừa có bid mới
+     * @param triggerUser user vừa đặt giá (bỏ qua auto-bid của chính họ)
+     * @param engine      BiddingEngine để persist kết quả vào DB
      */
-    public synchronized void triggerAutoBids(int auctionId, String triggerUser) {
+    public synchronized void triggerAutoBids(int auctionId, String triggerUser,
+                                             BiddingEngine engine) {
         Auction auction = auctionManager.getAuction(auctionId);
         if (auction == null || auction.getStatus() != Auction.Status.RUNNING) return;
 
@@ -142,30 +147,34 @@ public class AutoBiddingService {
             AutoBidEntry top = pq.peek();
             if (top == null) break;
 
-            // Bỏ qua nếu top là người vừa đặt giá (để tránh vòng lặp vô tận)
+            // Dừng nếu người đầu queue là người vừa đặt (tránh vòng lặp vô hạn)
             if (top.getUsername().equals(triggerUser)) break;
 
             double currentHighest = auction.getCurrentHighestBid();
-            double nextBid = currentHighest + top.getIncrement();
+            double nextBid        = currentHighest + top.getIncrement();
 
-            // Kiểm tra: người này còn có thể auto-bid không?
             if (top.getMaxBid() < nextBid) {
-                // maxBid không đủ → loại khỏi hàng đợi
+                // Hết ngân sách → loại khỏi queue và DB
                 pq.poll();
                 autoBidDao.deleteAutoBid(auctionId, top.getUsername());
-                System.out.println("[AutoBid] " + top.getUsername() +
-                        " hết ngân sách, bị loại khỏi queue.");
+                System.out.println("[AutoBid] " + top.getUsername()
+                        + " hết ngân sách, loại khỏi queue (maxBid="
+                        + top.getMaxBid() + " < nextBid=" + nextBid + ")");
                 continue; // thử người tiếp theo
             }
 
-            // Đặt giá tự động
+            // Đặt giá tự động vào object Auction (thread-safe)
             try {
                 boolean success = auction.placeBid(top.getUsername(), nextBid);
                 if (success) {
-                    System.out.printf("[AutoBid] %s tự động đặt giá %.0f cho phiên %d%n",
+                    // Persist vào DB
+                    engine.persistAutoBid(auctionId, top.getUsername(), nextBid);
+
+                    System.out.printf("[AutoBid] %s tự động đặt %.0f cho phiên %d%n",
                             top.getUsername(), nextBid, auctionId);
+
                     biddingHappened = true;
-                    // Cập nhật triggerUser để vòng tiếp theo bỏ qua người này
+                    // Vòng tiếp theo bỏ qua người này
                     triggerUser = top.getUsername();
                 }
             } catch (Exception e) {
@@ -177,17 +186,17 @@ public class AutoBiddingService {
     }
 
     /**
+     * Kiểm tra user đã đăng ký auto-bid cho phiên này chưa.
+     */
+    public boolean hasAutoBid(int auctionId, String username) {
+        return autoBidDao.existsAutoBid(auctionId, username);
+    }
+
+    /**
      * Dọn dẹp queue khi phiên kết thúc (giải phóng RAM).
      */
     public void clearQueue(int auctionId) {
         queueMap.remove(auctionId);
         System.out.println("[AutoBid] Đã xóa queue của phiên " + auctionId);
-    }
-
-    /**
-     * Kiểm tra xem một user đã đăng ký auto-bid cho phiên này chưa.
-     */
-    public boolean hasAutoBid(int auctionId, String username) {
-        return autoBidDao.existsAutoBid(auctionId, username);
     }
 }
