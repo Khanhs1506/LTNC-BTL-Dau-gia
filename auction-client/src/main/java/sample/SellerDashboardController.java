@@ -531,9 +531,42 @@ public class SellerDashboardController implements Initializable {
         });
     }
 
-    @FXML void handleLogout() {
-        UserSession.getInstance().logout();
-        // TODO: quay về Home
+    @FXML
+    void handleLogout() {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Đăng xuất");
+        confirm.setHeaderText("Bạn có chắc muốn đăng xuất?");
+        confirm.getButtonTypes().setAll(ButtonType.YES, ButtonType.NO);
+
+        confirm.showAndWait().ifPresent(btn -> {
+            if (btn == ButtonType.YES) {
+                // 1. Xóa session
+                UserSession.getInstance().logout();
+
+                // 2. Ngắt kết nối server
+                try { ServerConnection.getInstance().disconnect(); }
+                catch (Exception ignored) {}
+
+                // 3. Quay về Home (đã có sẵn HomeController + home.fxml)
+                try {
+                    FXMLLoader loader = new FXMLLoader(
+                            getClass().getResource("/sample/home_demo.fxml"));
+                    Parent root = loader.load();
+
+                    // 4. Reset trạng thái Home về chưa đăng nhập
+                    HomeController homeCtrl = loader.getController();
+                    homeCtrl.resetToGuest();
+
+                    Stage stage = (Stage) menuOverview.getScene().getWindow();
+                    stage.setScene(new Scene(root, 1200, 800));
+                    stage.setTitle("TINY HOARDER'S KEY MARKET");
+                    stage.centerOnScreen();
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
     }
 
     // ── Helpers ──────────────────────────────────────────────────

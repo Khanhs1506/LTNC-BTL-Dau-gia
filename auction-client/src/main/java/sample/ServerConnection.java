@@ -39,7 +39,7 @@ public class ServerConnection {
         return socket == null || socket.isClosed();
     }
 
-    private synchronized String sendRequest(String action, String json) throws Exception {
+    public synchronized String sendRequest(String action, String json) throws Exception {
         writer.println(action + "===" + json);
         return responseQueue.take();
     }
@@ -143,6 +143,16 @@ public class ServerConnection {
                                 NotificationManager.getInstance().addNotification(msg)
                         );
 
+                    } else if (line.startsWith("NOTIFY===")) {
+                        String[] parts = line.split("===");
+                        javafx.application.Platform.runLater(() -> {
+                            switch (parts[1]) {
+                                case "BID_REFUND"  -> WalletController.notifyAuctionLost(
+                                        parts[2], Double.parseDouble(parts[3]));
+                                case "AUCTION_WON" -> WalletController.notifyAuctionWon(parts[2], 0);
+                            }
+                        });
+
                     } else {
                         // Response thông thường — sendRequest() đang chờ
                         responseQueue.put(line);
@@ -175,5 +185,38 @@ public class ServerConnection {
         if (s == null) return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"")
                 .replace("\n", "\\n").replace("\r", "");
+    }
+
+    // ── Ví / Wallet ────────────────────────────────────────────────────
+    public String getWallet() throws Exception {
+        return sendRequest("GET_WALLET", "{}");
+    }
+
+    public String deposit(double amount, String paymentMethod) throws Exception {
+        String json = String.format(
+                "{\"amount\":%.2f,\"paymentMethod\":\"%s\"}", amount, paymentMethod);
+        return sendRequest("DEPOSIT", json);
+    }
+
+    public String bidHold(String auctionId, double bidAmount,
+                          double depositAmount) throws Exception {
+        String json = String.format(
+                "{\"auctionId\":\"%s\",\"bidAmount\":%.2f,\"depositAmount\":%.2f}",
+                auctionId, bidAmount, depositAmount);
+        return sendRequest("BID_HOLD", json);
+    }
+
+    public String getTransactions(String type, String status,
+                                  String dateFrom, String dateTo,
+                                  int page, int pageSize) throws Exception {
+        String json = String.format(
+                "{\"type\":\"%s\",\"status\":\"%s\",\"dateFrom\":\"%s\"," +
+                        "\"dateTo\":\"%s\",\"page\":%d,\"pageSize\":%d}",
+                type     != null ? type     : "ALL",
+                status   != null ? status   : "ALL",
+                dateFrom != null ? dateFrom : "",
+                dateTo   != null ? dateTo   : "",
+                page, pageSize);
+        return sendRequest("GET_TRANSACTIONS", json);
     }
 }

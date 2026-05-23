@@ -3,7 +3,10 @@ package sample;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
@@ -16,8 +19,12 @@ import javafx.scene.layout.VBox;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.stage.Popup;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import javafx.stage.Stage;
 import sample.model.Auction;
 import sample.model.BidTransaction;
 import sample.model.Report;
@@ -405,9 +412,60 @@ public class AdminDashboardController implements Initializable {
         new Alert(Alert.AlertType.INFORMATION, "Đã lưu cài đặt!").showAndWait();
     }
 
-    @FXML void handleLogout() {
-        UserSession.getInstance().logout();
-        // TODO: quay về màn hình login
+    @FXML
+    void handleLogout() {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Đăng xuất");
+        confirm.setHeaderText("Bạn có chắc muốn đăng xuất?");
+        confirm.getButtonTypes().setAll(ButtonType.YES, ButtonType.NO);
+
+        confirm.showAndWait().ifPresent(btn -> {
+            if (btn == ButtonType.YES) {
+                // 1. Xóa session
+                UserSession.getInstance().logout();
+
+                // 2. Tìm FXML qua chính HomeController class (luôn đúng package)
+                java.net.URL fxmlUrl = HomeController.class.getResource("home.fxml");
+
+                // Fallback nếu home.fxml cùng thư mục với HomeController
+                if (fxmlUrl == null) {
+                    fxmlUrl = HomeController.class.getResource("/sample/home_demo.fxml");
+                }
+
+                if (fxmlUrl == null) {
+                    // In ra tất cả để debug
+                    System.err.println("[Logout] Thư mục class: "
+                            + HomeController.class.getPackage().getName());
+                    System.err.println("[Logout] Thử path: "
+                            + HomeController.class.getResource("."));
+                    new Alert(Alert.AlertType.ERROR,
+                            "Không tìm thấy home.fxml!\n"
+                                    + "Kiểm tra tên file có đúng chữ thường/hoa không.")
+                            .showAndWait();
+                    return;
+                }
+
+                try {
+                    javafx.fxml.FXMLLoader loader =
+                            new javafx.fxml.FXMLLoader(fxmlUrl);
+                    javafx.scene.Parent root = loader.load();
+
+                    // 3. Reset Home về trạng thái khách
+                    HomeController homeCtrl = loader.getController();
+                    homeCtrl.resetToGuest();
+
+                    // 4. Chuyển scene
+                    javafx.stage.Stage stage =
+                            (javafx.stage.Stage) adminMenuOverview.getScene().getWindow();
+                    stage.setScene(new javafx.scene.Scene(root, 1200, 800));
+                    stage.setTitle("TINY HOARDER'S KEY MARKET");
+                    stage.centerOnScreen();
+
+                } catch (java.io.IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
     }
 
     // ── Helpers ───────────────────────────────────────────────────

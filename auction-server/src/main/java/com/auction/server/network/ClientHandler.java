@@ -115,6 +115,23 @@ public class ClientHandler implements Runnable {
                     handleGetAuctionsBySeller();
                     break;
 
+                case "GET_WALLET":
+                    handleGetWallet();
+                    break;
+
+                case "DEPOSIT":
+                    handleDeposit(json);
+                    break;
+
+                case "BID_HOLD":
+                    handleBidHold(json);
+                    break;
+
+                case "GET_TRANSACTIONS":
+                    handleGetTransactions(json);
+                    break;
+
+
                 default:
                     writer.println("UNKNOWN ACTION");
             }
@@ -334,6 +351,38 @@ public class ClientHandler implements Runnable {
         return summaries;
     }
 
+    // ── Ví / Wallet ────────────────────────────────────────────────────
+    private void handleGetWallet() {
+        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
+        try {
+            Connection conn = DatabaseManager.getInstance().getConnection();
+            writer.println(server.WalletHandler.handleGetWallet(currentUser.getUsername(), conn));
+        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
+    }
+
+    private void handleDeposit(String json) {
+        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
+        try {
+            Connection conn = DatabaseManager.getInstance().getConnection();
+            writer.println(server.WalletHandler.handleDeposit(currentUser.getUsername(), json, conn));
+        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
+    }
+
+    private void handleBidHold(String json) {
+        if (!(currentUser instanceof Bidder)) { writer.println("ERROR===Chỉ Bidder mới đặt cọc"); return; }
+        try {
+            Connection conn = DatabaseManager.getInstance().getConnection();
+            writer.println(server.WalletHandler.handleBidHold(currentUser.getUsername(), json, conn));
+        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
+    }
+
+    private void handleGetTransactions(String json) {
+        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
+        try {
+            Connection conn = DatabaseManager.getInstance().getConnection();
+            writer.println(server.WalletHandler.handleGetTransactions(currentUser.getUsername(), json, conn));
+        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
+    }
 }
 
 

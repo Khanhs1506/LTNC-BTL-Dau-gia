@@ -47,6 +47,8 @@ public class HomeController {
     @FXML private Button btnBellUser;
     @FXML private StackPane bellStackGuest;
     @FXML private StackPane bellStackUser;
+    @FXML private Label     lblBalance;
+    @FXML private Button btnWallet;
 
 
     private Label badgeGuest;
@@ -480,21 +482,24 @@ public class HomeController {
         userBox.setVisible(true);
         userBox.setManaged(true);
 
-        // ✅ Đổi tất cả nút "Đăng kí đấu giá" → "Đấu giá"
+        // Hiện số dư ví (chỉ Bidder mới có ví)
+        refreshBalanceLabel();
+
         for (Button btn : allBidButtons) {
             btn.setText("Đấu giá");
         }
     }
 
     @FXML
-    private void handleDangXuat() {
+    private void handleLogout() {
         UserSession.getInstance().logout();
         userBox.setVisible(false);
         userBox.setManaged(false);
         guestBox.setVisible(true);
         guestBox.setManaged(true);
 
-        // ✅ Đổi lại "Đăng kí đấu giá"
+        if (lblBalance != null) lblBalance.setText("");
+
         for (Button btn : allBidButtons) {
             btn.setText("Đăng kí đấu giá");
         }
@@ -671,4 +676,75 @@ public class HomeController {
         grid.add(lbl, 0, row);
         grid.add(val, 1, row);
     }
+
+    /**
+     * Gọi từ bên ngoài (vd: SellerDashboard logout) để reset Home
+     * về trạng thái khách chưa đăng nhập.
+     */
+    public void resetToGuest() {
+        // Reset session (phòng trường hợp chưa clear)
+        UserSession.getInstance().logout();
+
+        // Ẩn userBox, hiện guestBox
+        userBox.setVisible(false);
+        userBox.setManaged(false);
+        guestBox.setVisible(true);
+        guestBox.setManaged(true);
+
+        // Đổi tất cả nút "Đấu giá" → "Đăng kí đấu giá"
+        for (Button btn : allBidButtons) {
+            btn.setText("Đăng kí đấu giá");
+        }
+
+        // Reset về tab Tất cả
+        currentCategory = "Tất cả";
+        renderCards(currentCategory);
+    }
+
+    /**
+     * Cập nhật nhãn số dư ví — gọi sau mỗi lần balance thay đổi.
+     * Chỉ hiển thị khi role là BIDDER; ẩn với SELLER / ADMIN.
+     */
+    public void refreshBalanceLabel() {
+        if (lblBalance == null) return;
+
+        UserSession session = UserSession.getInstance();
+        boolean isBidder = "BIDDER".equalsIgnoreCase(session.getRole());
+
+        if (isBidder) {
+            String formatted = String.format("💰 Số dư: %,.0f VNĐ", session.getBalance());
+            lblBalance.setText(formatted);
+            lblBalance.setVisible(true);
+            lblBalance.setManaged(true);
+        } else {
+            lblBalance.setText("");
+            lblBalance.setVisible(false);
+            lblBalance.setManaged(false);
+        }
+    }
+
+    @FXML
+    private void handleOpenWallet() {
+        if (!"BIDDER".equalsIgnoreCase(UserSession.getInstance().getRole())) {
+            ToastNotification.warning(
+                    rootPane.getScene().getWindow(),
+                    "Chức năng ví chỉ dành cho Bidder");
+            return;
+        }
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/sample/wallet.fxml"));
+            Parent root = loader.load();
+            Stage stage = new Stage();
+            stage.setTitle("Ví của tôi");
+            stage.setScene(new Scene(root, 920, 700));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            // Sau khi đóng ví, làm mới số dư trên navbar
+            stage.setOnHidden(e -> refreshBalanceLabel());
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
 }
