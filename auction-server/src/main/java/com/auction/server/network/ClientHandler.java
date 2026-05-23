@@ -114,6 +114,10 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     handlerCreateItem(json);
                     break;
 
+                case "DELETE_ITEM":
+                    handlerDeleteItem(json);
+                    break;
+
                 case "LOGOUT":
                     handleLogout();
                     break;
@@ -247,6 +251,34 @@ public class ClientHandler implements Runnable, AuctionObserver {
         } catch (Exception e) {
             e.printStackTrace();
             writer.println("CREATE_ITEM_FAIL");
+        }
+    }
+
+    //XÓA SẢN PHẨM
+    private void handlerDeleteItem(String json) {
+        if (!(currentUser instanceof Seller)) {
+            writer.println("ONLY_SELLER CAN DELETE");
+            return;
+        }
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            int itemId = obj.get("itemId").getAsInt();
+
+            boolean success = AuctionManager.getInstance().deleteItemAndAuction(itemId, itemRepo);
+
+            if (success) {
+                writer.println("DELETE_ITEM_SUCCESS");
+                String notification = String.format("DELETE_ITEM_NOTIFY==={\"itemId\":%d}", itemId);
+                for (ClientHandler client : connectedClients) {
+                    if (client != this) client.writer.println(notification);
+                }
+                System.out.println("[Server] Seller \"" + currentUser.getUsername() + "\" đã xóa item id=" + itemId);
+            } else {
+                writer.println("DELETE_ITEM_FAIL===DB_ERROR");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("DELETE_ITEM_FAIL===SERVER_ERROR");
         }
     }
 

@@ -522,14 +522,61 @@ public class SellerDashboardController implements Initializable {
         // TODO: Mở dialog sửa
     }
 
+    //XÓA SẢN PHẨM
     private void handleDeleteProduct(Auction a) {
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                "Xóa sản phẩm \"" + a.getItem().getName() + "\"?",
-                ButtonType.YES, ButtonType.NO);
+        if (a == null) return;
+
+        int itemId;
+        try {
+            itemId = Integer.parseInt(a.getItem().getId());
+        } catch (NumberFormatException e) {
+            showAlert(Alert.AlertType.ERROR, "Lỗi", "Không đọc được ID sản phẩm");
+            return;
+        }
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Xác nhận xóa");
+        confirm.setHeaderText("Xóa sản phẩm \"" + a.getItem().getName() + "\"?");
+        confirm.setContentText("Hành động này sẽ xóa sản phẩm và phiên đấu giá vĩnh viễn.");
         confirm.showAndWait().ifPresent(bt -> {
-            if (bt == ButtonType.YES) allAuctions.remove(a);
+            if (bt != ButtonType.YES) return;
+
+            final int fItemId = itemId;
+            new Thread(() -> {
+                try {
+                    String response = ServerConnection.getInstance().deleteItem(fItemId);
+                    Platform.runLater(() -> {
+                        if ("DELETE_ITEM_SUCCESS".equals(response)) {
+                            allAuctions.remove(a);
+                            updateStatsFromData();
+                            setupPieChart();
+                            showAlert(Alert.AlertType.INFORMATION, "Thành công", "Đã xóa sản phẩm \"" + a.getItem().getName() + "\".");
+                        } else {
+                            showAlert(Alert.AlertType.ERROR, "Thất bại", "Server từ chối xóa: " + response);
+                        }
+                    });
+                } catch (Exception e) {
+                    Platform.runLater(() ->
+                            showAlert(Alert.AlertType.ERROR, "Lỗi kết nối", "Không gửi được yêu cầu đến server: " + e.getMessage()));
+                }
+            }, "DeleteItemThread").start();
         });
     }
+
+    //HÀM HỖ TRỢ
+    private void showAlert(Alert.AlertType type, String title, String content) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
+    }
+//        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+//                "Xóa sản phẩm \"" + a.getItem().getName() + "\"?",
+//                ButtonType.YES, ButtonType.NO);
+//        confirm.showAndWait().ifPresent(bt -> {
+//            if (bt == ButtonType.YES) allAuctions.remove(a);
+//        });
+
 
     @FXML void handleLogout() {
         UserSession.getInstance().logout();

@@ -28,4 +28,6 @@ public interface IAuctionDAO {
     boolean updateHighestBid(int auctionId, double amount, String winnerUsername);
     // cập nhật thời gian kêt thúc cho anti-snipping
     boolean updateEndTime(int auctionId, LocalDateTime newEndTime);
+    //xóa phiên đấu giá theo item_id (dùng khi seller xóa)
+    boolean deleteAuctionByItemId(int itemId);
 }

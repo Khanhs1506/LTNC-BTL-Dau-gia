@@ -88,11 +88,18 @@ public class ServerConnection {
         return sendRequest("CREATE_ITEM", json);
     }
 
+
     public String getItems() throws Exception {
         return sendRequest("GET_ITEMS", "{}");
     }
 
-    //LÂ PHIÊN ĐẤU GIÁ
+    // XÓA SẢN PHẨM
+    public String deleteItem(int itemId) throws Exception {
+        String json = String.format("{\"itemId\":%d}", itemId);
+        return sendRequest("DELETE_ITEM", json);
+    }
+
+    //LẤY PHIÊN ĐẤU GIÁ
     public String getAuctions() throws Exception {
         return sendRequest("GET_AUCTIONS", "{}");
     }

@@ -136,7 +136,6 @@ public class AuctionDetailController {
                 System.err.println(response);
                 System.err.flush();
                 messageLabel.setText("⚠ Giá phải lớn hơn " + formatVND(auction.currentHighest));
-
             }
         } catch (NumberFormatException e) {
             messageLabel.setText("⚠ Vui lòng nhập số hợp lệ");

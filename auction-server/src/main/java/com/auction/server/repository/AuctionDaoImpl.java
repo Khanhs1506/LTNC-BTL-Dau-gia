@@ -201,4 +201,19 @@ public class AuctionDaoImpl implements IAuctionDAO {
             return false;
         }
     }
+
+    @Override
+    public boolean deleteAuctionByItemId(int itemId) {
+        String sql = "DELETE FROM auctions WHERE item_id";
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, itemId);
+            int rows = stmt.executeUpdate();
+            System.out.println("[AuctionDaoImpl] Xóa " + rows + " phiên đấu giá của item_id=" + itemId);
+            return rows >= 0;
+        } catch (Exception e) {
+            System.err.println("[AuctionDaoImpl] Lỗi deleteAuctionByItemId: " + e.getMessage());
+            return false;
+        }
+    }
 }
