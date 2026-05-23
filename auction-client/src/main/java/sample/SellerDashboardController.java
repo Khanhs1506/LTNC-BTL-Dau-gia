@@ -570,12 +570,6 @@ public class SellerDashboardController implements Initializable {
         alert.setContentText(content);
         alert.showAndWait();
     }
-//        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-//                "Xóa sản phẩm \"" + a.getItem().getName() + "\"?",
-//                ButtonType.YES, ButtonType.NO);
-//        confirm.showAndWait().ifPresent(bt -> {
-//            if (bt == ButtonType.YES) allAuctions.remove(a);
-//        });
 
 
     @FXML void handleLogout() {
