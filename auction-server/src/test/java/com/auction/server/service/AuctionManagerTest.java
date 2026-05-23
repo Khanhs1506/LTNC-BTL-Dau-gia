@@ -30,7 +30,7 @@ public class AuctionManagerTest {
         manager = AuctionManager.getInstance();
 
         // Xóa hết phiên cũ từ test trước để tránh ảnh hưởng
-        List<Auction> danhSachCu = manager.getAllAuctions();
+        List<Auction> danhSachCu = manager.getAllActiveAuctions();
         for (Auction a : danhSachCu) {
             manager.endAuction(a.getId());
         }
@@ -94,7 +94,7 @@ public class AuctionManagerTest {
         manager.addAuction(phien1);
         manager.addAuction(phien2);
 
-        List<Auction> tatCa = manager.getAllAuctions();
+        List<Auction> tatCa = manager.getAllActiveAuctions();
 
         // Danh sách phải chứa cả 2 phiên vừa thêm
         assertTrue(tatCa.stream().anyMatch(a -> a.getId() == 200));

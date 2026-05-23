@@ -1,56 +1,172 @@
 package com.auction.server.service;
 
 import com.auction.server.model.Auction;
+import com.auction.server.repository.AuctionDaoImpl;
+import com.auction.server.repository.IAuctionDAO;
+import com.auction.server.repository.IItemDAO;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.List;
-import java.util.ArrayList;
 
-
+/**
+ * AuctionManager – Singleton quản lý tất cả các phiên đấu giá đang hoạt động trong RAM.
+ * Mọi thao tác thêm / kết thúc phiên đều được đồng bộ xuống DB qua IAuctionDAO.
+ */
 public class AuctionManager {
 
+    // ── Singleton ─────────────────────────────────────────────────────────────
 
     private static class Holder {
         private static final AuctionManager INSTANCE = new AuctionManager();
     }
 
-    //  Danh sách các phiên đấu giá  (Sử dụng ConcurrentHashMap để tránh lỗi Lost Update/Race Condition)
-    private final Map<Integer, Auction> activeAuctions;
-
-
-    private AuctionManager() {
-        activeAuctions = new ConcurrentHashMap<>();
-    }
-
-
     public static AuctionManager getInstance() {
         return Holder.INSTANCE;
     }
 
-    // thêm phiên đấu giá
+    // ── State ─────────────────────────────────────────────────────────────────
+
+    /** Cache RAM: auctionId → Auction (chỉ chứa các phiên chưa FINISHED/CANCELED). */
+    private final Map<Integer, Auction> activeAuctions = new ConcurrentHashMap<>();
+
+    private final IAuctionDAO auctionDao = new AuctionDaoImpl();
+
+    private AuctionManager() {}
+
+    // ── Khởi tạo ──────────────────────────────────────────────────────────────
+
+    /**
+     * Load tất cả phiên đấu giá OPEN và RUNNING từ DB vào RAM.
+     * Gọi một lần duy nhất khi ServerApp khởi động.
+     */
+    public void loadFromDatabase() {
+        List<Auction> openAuctions    = auctionDao.getAuctionsByStatus(Auction.Status.OPEN);
+        List<Auction> runningAuctions = auctionDao.getAuctionsByStatus(Auction.Status.RUNNING);
+
+        for (Auction a : openAuctions)    activeAuctions.put(a.getId(), a);
+        for (Auction a : runningAuctions) activeAuctions.put(a.getId(), a);
+
+        System.out.println("[AuctionManager] Loaded " + activeAuctions.size()
+                + " active auction(s) from database.");
+    }
+
+    // ── CRUD ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Thêm phiên đấu giá mới: lưu DB trước, rồi thêm vào cache RAM.
+     *
+     * @return id phiên được DB tạo ra, hoặc -1 nếu thất bại.
+     */
+    public int createAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime) {
+        int auctionId = auctionDao.insertAuction(itemId, startTime, endTime);
+        if (auctionId <= 0) return -1;
+
+        // Load lại từ DB để có đầy đủ thông tin (item, ...)
+        Auction auction = auctionDao.getAuctionById(auctionId);
+        if (auction != null) {
+            activeAuctions.put(auctionId, auction);
+            System.out.println("[AuctionManager] Tạo phiên đấu giá id=" + auctionId);
+        }
+        return auctionId;
+    }
+
+    /**
+     * Thêm thẳng object Auction vào cache (dùng khi đã có auction tạo từ ngoài).
+     */
     public void addAuction(Auction auction) {
         if (auction != null) {
             activeAuctions.put(auction.getId(), auction);
         }
     }
 
-  // lấy thông tin theo id
+    /** Lấy phiên từ cache RAM. */
     public Auction getAuction(int auctionId) {
         return activeAuctions.get(auctionId);
     }
 
-
-    public List<Auction> getAllAuctions() {
+    /** Lấy toàn bộ phiên đang trong RAM (OPEN + RUNNING). */
+    public List<Auction> getAllActiveAuctions() {
         return new ArrayList<>(activeAuctions.values());
     }
 
-
+    /**
+     * Kết thúc phiên đấu giá: cập nhật DB → xóa khỏi cache RAM.
+     */
     public synchronized void endAuction(int auctionId) {
         Auction auction = activeAuctions.get(auctionId);
         if (auction != null) {
-
+            auction.closeAuction();
+            auctionDao.updateStatus(auctionId, Auction.Status.FINISHED);
             activeAuctions.remove(auctionId);
-            System.out.println("Phiên đấu giá " + auctionId + " đã kết thúc.");
+            System.out.println("[AuctionManager] Phiên " + auctionId + " đã kết thúc.");
         }
     }
+
+    /**
+     * Hủy phiên đấu giá.
+     */
+    public synchronized void cancelAuction(int auctionId) {
+        Auction auction = activeAuctions.get(auctionId);
+        if (auction != null) {
+            auction.updateStatus(Auction.Status.CANCELED);
+            auctionDao.updateStatus(auctionId, Auction.Status.CANCELED);
+            activeAuctions.remove(auctionId);
+            System.out.println("[AuctionManager] Phiên " + auctionId + " đã bị hủy.");
+        }
+    }
+
+    /**
+     * Cập nhật trạng thái một phiên trong cả cache lẫn DB.
+     */
+    public void updateAuctionStatus(int auctionId, Auction.Status status) {
+        Auction auction = activeAuctions.get(auctionId);
+        if (auction != null) {
+            auction.updateStatus(status);
+        }
+        auctionDao.updateStatus(auctionId, status);
+    }
+
+    public synchronized boolean deleteItemAndAuction(int itemId, IItemDAO itemDao) {
+        Integer foundAuctionId = null;
+        for (Map.Entry<Integer, Auction> entry : activeAuctions.entrySet()) {
+            if (entry.getValue().getItem().getId() != null && entry.getValue().getItem().getId().equalsIgnoreCase(String.valueOf(itemId))) {
+                foundAuctionId = entry.getKey();
+                break;
+            }
+        }
+        if (foundAuctionId != null) {
+            activeAuctions.remove(foundAuctionId);
+            System.out.println("[AuctionManager] Xóa phiên id=" + foundAuctionId + " khỏi RAM (item_id=" + itemId + ")");
+        }
+
+        boolean auctionDeleted = auctionDao.deleteAuctionByItemId(itemId);
+        boolean itemDeleted = itemDao.deleteItem(itemId);
+        return auctionDeleted && itemDeleted;
+     }
+
+    /**
+     * Duyệt tất cả phiên trong RAM và tự động chuyển trạng thái theo thời gian thực.
+     * Gọi định kỳ từ một ScheduledExecutorService trong ServerApp.
+     */
+    public void checkAndUpdateStatuses() {
+        LocalDateTime now = LocalDateTime.now();
+        for (Auction auction : activeAuctions.values()) {
+            if (auction.getStatus() == Auction.Status.OPEN
+                    && !now.isBefore(auction.getStartTime())
+                    && now.isBefore(auction.getEndTime())) {
+                auction.startAuction();
+                auctionDao.updateStatus(auction.getId(), Auction.Status.RUNNING);
+                System.out.println("[AuctionManager] Phiên " + auction.getId() + " chuyển sang RUNNING.");
+            } else if ((auction.getStatus() == Auction.Status.OPEN
+                    || auction.getStatus() == Auction.Status.RUNNING)
+                    && !now.isBefore(auction.getEndTime())) {
+                endAuction(auction.getId());
+            }
+        }
+    }
+
+
 }

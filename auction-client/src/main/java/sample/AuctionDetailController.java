@@ -125,13 +125,18 @@ public class AuctionDetailController {
                 return;
             }
 
-            String repone = ServerConnection.getInstance().placeBid(auction.id, UserSession.getInstance().getUsername(), amount);
-            if (repone.equalsIgnoreCase("BID SUCCESS"))
+            String response = ServerConnection.getInstance().placeBid(auction.id, UserSession.getInstance().getUsername(), amount);
+            if (response.equalsIgnoreCase("BID SUCCESS")) {
                 auction.currentHighest = amount;
                 currentBidLabel.setText(formatVND(amount));
                 messageLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 13;");
                 messageLabel.setText("✅ Đặt giá thành công!");
                 bidAmountField.clear();
+            } else {
+                System.err.println(response);
+                System.err.flush();
+                messageLabel.setText("⚠ Giá phải lớn hơn " + formatVND(auction.currentHighest));
+            }
         } catch (NumberFormatException e) {
             messageLabel.setText("⚠ Vui lòng nhập số hợp lệ");
         } catch (Exception e) {

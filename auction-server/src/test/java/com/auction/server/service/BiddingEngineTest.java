@@ -32,7 +32,7 @@ public class BiddingEngineTest {
         manager = AuctionManager.getInstance();
 
         // Xóa hết phiên cũ
-        List<Auction> danhSachCu = manager.getAllAuctions();
+        List<Auction> danhSachCu = manager.getAllActiveAuctions();
         for (Auction a : danhSachCu) {
             manager.endAuction(a.getId());
         }
