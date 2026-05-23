@@ -116,6 +116,36 @@ CREATE TABLE auto_bids (
 );
 
 -- ============================================================
+-- BẢNG 9: wallet_transactions
+-- ============================================================
+CREATE TABLE wallet_transactions (
+                                     id                 VARCHAR(36)  NOT NULL PRIMARY KEY,
+                                     user_id            VARCHAR(36)  NOT NULL,
+                                     type               ENUM(
+                           'DEPOSIT',
+                           'PAYMENT',
+                           'REFUND',
+                           'BID_HOLD',
+                           'BID_RELEASE'
+                       ) NOT NULL,
+                                     amount             DOUBLE       NOT NULL,
+                                     balance_before     DOUBLE       NOT NULL,
+                                     balance_after      DOUBLE       NOT NULL,
+                                     related_auction_id INT          DEFAULT NULL,
+                                     note               VARCHAR(500) DEFAULT NULL,
+                                     created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                                     CONSTRAINT fk_wallet_user    FOREIGN KEY (user_id)
+                                         REFERENCES users(id) ON DELETE CASCADE,
+                                     CONSTRAINT fk_wallet_auction FOREIGN KEY (related_auction_id)
+                                         REFERENCES auctions(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_wallet_user_id ON wallet_transactions(user_id, created_at DESC);
+CREATE INDEX idx_wallet_type    ON wallet_transactions(type);
+CREATE INDEX idx_wallet_auction ON wallet_transactions(related_auction_id);
+
+-- ============================================================
 -- INDEX
 -- ============================================================
 CREATE INDEX idx_users_username    ON users(username);

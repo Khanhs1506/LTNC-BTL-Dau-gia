@@ -80,7 +80,7 @@ public class WalletController {
     private void setupComboBoxes() {
         cmbPaymentMethod.getItems().addAll(
                 "💳 VNPay", "📱 MoMo", "🏦 Internet Banking",
-                "💸 ZaloPay", "🏧 Thẻ ATM"
+                "💸 ZaloPay", "Thẻ ATM"
         );
         cmbPaymentMethod.getSelectionModel().selectFirst();
 
@@ -236,7 +236,6 @@ public class WalletController {
 
         new Thread(() -> {
             Transaction tx = WalletService.getInstance().deposit(amount, method);
-
             Platform.runLater(() -> {
                 btnDeposit.setDisable(false);
                 depositSpinner.setVisible(false);
@@ -257,8 +256,7 @@ public class WalletController {
                             "Nạp " + String.format("%,.0f VNĐ", amount) + " thành công!");
                 } else {
                     showDepositStatus("❌ Nạp tiền thất bại: " + tx.getNote(), "#e74c3c");
-                    ToastNotification.error(
-                            btnDeposit.getScene().getWindow(), "Nạp tiền thất bại!");
+                    ToastNotification.error(btnDeposit.getScene().getWindow(), "Nạp tiền thất bại!");
                 }
             });
         }, "DepositThread").start();
@@ -266,8 +264,7 @@ public class WalletController {
 
     private void showDepositStatus(String msg, String color) {
         lblDepositStatus.setText(msg);
-        lblDepositStatus.setStyle("-fx-text-fill: " + color +
-                "; -fx-font-size: 13; -fx-font-weight: bold;");
+        lblDepositStatus.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 13; -fx-font-weight: bold;");
         lblDepositStatus.setVisible(true);
     }
 
@@ -291,14 +288,11 @@ public class WalletController {
     private void applyFilter() {
         String typeStr   = mapTypeLabel  (cmbFilterType  .getValue());
         String statusStr = mapStatusLabel(cmbFilterStatus.getValue());
-        String from = dpFrom.getValue() != null
-                ? dpFrom.getValue().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : null;
-        String to   = dpTo  .getValue() != null
-                ? dpTo  .getValue().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : null;
+        String from = dpFrom.getValue() != null ? dpFrom.getValue().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : null;
+        String to   = dpTo  .getValue() != null ? dpTo  .getValue().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")) : null;
 
         new Thread(() -> {
-            List<Transaction> txs = WalletService.getInstance()
-                    .fetchTransactions(typeStr, statusStr, from, to, currentPage, PAGE_SIZE);
+            List<Transaction> txs = WalletService.getInstance().fetchTransactions(typeStr, statusStr, from, to, currentPage, PAGE_SIZE);
             Platform.runLater(() -> {
                 txList.setAll(txs);
                 updatePageLabel();
@@ -341,7 +335,7 @@ public class WalletController {
                                        double depositAmount, double bidAmount) {
         new Thread(() -> {
             Transaction tx = WalletService.getInstance()
-                    .holdForBid(auctionId, bidAmount, depositAmount);
+                    .holdForBid(Integer.parseInt(auctionId), depositAmount);
 
             Platform.runLater(() -> {
                 HomeController home = HomeController.getInstance();
@@ -350,8 +344,7 @@ public class WalletController {
                 if (tx.getStatus() == Transaction.Status.SUCCESS) {
                     UserSession.getInstance().deductBalance(depositAmount);
                     home.refreshBalanceLabel();
-                    ToastNotification.success(
-                            home.getRoot().getScene().getWindow(),
+                    ToastNotification.success(home.getRoot().getScene().getWindow(),
                             "🔒 Đặt cọc " + String.format("%,.0f VNĐ", depositAmount)
                                     + " cho \"" + auctionName + "\"");
                 } else {

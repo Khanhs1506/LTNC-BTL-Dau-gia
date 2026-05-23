@@ -25,17 +25,24 @@ public class WalletService {
     private static final DateTimeFormatter FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    //LẤY SỐ DƯ VÍ
+    public double fetchBalance() {
+        try {
+            String resp = ServerConnection.getInstance().getBalance();
+            JsonObject data = extractOkData(resp, "GET_BALANCE");
+            if (data != null) return data.get("balance").getAsDouble();
+        } catch (Exception e) {
+            System.err.println("[WalletService] fetchBalance error: " + e.getMessage());
+        }
+        return 0.0;
+    }
+
     // ── Lấy thông tin ví ──────────────────────────────────────────────
     public Wallet fetchWallet() {
-        try {
-            String resp = ServerConnection.getInstance().getWallet();
-            if (resp != null && resp.startsWith("WALLET===")) {
-                return parseWallet(resp.substring(9));
-            }
-        } catch (Exception e) {
-            System.err.println("[WalletService] fetchWallet error: " + e.getMessage());
-        }
-        return buildOfflineWallet();
+        double balance = fetchBalance();
+        Wallet w = new Wallet((UserSession.getInstance().getUsername()));
+        w.setBalance(balance);
+        return w;
     }
 
     // ── Nạp tiền ──────────────────────────────────────────────────────
@@ -44,36 +51,51 @@ public class WalletService {
      */
     public Transaction deposit(double amount, String paymentMethod) {
         try {
-            String resp = ServerConnection.getInstance().deposit(amount, paymentMethod);
-
-            if (resp != null && resp.startsWith("TX===")) {
-                return parseTransaction(resp.substring(5));
-            }
+            String note = "Nạp tiền - " + paymentMethod;
+            String resp = ServerConnection.getInstance().deposit(amount, note);
+            JsonObject data = extractOkData(resp, "DEPOSIT");
+            if (data != null) return parseTransaction(data);
         } catch (Exception e) {
             System.err.println("[WalletService] deposit error: " + e.getMessage());
         }
         // Fallback: trả về FAILED
-        Transaction failed = new Transaction(Transaction.Type.DEPOSIT,
-                Transaction.Status.FAILED, amount, 0, "Không kết nối được server");
-        return failed;
+        return failedTx(Transaction.Type.DEPOSIT, amount, "không kết nối được server");
     }
 
     // ── Giữ tiền khi đặt giá ──────────────────────────────────────────
-    public Transaction holdForBid(String auctionId, double bidAmount,
-                                  double depositAmount) {
+    public Transaction holdForBid(int auctionId, double depositAmount) {
         try {
-            String resp = ServerConnection.getInstance()
-                    .bidHold(auctionId, bidAmount, depositAmount);
-
-            if (resp != null && resp.startsWith("TX===")) {
-                return parseTransaction(resp.substring(5));
-            }
+            String resp = ServerConnection.getInstance().bidHold(auctionId, depositAmount);
+            JsonObject data = extractOkData(resp, "BID_HOLD");
+            if (data != null) return parseTransaction(data);
         } catch (Exception e) {
             System.err.println("[WalletService] holdForBid error: " + e.getMessage());
         }
-        Transaction failed = new Transaction(Transaction.Type.BID_HOLD,
-                Transaction.Status.FAILED, depositAmount, 0, "Lỗi giữ tiền");
-        return failed;
+        return failedTx(Transaction.Type.BID_HOLD, depositAmount, "lỗi đặt cock");
+    }
+
+    //hoàn tiền cọc
+    public Transaction releaseForBid(int auctionId, double amount) {
+        try {
+            String resp = ServerConnection.getInstance().bidRelease(auctionId, amount);
+            JsonObject data = extractOkData(resp, "BID_RELEASE");
+            if (data != null) return parseTransaction(data);
+        } catch (Exception e) {
+            System.err.println("[WalletService] releaseForBid error: " + e.getMessage());
+        }
+        return failedTx(Transaction.Type.BID_REFUND, amount, "Lỗi hoàn cọc");
+    }
+
+    //thanh toán
+    public Transaction payment(int auctionId, double amount) {
+        try {
+            String resp = ServerConnection.getInstance().payment(auctionId, amount);
+            JsonObject data = extractOkData(resp, "PAYMENT");
+            if (data != null) return parseTransaction(data);
+        } catch (Exception e) {
+            System.err.println("[WalletService] payment error: " + e.getMessage());
+        }
+        return failedTx(Transaction.Type.PAYMENT, amount, "Lỗi thanh toán");
     }
 
     // ── Lấy lịch sử giao dịch ─────────────────────────────────────────
@@ -84,11 +106,10 @@ public class WalletService {
                                                int page,
                                                int pageSize) {
         try {
-            String resp = ServerConnection.getInstance()
-                    .getTransactions(typeFilter, statusFilter, dateFrom, dateTo, page, pageSize);
-
-            if (resp != null && resp.startsWith("TRANSACTIONS===")) {
-                return parseTransactionList(resp.substring(15));
+            String resp = ServerConnection.getInstance().getTransactionHistory(pageSize);
+            JsonObject data = extractOkData(resp, "GET_TX_HISTORY");
+            if (data != null && data.has("transactions")) {
+                return parseTransactionList(data.getAsJsonArray("transactions"), typeFilter, statusFilter, dateFrom, dateTo, page, pageSize);
             }
         } catch (Exception e) {
             System.err.println("[WalletService] fetchTransactions error: " + e.getMessage());
@@ -96,69 +117,105 @@ public class WalletService {
         return buildMockTransactions();
     }
 
-    // ── Parse JSON → models ────────────────────────────────────────────
-    private Wallet parseWallet(String json) {
-        JsonObject obj    = JsonParser.parseString(json).getAsJsonObject();
-        Wallet     wallet = new Wallet(UserSession.getInstance().getUsername());
-        wallet.setBalance      (obj.get("balance")       .getAsDouble());
-        wallet.setTotalDeposited(obj.get("totalDeposited").getAsDouble());
-        wallet.setTotalHeld    (obj.get("totalHeld")     .getAsDouble());
-        wallet.setTotalRefunded(obj.get("totalRefunded") .getAsDouble());
-        wallet.setTotalPaid    (obj.get("totalPaid")     .getAsDouble());
-        return wallet;
+    //
+    private JsonObject extractOkData(String response, String command) {
+        if (response == null) return null;
+        String prefix = "WALLET_" + command + "===";
+
+        if (!response.startsWith(prefix)) {
+            System.err.println("[WalletService] Unexpected response: " + response);
+            return null;
+        }
+        String rest = response.substring(prefix.length()); // "OK==={...}" hoặc "ERROR===msg"
+        if (rest.startsWith("OK===")) {
+            String json = rest.substring(5);
+            return JsonParser.parseString(json).getAsJsonObject();
+        } else if (rest.startsWith("ERROR===")) {
+            System.err.println("[WalletService] Server error [" + command + "]: " + rest.substring(8));
+        }
+        return null;
     }
 
-    private Transaction parseTransaction(String json) {
-        JsonObject  obj = JsonParser.parseString(json).getAsJsonObject();
-        Transaction tx  = new Transaction();
-        tx.setId           (obj.get("id")    .getAsLong());
-        tx.setType         (Transaction.Type  .valueOf(obj.get("type")  .getAsString()));
-        tx.setStatus       (Transaction.Status.valueOf(obj.get("status").getAsString()));
-        tx.setAmount       (obj.get("amount")       .getAsDouble());
-        tx.setBalanceBefore(obj.get("balanceBefore").getAsDouble());
-        tx.setBalanceAfter (obj.get("balanceAfter") .getAsDouble());
-        tx.setNote         (obj.get("note")         .getAsString());
-        if (obj.has("auctionId") && !obj.get("auctionId").isJsonNull())
-            tx.setAuctionId(obj.get("auctionId").getAsString());
-        if (obj.has("createdAt") && !obj.get("createdAt").isJsonNull())
-            tx.setCreatedAt(LocalDateTime.parse(obj.get("createdAt").getAsString(), FMT));
+    private Transaction parseTransaction(JsonObject obj) {
+        Transaction tx = new Transaction();
+        if (obj.has("id")) tx.setId(obj.get("id").getAsString());
+        if (obj.has("type"))          tx.setType(mapType(obj.get("type").getAsString()));
+        if (obj.has("amount"))        tx.setAmount(obj.get("amount").getAsDouble());
+        if (obj.has("balanceBefore")) tx.setBalanceBefore(obj.get("balanceBefore").getAsDouble());
+        if (obj.has("balanceAfter"))  tx.setBalanceAfter(obj.get("balanceAfter").getAsDouble());
+        if (obj.has("note"))          tx.setNote(obj.get("note").getAsString());
+        if (obj.has("relatedAuctionId") && !obj.get("relatedAuctionId").isJsonNull())
+            tx.setAuctionId(obj.get("relatedAuctionId").getAsString());
+        if (obj.has("createdAt") && !obj.get("createdAt").getAsString().isEmpty()) {
+            try { tx.setCreatedAt(LocalDateTime.parse(obj.get("createdAt").getAsString())); }
+            catch (Exception ignored) {}
+        }
+        // Server WalletHandler luôn thành công nếu đến đây
+        tx.setStatus(Transaction.Status.SUCCESS);
         return tx;
     }
 
-    private List<Transaction> parseTransactionList(String json) {
-        JsonArray         arr  = JsonParser.parseString(json).getAsJsonArray();
-        List<Transaction> list = new ArrayList<>();
-        for (JsonElement el : arr) list.add(parseTransaction(el.toString()));
-        return list;
+    private List<Transaction> parseTransactionList(JsonArray arr,
+                                                   String typeFilter, String statusFilter,
+                                                   String dateFrom, String dateTo,
+                                                   int page, int pageSize) {
+        List<Transaction> all = new ArrayList<>();
+        for (JsonElement el : arr) all.add(parseTransaction(el.getAsJsonObject()));
+
+        // Lọc phía client (server trả tất cả trong limit)
+        List<Transaction> filtered = all.stream()
+                .filter(tx -> typeFilter == null || tx.getType() == mapType(typeFilter))
+                .filter(tx -> statusFilter == null || tx.getStatus() == mapStatus(statusFilter))
+                .collect(java.util.stream.Collectors.toList());
+
+        // Phân trang
+        int from = (page - 1) * pageSize;
+        int to   = Math.min(from + pageSize, filtered.size());
+        return from >= filtered.size() ? new ArrayList<>() : filtered.subList(from, to);
     }
 
     // ── Offline mock ───────────────────────────────────────────────────
-    private Wallet buildOfflineWallet() {
-        Wallet w = new Wallet(UserSession.getInstance().getUsername());
-        w.setBalance      (5_000_000);
-        w.setTotalDeposited(20_000_000);
-        w.setTotalHeld    (2_000_000);
-        w.setTotalRefunded(1_500_000);
-        w.setTotalPaid    (12_500_000);
-        return w;
+    private Transaction.Type mapType(String s) {
+        if (s == null) return Transaction.Type.DEPOSIT;
+        return switch (s) {
+            case "DEPOSIT"    -> Transaction.Type.DEPOSIT;
+            case "PAYMENT"    -> Transaction.Type.PAYMENT;
+            case "REFUND"     -> Transaction.Type.BID_REFUND;
+            case "BID_HOLD"   -> Transaction.Type.BID_HOLD;
+            case "BID_RELEASE"-> Transaction.Type.BID_REFUND;
+            default           -> Transaction.Type.DEPOSIT;
+        };
+    }
+
+    private Transaction.Status mapStatus(String s) {
+        if (s == null) return null;
+        try { return Transaction.Status.valueOf(s); } catch (Exception e) { return null; }
+    }
+
+    private Transaction failedTx(Transaction.Type type, double amount, String note) {
+        Transaction tx = new Transaction();
+        tx.setType(type);
+        tx.setStatus(Transaction.Status.FAILED);
+        tx.setAmount(amount);
+        tx.setNote(note);
+        return tx;
     }
 
     private List<Transaction> buildMockTransactions() {
         List<Transaction> list = new ArrayList<>();
-        list.add(mockTx(1, Transaction.Type.DEPOSIT,    Transaction.Status.SUCCESS,  5_000_000, "Nạp tiền VNPay"));
-        list.add(mockTx(2, Transaction.Type.BID_HOLD,   Transaction.Status.SUCCESS,  2_000_000, "Đặt cọc - Rolex 001"));
-        list.add(mockTx(3, Transaction.Type.BID_REFUND, Transaction.Status.SUCCESS,  2_000_000, "Hoàn cọc - Rolex 001"));
-        list.add(mockTx(4, Transaction.Type.PAYMENT,    Transaction.Status.SUCCESS, 12_000_000, "Thanh toán - Mercedes"));
-        list.add(mockTx(5, Transaction.Type.DEPOSIT,    Transaction.Status.PENDING,  3_000_000, "Nạp tiền Momo"));
+        list.add(mockTx("1", Transaction.Type.DEPOSIT,   Transaction.Status.SUCCESS,  5_000_000, "Nạp tiền VNPay"));
+        list.add(mockTx("2", Transaction.Type.BID_HOLD,  Transaction.Status.SUCCESS,  2_000_000, "Đặt cọc - Rolex 001"));
+        list.add(mockTx("3", Transaction.Type.BID_REFUND,Transaction.Status.SUCCESS,  2_000_000, "Hoàn cọc - Rolex 001"));
+        list.add(mockTx("4", Transaction.Type.PAYMENT,   Transaction.Status.SUCCESS, 12_000_000, "Thanh toán - Mercedes"));
         return list;
     }
 
-    private Transaction mockTx(long id, Transaction.Type type,
+    private Transaction mockTx(String id, Transaction.Type type,
                                Transaction.Status status, double amount, String note) {
         Transaction tx = new Transaction();
         tx.setId(id); tx.setType(type); tx.setStatus(status);
         tx.setAmount(amount); tx.setNote(note);
-        tx.setCreatedAt(LocalDateTime.now().minusDays(id));
+        tx.setCreatedAt(LocalDateTime.now().minusDays(7));
         return tx;
     }
 }
