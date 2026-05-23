@@ -39,7 +39,7 @@ public class ServerConnection {
         return socket == null || socket.isClosed();
     }
 
-    private synchronized String sendRequest(String action, String json) throws Exception {
+    public synchronized String sendRequest(String action, String json) throws Exception {
         writer.println(action + "===" + json);
         return responseQueue.take();
     }
@@ -68,7 +68,7 @@ public class ServerConnection {
     //THÊM SẢN PHẨM
     public String createItem(AuctionItemDTO dto) throws Exception {
         LocalDateTime startTime = dto.startTime != null ? dto.startTime : LocalDateTime.now();
-        LocalDateTime endTime   = dto.endTime   != null ? dto.endTime   : LocalDateTime.now().plusDays(7);
+        LocalDateTime endTime = dto.endTime != null ? dto.endTime : LocalDateTime.now().plusDays(7);
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         String json = String.format("{\"name\":\"%s\",\"itemType\":\"%s\",\"startingPrice\":%.2f," +
@@ -86,11 +86,6 @@ public class ServerConnection {
                 startTime.format(fmt),
                 endTime.format(fmt));
         return sendRequest("CREATE_ITEM", json);
-    }
-
-
-    public String getItems() throws Exception {
-        return sendRequest("GET_ITEMS", "{}");
     }
 
     // XÓA SẢN PHẨM
@@ -140,15 +135,28 @@ public class ServerConnection {
                 while ((line = reader.readLine()) != null) {
 
                     if (line.startsWith("BID_UPDATE===")) {
-                        // Parse JSON: {"auctionId":1,"bidder":"Alice","amount":250000000.00}
                         String json = line.split("===")[1];
                         PlacedBidRequest res = gson.fromJson(json, PlacedBidRequest.class);
                         String msg = "🔔 " + res.bidder + " vừa đặt giá " + formatVND(res.amount);
 
                         // Thêm vào NotificationManager (nó sẽ gọi callback của HomeController)
                         javafx.application.Platform.runLater(() ->
-                                NotificationManager.getInstance().addNotification(msg)
-                        );
+                                NotificationManager.getInstance().addNotification(msg));
+
+                    } else if (line.startsWith("DELETE_ITEM_NOTIFY===")) {
+                        // Sản phẩm bị xóa bởi seller khác → thông báo để UI cập nhật
+                        javafx.application.Platform.runLater(() ->
+                                NotificationManager.getInstance().addNotification("Một sản phẩm vừa bị xóa khỏi danh sách"));
+
+//                    } else if (line.startsWith("NOTIFY===")) {
+//                        String[] parts = line.split("===");
+//                        javafx.application.Platform.runLater(() -> {
+//                            switch (parts[1]) {
+//                                case "BID_REFUND"  -> WalletController.notifyAuctionLost(
+//                                        parts[2], Double.parseDouble(parts[3]));
+//                                case "AUCTION_WON" -> WalletController.notifyAuctionWon(parts[2], 0);
+//                            }
+//                        });
 
                     } else {
                         // Response thông thường — sendRequest() đang chờ
@@ -182,5 +190,54 @@ public class ServerConnection {
         if (s == null) return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"")
                 .replace("\n", "\\n").replace("\r", "");
+    }
+
+    //LẤY SỐ DƯ HIỆN TẠI
+    public String getBalance() throws Exception {
+        return sendRequest("GET_BALANCE", "{}");
+    }
+
+    public String deposit(double amount, String note) throws Exception {
+        String json = String.format("{\"amount\":%.2f,\"note\":\"%s\"}", amount, escape(note));
+        return sendRequest("DEPOSIT", json);
+    }
+
+    public String bidHold(int auctionId, double amount) throws Exception {
+        String json = String.format("{\"auctionId\":\"%d\",\"amount\":%.2f}", auctionId, amount);
+        return sendRequest("BID_HOLD", json);
+    }
+
+    public String bidRelease(int auctionId, double amount) throws Exception {
+        String json = String.format("{\"auctionId\":%d,\"amount\":%.2f}", auctionId, amount);
+        return sendRequest("BID_RELEASE", json);
+    }
+
+    public String payment(int auctionId, double amount) throws Exception {
+        String json = String.format("{\"auctionId\":%d,\"amount\":%.2f}", auctionId, amount);
+        return sendRequest("PAYMENT", json);
+    }
+
+    public String refund(int auctionId, double amount) throws Exception {
+        String json = String.format("{\"auctionId\":%d,\"amount\":%.2f}", auctionId, amount);
+        return sendRequest("REFUND", json);
+    }
+
+    public String getTransactionHistory(int limit) throws Exception {
+        String json = String.format("{\"limit\":%d}", limit);
+        return sendRequest("GET_TX_HISTORY", json);
+
+//    public String getTransactions(String type, String status,
+//                                  String dateFrom, String dateTo,
+//                                  int page, int pageSize) throws Exception {
+//        String json = String.format(
+//                "{\"type\":\"%s\",\"status\":\"%s\",\"dateFrom\":\"%s\"," +
+//                        "\"dateTo\":\"%s\",\"page\":%d,\"pageSize\":%d}",
+//                type     != null ? type     : "ALL",
+//                status   != null ? status   : "ALL",
+//                dateFrom != null ? dateFrom : "",
+//                dateTo   != null ? dateTo   : "",
+//                page, pageSize);
+//        return sendRequest("GET_TRANSACTIONS", json);
+//    }
     }
 }

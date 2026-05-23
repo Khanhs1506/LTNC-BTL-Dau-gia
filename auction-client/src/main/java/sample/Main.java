@@ -19,7 +19,7 @@ public class Main extends Application {
             );
             Parent root = loader.load();
 
-            primaryStage.initStyle(StageStyle.UNDECORATED);
+            //primaryStage.initStyle(StageStyle.UNDECORATED);
             primaryStage.setScene(new Scene(root, 1200, 800));
             primaryStage.setTitle("Tiny Hoarder's Key Market");
             primaryStage.show();

@@ -204,7 +204,7 @@ public class AuctionDaoImpl implements IAuctionDAO {
 
     @Override
     public boolean deleteAuctionByItemId(int itemId) {
-        String sql = "DELETE FROM auctions WHERE item_id";
+        String sql = "DELETE FROM auctions WHERE item_id = ?";
         try (Connection conn = DatabaseManager.getInstance().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, itemId);

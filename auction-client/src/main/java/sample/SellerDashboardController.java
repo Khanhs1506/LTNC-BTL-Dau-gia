@@ -538,7 +538,7 @@ public class SellerDashboardController implements Initializable {
         confirm.setHeaderText("Xóa sản phẩm \"" + a.getItem().getName() + "\"?");
         confirm.setContentText("Hành động này sẽ xóa sản phẩm và phiên đấu giá vĩnh viễn.");
         confirm.showAndWait().ifPresent(bt -> {
-            if (bt != ButtonType.YES) return;
+            if (bt != ButtonType.OK) return;
 
             final int fItemId = itemId;
             new Thread(() -> {
@@ -570,7 +570,6 @@ public class SellerDashboardController implements Initializable {
         alert.setContentText(content);
         alert.showAndWait();
     }
-
 
     @FXML void handleLogout() {
         UserSession.getInstance().logout();

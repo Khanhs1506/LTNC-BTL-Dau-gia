@@ -22,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import com.auction.server.network.handler.WalletHandler;
 
 public class ClientHandler implements Runnable, AuctionObserver {
 
@@ -38,6 +39,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
     private IItemDAO itemRepo = new ItemDaoImpl();
     private IAuctionDAO auctionRepo = new AuctionDaoImpl();
     private IBidTransactionDAO bidRepo = new BidTransactionDaoImpl();
+    private final WalletHandler walletHandler = new WalletHandler();
 
     private User currentUser;
 
@@ -81,11 +83,11 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
     }
 
-    private void handlerRequest(String request){
+    private void handlerRequest(String request) {
         try {
             String[] parts = request.split("===", 2);
 
-            if (parts.length != 2){
+            if (parts.length != 2) {
                 writer.println("INVAILD FORMAT");
                 return;
             }
@@ -134,10 +136,20 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     handleGetAuctionsBySeller();
                     break;
 
+                case "GET_BALANCE":
+                case "DEPOSIT":
+                case "PAYMENT":
+                case "REFUND":
+                case "BID_HOLD":
+                case "BID_RELEASE":
+                case "GET_TX_HISTORY":
+                    handleWallet(action, json);
+                    break;
+
                 default:
                     writer.println("UNKNOWN ACTION");
             }
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             writer.println("SERVER ERROR");
         }
@@ -187,16 +199,26 @@ public class ClientHandler implements Runnable, AuctionObserver {
         writer.println(success ? "REGISTER SUCCESS" : "REGISTER FAIL");
     }
 
+    //GỬI TỚI CHO WALLETHANDLER XỬ LÍ
+    private void handleWallet(String command, String json) {
+        if (currentUser == null) {
+            writer.println("ERROR===Chưa đăng nhập");
+            return;
+        }
+        String userId = String.valueOf(currentUser.getId());
+        String result = walletHandler.handle(command, userId, json);
+        writer.println("WALLET_" + command + "===" + result);
+        System.out.println("WALLET_" + command + "===" + result);
+    }
+
     // TẠO SẢN PHẨM
-    private void handlerCreateItem(String json){
+    private void handlerCreateItem(String json) {
 
         if (!(currentUser instanceof Seller)) {
             writer.println("ONLY SELLER CAN CREATE ITEM");
             return;
         }
         try {
-//            Connection conn = DatabaseManager.getInstance().getConnection();
-//            conn.setAutoCommit(false);
             JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
             String name = obj.get("name").getAsString();
             String itemType = obj.get("itemType").getAsString();
@@ -215,7 +237,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
                 }
                 case "VEHICLE" -> {
                     String brand = obj.has("brand") ? obj.get("brand").getAsString() : "";
-                    int year = obj.has("year")  ? obj.get("year").getAsInt() : 0;
+                    int year = obj.has("year") ? obj.get("year").getAsInt() : 0;
                     item = new VehicleItem(null, name, startPrice, brand, year);
                 }
                 default -> {
@@ -263,9 +285,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
         try {
             JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
             int itemId = obj.get("itemId").getAsInt();
-
             boolean success = AuctionManager.getInstance().deleteItemAndAuction(itemId, itemRepo);
-
             if (success) {
                 writer.println("DELETE_ITEM_SUCCESS");
                 String notification = String.format("DELETE_ITEM_NOTIFY==={\"itemId\":%d}", itemId);
@@ -356,22 +376,54 @@ public class ClientHandler implements Runnable, AuctionObserver {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         List<AuctionSummary> summaries = new java.util.ArrayList<>();
         for (Auction a : auctions) {
-            AuctionSummary s       = new AuctionSummary();
-            s.auctionId             = a.getId();
-            s.itemId                = a.getItem().getId();
-            s.itemName              = a.getItem().getName();
-            s.itemType              = a.getItem().getType_item();
-            s.startingPrice         = a.getItem().getStartingPrice();
-            s.currentHighestBid     = a.getCurrentHighestBid();
+            AuctionSummary s = new AuctionSummary();
+            s.auctionId = a.getId();
+            s.itemId = a.getItem().getId();
+            s.itemName = a.getItem().getName();
+            s.itemType = a.getItem().getType_item();
+            s.startingPrice = a.getItem().getStartingPrice();
+            s.currentHighestBid = a.getCurrentHighestBid();
             s.currentWinnerUsername = a.getCurrentWinnerUsername();
-            s.startTime             = a.getStartTime().format(fmt);
-            s.endTime               = a.getEndTime().format(fmt);
-            s.status                = a.getStatus().name();
+            s.startTime = a.getStartTime().format(fmt);
+            s.endTime = a.getEndTime().format(fmt);
+            s.status = a.getStatus().name();
             summaries.add(s);
         }
         return summaries;
     }
-
 }
+//    // ── Ví / Wallet ────────────────────────────────────────────────────
+//    private void handleGetWallet() {
+//        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
+//        try {
+//            Connection conn = DatabaseManager.getInstance().getConnection();
+//            writer.println(server.WalletHandler.handleGetWallet(currentUser.getUsername(), conn));
+//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
+//    }
+//
+//    private void handleDeposit(String json) {
+//        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
+//        try {
+//            Connection conn = DatabaseManager.getInstance().getConnection();
+//            writer.println(server.WalletHandler.handleDeposit(currentUser.getUsername(), json, conn));
+//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
+//    }
+//
+//    private void handleBidHold(String json) {
+//        if (!(currentUser instanceof Bidder)) { writer.println("ERROR===Chỉ Bidder mới đặt cọc"); return; }
+//        try {
+//            Connection conn = DatabaseManager.getInstance().getConnection();
+//            writer.println(server.WalletHandler.handleBidHold(currentUser.getUsername(), json, conn));
+//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
+//    }
+//
+//    private void handleGetTransactions(String json) {
+//        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
+//        try {
+//            Connection conn = DatabaseManager.getInstance().getConnection();
+//            writer.println(server.WalletHandler.handleGetTransactions(currentUser.getUsername(), json, conn));
+//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
+//    }
+//}
 
 
