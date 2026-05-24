@@ -143,51 +143,57 @@ public class HomeController {
 
     private void loadFromServer() {
         new Thread(() -> {
-           try {
-               String response = ServerConnection.getInstance().getAuctions();
+            try {
+                String response = ServerConnection.getInstance().getAuctions();
 
-               if (response != null && response.startsWith("AUCTIONS===")) {
-                   String json = response.substring(("AUCTIONS===".length()));
-                   JsonArray arr = JsonParser.parseString(json).getAsJsonArray();
-                   List<AuctionItem> loaded = new ArrayList<>();
-                   DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                if (response != null && response.startsWith("AUCTIONS===")) {
+                    String json = response.substring("AUCTIONS===".length());
+                    JsonArray arr = JsonParser.parseString(json).getAsJsonArray();
+                    List<AuctionItem> loaded = new ArrayList<>();
+                    DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-                   for (JsonElement el : arr) {
-                       JsonObject obj = el.getAsJsonObject();
+                    for (JsonElement el : arr) {
+                        JsonObject obj = el.getAsJsonObject();
 
-                       //CHỈ HIỆN THỊ PHIÊN ĐANG MỞ HOẶC ĐANG CHẠY
-                       String status = obj.get("status").getAsString();
-                       if (!status.equals("RUNNING") && !status.equals("OPEN")) continue;
+                        String status = obj.get("status").getAsString();
+                        if (!status.equals("RUNNING") && !status.equals("OPEN")) continue;
 
-                       String name       = obj.get("itemName").getAsString();
-                       double startPrice = obj.get("startingPrice").getAsDouble();
-                       double highBid    = obj.get("currentHighestBid").getAsDouble();
-                       String itemType   = obj.get("itemType").getAsString();
-                       String endTimeStr = obj.get("endTime").getAsString();
+                        String name       = obj.get("itemName").getAsString();
+                        double startPrice = obj.get("startingPrice").getAsDouble();
+                        double highBid    = obj.get("currentHighestBid").getAsDouble();
+                        String itemType   = obj.get("itemType").getAsString();
+                        String endTimeStr = obj.get("endTime").getAsString();
 
-                       LocalDateTime endTime   = LocalDateTime.parse(endTimeStr, fmt);
-                       String timeLeft         = computeTimeLeft(endTime);
-                       String endDateFormatted = endTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-                       String category         = mapItemTypeToCategory(itemType);
+                        LocalDateTime endTime   = LocalDateTime.parse(endTimeStr, fmt);
+                        String timeLeft         = computeTimeLeft(endTime);
+                        String endDateFormatted = endTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+                        String category         = mapItemTypeToCategory(itemType);
 
-                       loaded.add(new AuctionItem(name, formatVND(startPrice), formatVND(highBid), timeLeft, 0, endDateFormatted, category));
-                       Platform.runLater(() -> {
-                           allItems = loaded;
-                           renderCards(currentCategory);
-                       });
-                   }
-               } else {
-                   System.err.println("[HomeController] Phản hồi không hợp lệ: " + response);
-                   Platform.runLater(() -> renderCards(currentCategory));
-               }
-           } catch (Exception e) {
-               System.err.println("[HomeController] Không kết nối được server: " + e.getMessage());
-               // Fallback offline
-               Platform.runLater(() -> {
-                   allItems = buildMockItems();
-                   renderCards(currentCategory);
-               });
-           }
+                        loaded.add(new AuctionItem(
+                                name, formatVND(startPrice), formatVND(highBid),
+                                timeLeft, 0, endDateFormatted, category
+                        ));
+                    }
+
+                    // ✅ runLater ở NGOÀI for — đợi load xong hết rồi mới render 1 lần
+                    Platform.runLater(() -> {
+                        allItems = loaded.isEmpty() ? buildMockItems() : loaded;
+                        renderCards(currentCategory);
+                    });
+
+                } else {
+                    Platform.runLater(() -> {
+                        allItems = buildMockItems();
+                        renderCards(currentCategory);
+                    });
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                Platform.runLater(() -> {
+                    allItems = buildMockItems();
+                    renderCards(currentCategory);
+                });
+            }
         }, "HomeLoader").start();
     }
 
@@ -546,7 +552,24 @@ public class HomeController {
                     getClass().getResource("/sample/AuctionDetail.fxml"));
             Parent root = loader.load();
 
+            // ✅ Map đầy đủ dữ liệu từ AuctionItem → AuctionItemDTO
             AuctionItemDTO dto = new AuctionItemDTO();
+            dto.title          = item.title;
+            dto.sellerUsername = "";
+            dto.startingPrice  = parseAmount(item.giaKhoiDiem);
+            dto.currentHighest = parseAmount(item.giaCaoNhat);
+            dto.stepPrice      = 500_000;
+            dto.totalBids      = item.thauThu;
+
+            // Parse endTime từ hanDangKi (dd/MM/yyyy)
+            try {
+                java.time.format.DateTimeFormatter fmt =
+                        java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                java.time.LocalDate date = java.time.LocalDate.parse(item.hanDangKi, fmt);
+                dto.endTime = date.atTime(23, 59, 59);
+            } catch (Exception ex) {
+                dto.endTime = java.time.LocalDateTime.now().plusDays(1);
+            }
 
             AuctionDetailController ctrl = loader.getController();
             ctrl.setAuction(dto);
@@ -554,21 +577,16 @@ public class HomeController {
             Stage stage = new Stage();
             stage.initStyle(StageStyle.UNDECORATED);
             stage.initModality(Modality.APPLICATION_MODAL);
-            stage.setScene(new Scene(root, 700, 620));
+            stage.setScene(new Scene(root, 720, 780));
+            stage.setResizable(true);
+            stage.setMinWidth(680);
+            stage.setMinHeight(700);
             stage.setOnCloseRequest(ev -> ctrl.stopCountdown());
             stage.showAndWait();
 
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private double parseAmount(String formatted) {
-        try {
-            return Double.parseDouble(
-                    formatted.replace(".", "").replace(",", "")
-                            .replace(" VNĐ", "").trim());
-        } catch (Exception e) { return 0; }
     }
 
     // ===== Tạo Card =====
@@ -746,5 +764,19 @@ public class HomeController {
         }
     }
 
+    private double parseAmount(String formatted) {
+        if (formatted == null) return 0;
+        try {
+            return Double.parseDouble(
+                    formatted.replace(".", "")
+                            .replace(",", "")
+                            .replace(" VND", "")
+                            .replace(" VNĐ", "")
+                            .trim()
+            );
+        } catch (Exception e) {
+            return 0;
+        }
+    }
 
 }

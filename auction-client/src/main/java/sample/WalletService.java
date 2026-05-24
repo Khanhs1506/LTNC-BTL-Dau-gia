@@ -138,7 +138,7 @@ public class WalletService {
 
     private Transaction parseTransaction(JsonObject obj) {
         Transaction tx = new Transaction();
-        if (obj.has("id")) tx.setId(obj.get("id").getAsString());
+        if (obj.has("id"))              tx.setId(obj.get("id").getAsString());
         if (obj.has("type"))          tx.setType(mapType(obj.get("type").getAsString()));
         if (obj.has("amount"))        tx.setAmount(obj.get("amount").getAsDouble());
         if (obj.has("balanceBefore")) tx.setBalanceBefore(obj.get("balanceBefore").getAsDouble());
