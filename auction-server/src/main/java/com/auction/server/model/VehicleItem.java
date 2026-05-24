@@ -1,13 +1,13 @@
 package com.auction.server.model;
 
 public class VehicleItem extends Item {
-    public String typeItem = "Vehicle Item";
     private String brand; // Hãng xe
     private int year;     // Năm sản xuất
 
     // Constructor cho Vehicle
     public VehicleItem(String id, String name, double startingPrice, String brand, int year) {
-        super(id, name, startingPrice); // Gọi constructor của class cha (Item)
+        super(id, name, startingPrice);
+        this.typeItem = "Vehicle Item"; // gán vào field của lớp cha, không khai báo lại
         this.brand = brand;
         this.year = year;
     }
