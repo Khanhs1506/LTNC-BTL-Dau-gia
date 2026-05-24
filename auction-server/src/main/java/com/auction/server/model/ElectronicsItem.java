@@ -1,11 +1,11 @@
 package com.auction.server.model;
 
 public class ElectronicsItem extends Item {
+    public String typeItem = "Electronics Item";
     private int warrantyMonths;
 
     public ElectronicsItem(String id, String name, double startingPrice, int warrantyMonths) {
         super(id, name, startingPrice);
-        this.typeItem = "Electronics Item"; // gán vào field của lớp cha, không khai báo lại
         this.warrantyMonths = warrantyMonths;
     }
 
@@ -23,3 +23,4 @@ public class ElectronicsItem extends Item {
         return warrantyMonths;
     }
 }
+
