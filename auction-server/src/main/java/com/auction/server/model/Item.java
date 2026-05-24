@@ -1,12 +1,6 @@
 package com.auction.server.model;
 
-import java.io.Serializable;
-
-// Implement Entity<String> để đồng nhất cây kế thừa với User
-// Implement Serializable để có thể gửi object qua socket
-public abstract class Item implements Entity<String>, Serializable {
-
-    private static final long serialVersionUID = 6L;
+abstract public class Item {   // ← bỏ <String>
 
     protected String id;
     protected String name;
@@ -23,10 +17,8 @@ public abstract class Item implements Entity<String>, Serializable {
         this.currentHighestBid = startingPrice;
     }
 
-    @Override
+    // Bỏ @Override vì không implements gì nữa
     public String getId() { return id; }
-
-    @Override
     public void setId(String id) { this.id = id; }
 
     public String getName() { return name; }
