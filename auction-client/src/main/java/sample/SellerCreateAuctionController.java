@@ -1,5 +1,7 @@
 package sample;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import sample.AuctionItemDTO;
 import javafx.animation.*;
 import javafx.collections.FXCollections;
@@ -524,7 +526,14 @@ public class SellerCreateAuctionController implements Initializable {
                 try {
                     String res = ServerConnection.getInstance().createItem(result);
                     javafx.application.Platform.runLater(() -> {
-                        if ("CREATE_ITEM_SUCCESS".equalsIgnoreCase(res)) {
+                        if (res.contains("CREATE_ITEM_SUCCESS")) {
+                            if (res.contains("===")) {
+                                try {
+                                    JsonObject obj = JsonParser.parseString(
+                                            res.split("===", 2)[1]).getAsJsonObject();
+                                    result.id = obj.get("auctionId").getAsInt();
+                                } catch (Exception ignored) {}
+                            }
                             lblSubmitError.setStyle("-fx-text-fill:#27ae60;");
                             lblSubmitError.setText("✅ Đăng bán thành công! Đang đóng...");
                             new Timeline(new KeyFrame(Duration.seconds(1.2), e -> getStage().close())).play();

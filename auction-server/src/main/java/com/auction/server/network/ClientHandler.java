@@ -281,7 +281,21 @@ public class ClientHandler implements Runnable, AuctionObserver {
                 int auctionId = AuctionManager.getInstance().createAuction(itemId, startTime, endTime);
                 if (auctionId > 0) {
                     System.out.println("[Server] Tạo phiên đấu giá id=" + auctionId + " cho item id=" + itemId);
-                    writer.println("CREATE_ITEM_SUCCESS");
+                    Auction newAuction = auctionRepo.getAuctionById(auctionId);
+                    String auctionJson = (newAuction != null)
+                            ? gson.toJson(toSummaryList(List.of(newAuction)).get(0))
+                            : "{}";
+                    writer.println("CREATE_ITEM_SUCCESS===" + auctionJson);
+
+                    if (newAuction != null) {
+                        List<AuctionSummary> single = toSummaryList(List.of(newAuction));
+                        String notify = "NEW_AUCTION_NOTIFY===" + gson.toJson(single.get(0));
+                        for (ClientHandler client : connectedClients) {
+                            if (client != this && client.writer != null) {
+                                client.writer.println(notify);
+                            }
+                        }
+                    }
                 } else {
                     writer.println("CREATE_ITEM_FAIL");
                 }

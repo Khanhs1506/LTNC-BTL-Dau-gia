@@ -548,9 +548,32 @@ public class SellerDashboardController implements Initializable {
 
         AuctionItemDTO result = ctrl.getResult();
         if (result != null) {
-            // Sau khi tạo thành công, reload lại từ server để đồng bộ
-            loadFromServer();
+            addAuctionToTable(result);
         }
+    }
+
+    private void addAuctionToTable(AuctionItemDTO dto) {
+        // Tạo Item inline (giống loadFromServer)
+        final String type = dto.category != null ? dto.category : "OTHER";
+        Item item = new Item(String.valueOf(dto.id), dto.title, dto.startingPrice) {
+            @Override public String getType_item() { return type; }
+            @Override public void printInfo() {}
+        };
+        item.setCurrentHighestBid(dto.startingPrice);
+
+        LocalDateTime start = dto.startTime != null ? dto.startTime : LocalDateTime.now();
+        LocalDateTime end   = dto.endTime   != null ? dto.endTime   : LocalDateTime.now().plusDays(7);
+
+        Auction a = new Auction(dto.id, item, start, end);
+        a.updateHighestBid(dto.startingPrice, null);
+        a.updateStatus(Auction.Status.OPEN);
+
+        // Thêm thẳng vào list đang có — không gọi server
+        allAuctions.add(0, a);
+
+        // Cập nhật stat và chart
+        updateStatsFromData();
+        setupPieChart();
     }
 
     // ===== SỬA THÔNG TIN SẢN PHẨM =====

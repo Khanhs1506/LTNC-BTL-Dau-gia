@@ -166,16 +166,17 @@ public class ServerConnection {
                         javafx.application.Platform.runLater(() ->
                                 NotificationManager.getInstance().addNotification("Một sản phẩm vừa bị xóa khỏi danh sách"));
 
-//                    } else if (line.startsWith("NOTIFY===")) {
-//                        String[] parts = line.split("===");
-//                        javafx.application.Platform.runLater(() -> {
-//                            switch (parts[1]) {
-//                                case "BID_REFUND"  -> WalletController.notifyAuctionLost(
-//                                        parts[2], Double.parseDouble(parts[3]));
-//                                case "AUCTION_WON" -> WalletController.notifyAuctionWon(parts[2], 0);
-//                            }
-//                        });
-
+                    } else if (line.startsWith("NEW_AUCTION_NOTIFY===")) {
+                        String json = line.split("===", 2)[1];
+                        javafx.application.Platform.runLater(() -> {
+                            HomeController home = HomeController.getInstance();
+                            if (home != null) {
+                                home.addNewAuctionCard(json); // thêm card trực tiếp, không reload
+                            }
+                            NotificationManager.getInstance().addNotification(
+                                    "🆕 Phiên đấu giá mới vừa được mở!"
+                            );
+                        });
                     } else {
                         // Response thông thường — sendRequest() đang chờ
                         responseQueue.put(line);
