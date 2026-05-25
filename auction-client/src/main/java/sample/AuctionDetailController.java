@@ -24,10 +24,12 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import sample.model.PlacedBidRequest;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.function.Consumer;
 
 public class AuctionDetailController {
 
@@ -64,6 +66,9 @@ public class AuctionDetailController {
     private Circle toggleThumb;
     private double dragOffsetX;
     private double dragOffsetY;
+
+    // Observer BID_UPDATE — giữ reference để có thể huỷ đăng ký khi đóng màn hình
+    private Consumer<PlacedBidRequest> bidUpdateListener;
 
     // Colors
     private static final String RED  = "#B91C1C";
@@ -148,7 +153,38 @@ public class AuctionDetailController {
         buildParticipants();
         startCountdown();
         loadBidChart();
+        registerBidUpdateListener();
     }
+
+    //ĐĂNG KÍ THÔNG BÁO
+    private void registerBidUpdateListener() {
+        // Huỷ listener cũ nếu có (tránh leak khi setAuction gọi lại)
+        unregisterBidUpdateListener();
+
+        bidUpdateListener = (req) -> {
+            // Chỉ xử lý nếu là phiên đấu giá đang xem
+            if (req.auctionId != auction.id) return;
+
+            // Cập nhật dữ liệu local
+            auction.currentHighest = req.amount;
+            auction.totalBids = auction.totalBids + 1;
+
+            // Cập nhật UI (đã chạy trên FX thread vì NotificationManager gọi Platform.runLater)
+            currentBidLabel.setText(formatVND(req.amount));
+            bidHintLabel.setText("Gia toi thieu phai cao hon gia hien tai: " + formatVND(req.amount));
+            buildQuickBidButtons();
+            buildParticipants();
+        };
+        NotificationManager.getInstance().addBidUpdateListener(bidUpdateListener);
+    }
+
+    private void unregisterBidUpdateListener() {
+        if (bidUpdateListener != null) {
+            NotificationManager.getInstance().removeBidUpdateListener(bidUpdateListener);
+            bidUpdateListener = null;
+        }
+    }
+
 
     // =========================================================
     // Load data methods
@@ -363,24 +399,42 @@ public class AuctionDetailController {
     private void loadBidChart() {
         bidChart.getData().clear();
 
+        // Hiển thị điểm khởi đầu ngay
         XYChart.Series<String, Number> series = new XYChart.Series<>();
         series.setName("Gia thau");
-
-        double base = auction.startingPrice;
-        double top  = auction.currentHighest;
-
-        series.getData().add(new XYChart.Data<>("10:00", base));
-        series.getData().add(new XYChart.Data<>("10:08", base * 1.04));
-        series.getData().add(new XYChart.Data<>("10:15", base * 1.04));
-        series.getData().add(new XYChart.Data<>("10:22", base + (top - base) * 0.45));
-        series.getData().add(new XYChart.Data<>("10:30", base + (top - base) * 0.45));
-        series.getData().add(new XYChart.Data<>("10:38", base + (top - base) * 0.75));
-        series.getData().add(new XYChart.Data<>("10:45", top));
-        series.getData().add(new XYChart.Data<>("10:52", top));
-
+        series.getData().add(new XYChart.Data<>("Bat dau", auction.startingPrice));
         bidChart.getData().add(series);
 
-        Platform.runLater(() -> applyChartStyle());
+        int auctionId = auction.id;
+
+        // Gọi server trong background thread để không block UI
+        new Thread(() -> {
+            try {
+                String raw = ServerConnection.getInstance().getBidHistory(auctionId);
+                // raw = "BID_HISTORY===[ {time, bidder, amount}, ... ]"
+                String jsonPart = raw.contains("===") ? raw.split("===", 2)[1] : "[]";
+
+                com.google.gson.JsonArray arr =
+                        com.google.gson.JsonParser.parseString(jsonPart).getAsJsonArray();
+
+                Platform.runLater(() -> {
+                    series.getData().clear();
+                    series.getData().add(new XYChart.Data<>("Bat dau", auction.startingPrice));
+
+                    for (com.google.gson.JsonElement el : arr) {
+                        com.google.gson.JsonObject obj = el.getAsJsonObject();
+                        String time   = obj.get("time").getAsString();
+                        double amount = obj.get("amount").getAsDouble();
+                        series.getData().add(new XYChart.Data<>(time, amount));
+                    }
+                    applyChartStyle();
+                });
+
+            } catch (Exception e) {
+                System.out.println("[BidChart] Loi tai du lieu: " + e.getMessage());
+                Platform.runLater(() -> applyChartStyle());
+            }
+        }, "BidChartLoader").start();
     }
 
     // =========================================================
@@ -401,6 +455,7 @@ public class AuctionDetailController {
     @FXML
     private void handleClose() {
         stopCountdown();
+        unregisterBidUpdateListener();
         getStage().close();
     }
 
@@ -477,9 +532,10 @@ public class AuctionDetailController {
         }
 
         try {
-            String response = ServerConnection.getInstance().placeBid(6, UserSession.getInstance().getUsername(), amount);
+            String response = ServerConnection.getInstance().placeBid(auction.id, UserSession.getInstance().getUsername(), amount);
 
             if (response != null && response.equalsIgnoreCase("BID SUCCESS")) {
+                System.out.println(auction.id);
                 auction.currentHighest = amount;
                 currentBidLabel.setText(formatVND(amount));
                 bidHintLabel.setText("Gia toi thieu phai cao hon: " + formatVND(amount));

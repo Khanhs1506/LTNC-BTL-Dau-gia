@@ -576,7 +576,8 @@ public class SellerDashboardController implements Initializable {
                 UserSession.getInstance().logout();
 
                 // 2. Ngắt kết nối server
-                try { ServerConnection.getInstance().disconnect(); }
+                try { ServerConnection.getInstance().disconnect();
+                      ServerConnection.getInstance().logout();}
                 catch (Exception ignored) {}
 
                 // 3. Quay về Home (đã có sẵn HomeController + home.fxml)
