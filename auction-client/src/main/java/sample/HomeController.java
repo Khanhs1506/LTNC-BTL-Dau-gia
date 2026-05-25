@@ -50,6 +50,10 @@ public class HomeController {
     @FXML private Label     lblBalance;
     @FXML private Button btnWallet;
 
+    @FXML private Button btnNgheThuat;
+    @FXML private Button btnPhuongTien;
+    @FXML private Button btnDienTu;
+
 
     private Label badgeGuest;
     private Label badgeUser;
@@ -69,6 +73,7 @@ public class HomeController {
         int thauThu;
         String category;    // dùng để lọc
         boolean favorited = false;
+        java.time.LocalDateTime endTimeRaw;
 
         AuctionItem(String title, String giaKhoiDiem, String giaCaoNhat,
                     String thoiGian, int thauThu, String hanDangKi, String category) {
@@ -169,10 +174,12 @@ public class HomeController {
                         String endDateFormatted = endTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
                         String category         = mapItemTypeToCategory(itemType);
 
-                        loaded.add(new AuctionItem(
+                        AuctionItem ai = new AuctionItem(
                                 name, formatVND(startPrice), formatVND(highBid),
                                 timeLeft, 0, endDateFormatted, category
-                        ));
+                        );
+                        ai.endTimeRaw = endTime; // ← thêm dòng này
+                        loaded.add(ai);
                     }
 
                     // ✅ runLater ở NGOÀI for — đợi load xong hết rồi mới render 1 lần
@@ -214,11 +221,24 @@ public class HomeController {
     //PHÂN LOẠI SẢN PHẨM
     private String mapItemTypeToCategory(String itemType) {
         if (itemType == null) return "Khác";
-        return switch (itemType.toUpperCase()) {
-            case "ART"         -> "Nghệ thuật";
-            case "ELECTRONICS" -> "Điện tử";
-            case "VEHICLE"     -> "Xe cộ";
-            default            -> "Khác";
+        return switch (itemType) {
+            // Server trả về dạng viết hoa
+            case "ART"              -> "Nghệ thuật";
+            case "ELECTRONICS"      -> "Điện tử";
+            case "VEHICLE"          -> "Phương tiện";
+            // Client gửi lên dạng key
+            case "ArtItem"          -> "Nghệ thuật";
+            case "ElectronicsItem"  -> "Điện tử";
+            case "VehicleItem"      -> "Phương tiện";
+            // Các danh mục từ menu Khác — giữ nguyên tiếng Việt
+            case "Nội thất",
+                 "Bất động sản",
+                 "Vé sự kiện",
+                 "Trò chơi điện tử",
+                 "Thể thao",
+                 "Sách",
+                 "Thời trang"       -> itemType;
+            default                 -> "Khác";
         };
     }
 
@@ -428,6 +448,17 @@ public class HomeController {
         // ✅ null-check: tránh NPE nếu fx:id chưa được gán
         if (btnTienSanh   != null)
             btnTienSanh.setStyle(category.equals("Tất cả")         ? selected : normal);
+        if (btnNgheThuat  != null)
+            btnNgheThuat.setStyle(category.equals("Nghệ thuật")  ? selected : normal);
+        if (btnPhuongTien != null)
+            btnPhuongTien.setStyle(category.equals("Phương tiện") ? selected : normal);
+        if (btnDienTu     != null)
+            btnDienTu.setStyle(category.equals("Điện tử")        ? selected : normal);
+        if (btnKhac       != null)
+            btnKhac.setStyle(
+                    (!category.equals("Tất cả") && !category.equals("Nghệ thuật")
+                            && !category.equals("Phương tiện") && !category.equals("Điện tử"))
+                            ? selected : normal);
         if (btnBienSoXe   != null)
             btnBienSoXe.setStyle(category.equals("Biển số xe")     ? selected : normal);
         if (btnBatDongSan != null)
@@ -438,6 +469,9 @@ public class HomeController {
     @FXML private void handleTienSanh()    { currentCategory = "Tất cả";        renderCards(currentCategory); }
     @FXML private void handleBienSoXe()   { currentCategory = "Biển số xe";     renderCards(currentCategory); }
     @FXML private void handleBatDongSan() { currentCategory = "Bất động sản";   renderCards(currentCategory); }
+    @FXML private void handleNgheThuat()  { currentCategory = "Nghệ thuật";  renderCards(currentCategory); }
+    @FXML private void handlePhuongTien() { currentCategory = "Phương tiện"; renderCards(currentCategory); }
+    @FXML private void handleDienTu()     { currentCategory = "Điện tử";     renderCards(currentCategory); }
 
     // ===== Menu Khác =====
     private void buildKhacMenu() {
@@ -445,14 +479,8 @@ public class HomeController {
 
         // Danh mục có trong dữ liệu sẽ lọc được
         String[] categories = {
-                "Nghệ thuật", "Đồng hồ", "Trang sức",
-                "Xe cộ", "Túi xách", "Thời trang",
-                "Thiết bị điện tử", "Điện thoại", "Máy tính",
-                "Nội thất", "Sách và tài liệu sưu tầm",
-                "Đồ lưu niệm", "Nhạc cụ", "Đồ chơi sưu tầm",
-                "Thẻ bài / mô hình", "Tiền xu / tem",
-                "Vật phẩm game", "NFT / tài sản số",
-                "Đồ gia dụng", "Máy móc", "Vé sự kiện"
+                "Nội thất", "Bất động sản", "Vé sự kiện",
+                "Trò chơi điện tử", "Thể thao", "Sách", "Thời trang"
         };
 
         for (String cat : categories) {
@@ -562,13 +590,17 @@ public class HomeController {
             dto.totalBids      = item.thauThu;
 
             // Parse endTime từ hanDangKi (dd/MM/yyyy)
-            try {
-                java.time.format.DateTimeFormatter fmt =
-                        java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                java.time.LocalDate date = java.time.LocalDate.parse(item.hanDangKi, fmt);
-                dto.endTime = date.atTime(23, 59, 59);
-            } catch (Exception ex) {
-                dto.endTime = java.time.LocalDateTime.now().plusDays(1);
+            if (item.endTimeRaw != null) {
+                dto.endTime = item.endTimeRaw; // ← dùng endTime thực từ server
+            } else {
+                try {
+                    java.time.format.DateTimeFormatter fmt =
+                            java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                    java.time.LocalDate date = java.time.LocalDate.parse(item.hanDangKi, fmt);
+                    dto.endTime = date.atTime(23, 59, 59);
+                } catch (Exception ex) {
+                    dto.endTime = java.time.LocalDateTime.now().plusDays(1);
+                }
             }
 
             AuctionDetailController ctrl = loader.getController();

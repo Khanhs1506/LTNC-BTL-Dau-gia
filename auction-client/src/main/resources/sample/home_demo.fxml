@@ -143,21 +143,29 @@
                    -fx-padding: 7 20; -fx-cursor: hand;
                    -fx-background-radius: 20;"/>
 
-            <Button fx:id="btnBienSoXe"
-                    text="🚗  Biển số xe"
-                    onAction="#handleBienSoXe"
+            <Button fx:id="btnNgheThuat"
+                    text="🎨  Nghệ thuật"
+                    onAction="#handleNgheThuat"
                     style="-fx-background-color: transparent; -fx-text-fill: #444;
-                   -fx-font-size: 13; -fx-font-weight: bold;
-                   -fx-padding: 7 20; -fx-cursor: hand;
-                   -fx-background-radius: 20;"/>
+               -fx-font-size: 13; -fx-font-weight: bold;
+               -fx-padding: 7 20; -fx-cursor: hand;
+               -fx-background-radius: 20;"/>
 
-            <Button fx:id="btnBatDongSan"
-                    text="🏠  Bất động sản"
-                    onAction="#handleBatDongSan"
+            <Button fx:id="btnPhuongTien"
+                    text="🚗  Phương tiện"
+                    onAction="#handlePhuongTien"
                     style="-fx-background-color: transparent; -fx-text-fill: #444;
-                   -fx-font-size: 13; -fx-font-weight: bold;
-                   -fx-padding: 7 20; -fx-cursor: hand;
-                   -fx-background-radius: 20;"/>
+               -fx-font-size: 13; -fx-font-weight: bold;
+               -fx-padding: 7 20; -fx-cursor: hand;
+               -fx-background-radius: 20;"/>
+
+            <Button fx:id="btnDienTu"
+                    text="💻  Điện tử"
+                    onAction="#handleDienTu"
+                    style="-fx-background-color: transparent; -fx-text-fill: #444;
+               -fx-font-size: 13; -fx-font-weight: bold;
+               -fx-padding: 7 20; -fx-cursor: hand;
+               -fx-background-radius: 20;"/>
 
             <Button fx:id="btnKhac"
                     text="✦  Khác"
