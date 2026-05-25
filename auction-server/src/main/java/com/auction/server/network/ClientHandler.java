@@ -8,6 +8,7 @@ import com.auction.server.service.AuctionManager;
 import com.auction.server.service.AuctionObserver;
 import com.auction.server.service.BiddingEngine;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -134,6 +135,23 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
                 case "GET_AUCTIONS_BY_SELLER":
                     handleGetAuctionsBySeller();
+                    break;
+
+                case "GET_BID_HISTORY":
+                    handleGetBidHistory(json);
+                    break;
+
+
+                case "GET_USERS":
+                    handleGetUsers();
+                    break;
+
+                case "BAN_USER":
+                    handleBanUser(json);
+                    break;
+
+                case "UNBAN_USER":
+                    handleUnbanUser(json);
                     break;
 
                 case "GET_BALANCE":
@@ -339,6 +357,67 @@ public class ClientHandler implements Runnable, AuctionObserver {
     private void handleLogout() {
         currentUser = null;
         writer.println("LOGOUT SUCCESS");
+    }
+
+    //LẤY LỊCH SỬ ĐẶT GIÁ
+    private void handleGetBidHistory(String json) {
+        try {
+            int auctionId = JsonParser.parseString(json).getAsJsonObject().get("auctionId").getAsInt();
+            List<BidTransaction> bids = bidRepo.getBidsByAuctionId(auctionId);
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm");
+            JsonArray arr = new JsonArray();
+            for (BidTransaction b : bids) {
+                JsonObject item = new JsonObject();
+                item.addProperty("bidder", b.getBidderUsername());
+                item.addProperty("amount", b.getBidAmount());
+                item.addProperty("time",   b.getTimestamp().format(fmt));
+                arr.add(item);
+            }
+            writer.println("BID_HISTORY===" + arr);
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("BID_HISTORY===[]");
+        }
+    }
+
+    //LẤY DANH SACH NGƯỜI DÙNG
+    private void handleGetUsers() {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("GET_USERS===[]"); return;
+        }
+        try {
+            List<UserDaoImpl.UserInfo> users = ((UserDaoImpl) userRepo).getAllUserInfos();
+            writer.println("GET_USERS===" + gson.toJson(users));
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("GET_USERS===[]");
+        }
+    }
+
+    //BAN NGƯỜI DÙNG
+    private void handleBanUser(String json) {
+        if (!(currentUser instanceof Admin)) { writer.println("BAN_USER===FAIL"); return; }
+        try {
+            String username = JsonParser.parseString(json).getAsJsonObject().get("username").getAsString();
+            boolean ok = userRepo.setUserStatus(username, "banned");
+            writer.println(ok ? "BAN_USER===OK" : "BAN_USER===FAIL");
+            System.out.println("[Admin] Khóa user: " + username + " → " + (ok ? "OK" : "FAIL"));
+        } catch (Exception e) {
+            writer.println("BAN_USER===FAIL");
+        }
+    }
+
+    //BỎ BAN NGƯỜI DÙNG
+    private void handleUnbanUser(String json) {
+        if (!(currentUser instanceof Admin)) { writer.println("UNBAN_USER===FAIL"); return; }
+        try {
+            String username = JsonParser.parseString(json).getAsJsonObject().get("username").getAsString();
+            boolean ok = userRepo.setUserStatus(username, "active");
+            writer.println(ok ? "UNBAN_USER===OK" : "UNBAN_USER===FAIL");
+            System.out.println("[Admin] Mở khóa user: " + username + " → " + (ok ? "OK" : "FAIL"));
+        } catch (Exception e) {
+            writer.println("UNBAN_USER===FAIL");
+        }
     }
 
     //LẤY DANH SÁCH THEO THƯ MỤC - Minh

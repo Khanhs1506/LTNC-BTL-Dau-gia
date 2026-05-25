@@ -65,6 +65,7 @@ public class HomeController {
 
     // ===== Model =====
     static class AuctionItem {
+        int auctionId;
         String title, giaKhoiDiem, giaCaoNhat, thoiGian, hanDangKi;
         int thauThu;
         String category;    // dùng để lọc
@@ -168,11 +169,13 @@ public class HomeController {
                         String timeLeft         = computeTimeLeft(endTime);
                         String endDateFormatted = endTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
                         String category         = mapItemTypeToCategory(itemType);
-
-                        loaded.add(new AuctionItem(
+                        int auctionId = obj.has("auctionId") ? obj.get("auctionId").getAsInt() : 0;
+                        AuctionItem ai = new AuctionItem(
                                 name, formatVND(startPrice), formatVND(highBid),
                                 timeLeft, 0, endDateFormatted, category
-                        ));
+                        );
+                        ai.auctionId = auctionId;
+                        loaded.add(ai);
                     }
 
                     // ✅ runLater ở NGOÀI for — đợi load xong hết rồi mới render 1 lần
@@ -201,7 +204,7 @@ public class HomeController {
         return String.format("%,.0f VNĐ", amount);
     }
 
-    //TÍNH THỜI GIAN CÒN LAẠI
+    //TÍNH THỜI GIAN CÒN LẠI
     private String computeTimeLeft(LocalDateTime endTime) {
         Duration d = Duration.between(LocalDateTime.now(), endTime);
         if (d.isNegative()) return "Đã kết thúc";
@@ -554,6 +557,7 @@ public class HomeController {
 
             // ✅ Map đầy đủ dữ liệu từ AuctionItem → AuctionItemDTO
             AuctionItemDTO dto = new AuctionItemDTO();
+            dto.id             = item.auctionId;
             dto.title          = item.title;
             dto.sellerUsername = "";
             dto.startingPrice  = parseAmount(item.giaKhoiDiem);
