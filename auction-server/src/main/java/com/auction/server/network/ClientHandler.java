@@ -16,12 +16,9 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.sql.Connection;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.auction.server.network.handler.WalletHandler;
 
@@ -47,6 +44,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
     public ClientHandler(Socket socket) throws Exception {
         this.socket = socket;
         connectedClients.add(this);
+        // ✅ FIX: Đăng ký observer để nhận BID_UPDATE từ BiddingEngine
+        BiddingEngine.getInstance().addObserver(this);
     }
 
     @Override
@@ -78,6 +77,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
             System.out.println("Khách hàng mất mạng hoặc ngắt kết nối đột ngột");
         } finally {
             connectedClients.remove(this);
+            // ✅ FIX: Huỷ đăng ký observer khi client ngắt kết nối tránh memory leak
+            BiddingEngine.getInstance().removeObserver(this);
             NumberOfClient--;
             System.out.println("Có " + NumberOfClient + " khách đang kết nối");
 
@@ -471,38 +472,3 @@ public class ClientHandler implements Runnable, AuctionObserver {
         return summaries;
     }
 }
-//    // ── Ví / Wallet ────────────────────────────────────────────────────
-//    private void handleGetWallet() {
-//        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
-//        try {
-//            Connection conn = DatabaseManager.getInstance().getConnection();
-//            writer.println(server.WalletHandler.handleGetWallet(currentUser.getUsername(), conn));
-//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
-//    }
-//
-//    private void handleDeposit(String json) {
-//        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
-//        try {
-//            Connection conn = DatabaseManager.getInstance().getConnection();
-//            writer.println(server.WalletHandler.handleDeposit(currentUser.getUsername(), json, conn));
-//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
-//    }
-//
-//    private void handleBidHold(String json) {
-//        if (!(currentUser instanceof Bidder)) { writer.println("ERROR===Chỉ Bidder mới đặt cọc"); return; }
-//        try {
-//            Connection conn = DatabaseManager.getInstance().getConnection();
-//            writer.println(server.WalletHandler.handleBidHold(currentUser.getUsername(), json, conn));
-//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
-//    }
-//
-//    private void handleGetTransactions(String json) {
-//        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
-//        try {
-//            Connection conn = DatabaseManager.getInstance().getConnection();
-//            writer.println(server.WalletHandler.handleGetTransactions(currentUser.getUsername(), json, conn));
-//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
-//    }
-//}
-
-
