@@ -111,7 +111,24 @@ public class ServerConnection {
     }
 
     public String logout() throws Exception {
-        return sendRequest("LOGOUT", "{}");
+        return sendRequest("LOGOUT", "");
+    }
+
+    // ADMIN: lấy danh sách user thật
+    public String getUsers() throws Exception {
+        return sendRequest("GET_USERS", "{}");
+    }
+
+    // ADMIN: khóa user
+    public String banUser(String username) throws Exception {
+        String json = String.format("{\"username\":\"%s\"}", username);
+        return sendRequest("BAN_USER", json);
+    }
+
+    // ADMIN: mở khóa user
+    public String unbanUser(String username) throws Exception {
+        String json = String.format("{\"username\":\"%s\"}", username);
+        return sendRequest("UNBAN_USER", json);
     }
 
     public void disconnect() {
@@ -140,8 +157,9 @@ public class ServerConnection {
                         String msg = "🔔 " + res.bidder + " vừa đặt giá " + formatVND(res.amount);
 
                         // Thêm vào NotificationManager (nó sẽ gọi callback của HomeController)
-                        javafx.application.Platform.runLater(() ->
-                                NotificationManager.getInstance().addNotification(msg));
+                        javafx.application.Platform.runLater(() -> {
+                                NotificationManager.getInstance().addNotification(msg);
+                                NotificationManager.getInstance().notifyBidUpdate(res);});
 
                     } else if (line.startsWith("DELETE_ITEM_NOTIFY===")) {
                         // Sản phẩm bị xóa bởi seller khác → thông báo để UI cập nhật

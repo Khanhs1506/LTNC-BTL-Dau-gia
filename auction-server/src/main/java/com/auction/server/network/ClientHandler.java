@@ -8,6 +8,7 @@ import com.auction.server.service.AuctionManager;
 import com.auction.server.service.AuctionObserver;
 import com.auction.server.service.BiddingEngine;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -15,12 +16,9 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.sql.Connection;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.auction.server.network.handler.WalletHandler;
 
@@ -46,6 +44,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
     public ClientHandler(Socket socket) throws Exception {
         this.socket = socket;
         connectedClients.add(this);
+        // ✅ FIX: Đăng ký observer để nhận BID_UPDATE từ BiddingEngine
+        BiddingEngine.getInstance().addObserver(this);
     }
 
     @Override
@@ -77,6 +77,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
             System.out.println("Khách hàng mất mạng hoặc ngắt kết nối đột ngột");
         } finally {
             connectedClients.remove(this);
+            // ✅ FIX: Huỷ đăng ký observer khi client ngắt kết nối tránh memory leak
+            BiddingEngine.getInstance().removeObserver(this);
             NumberOfClient--;
             System.out.println("Có " + NumberOfClient + " khách đang kết nối");
 
@@ -134,6 +136,23 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
                 case "GET_AUCTIONS_BY_SELLER":
                     handleGetAuctionsBySeller();
+                    break;
+
+                case "GET_BID_HISTORY":
+                    handleGetBidHistory(json);
+                    break;
+
+
+                case "GET_USERS":
+                    handleGetUsers();
+                    break;
+
+                case "BAN_USER":
+                    handleBanUser(json);
+                    break;
+
+                case "UNBAN_USER":
+                    handleUnbanUser(json);
                     break;
 
                 case "GET_BALANCE":
@@ -341,6 +360,67 @@ public class ClientHandler implements Runnable, AuctionObserver {
         writer.println("LOGOUT SUCCESS");
     }
 
+    //LẤY LỊCH SỬ ĐẶT GIÁ
+    private void handleGetBidHistory(String json) {
+        try {
+            int auctionId = JsonParser.parseString(json).getAsJsonObject().get("auctionId").getAsInt();
+            List<BidTransaction> bids = bidRepo.getBidsByAuctionId(auctionId);
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm");
+            JsonArray arr = new JsonArray();
+            for (BidTransaction b : bids) {
+                JsonObject item = new JsonObject();
+                item.addProperty("bidder", b.getBidderUsername());
+                item.addProperty("amount", b.getBidAmount());
+                item.addProperty("time",   b.getTimestamp().format(fmt));
+                arr.add(item);
+            }
+            writer.println("BID_HISTORY===" + arr);
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("BID_HISTORY===[]");
+        }
+    }
+
+    //LẤY DANH SACH NGƯỜI DÙNG
+    private void handleGetUsers() {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("GET_USERS===[]"); return;
+        }
+        try {
+            List<UserDaoImpl.UserInfo> users = ((UserDaoImpl) userRepo).getAllUserInfos();
+            writer.println("GET_USERS===" + gson.toJson(users));
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("GET_USERS===[]");
+        }
+    }
+
+    //BAN NGƯỜI DÙNG
+    private void handleBanUser(String json) {
+        if (!(currentUser instanceof Admin)) { writer.println("BAN_USER===FAIL"); return; }
+        try {
+            String username = JsonParser.parseString(json).getAsJsonObject().get("username").getAsString();
+            boolean ok = userRepo.setUserStatus(username, "banned");
+            writer.println(ok ? "BAN_USER===OK" : "BAN_USER===FAIL");
+            System.out.println("[Admin] Khóa user: " + username + " → " + (ok ? "OK" : "FAIL"));
+        } catch (Exception e) {
+            writer.println("BAN_USER===FAIL");
+        }
+    }
+
+    //BỎ BAN NGƯỜI DÙNG
+    private void handleUnbanUser(String json) {
+        if (!(currentUser instanceof Admin)) { writer.println("UNBAN_USER===FAIL"); return; }
+        try {
+            String username = JsonParser.parseString(json).getAsJsonObject().get("username").getAsString();
+            boolean ok = userRepo.setUserStatus(username, "active");
+            writer.println(ok ? "UNBAN_USER===OK" : "UNBAN_USER===FAIL");
+            System.out.println("[Admin] Mở khóa user: " + username + " → " + (ok ? "OK" : "FAIL"));
+        } catch (Exception e) {
+            writer.println("UNBAN_USER===FAIL");
+        }
+    }
+
     //LẤY DANH SÁCH THEO THƯ MỤC - Minh
     private void handlerGetItemsByCategory(String json) {
         try {
@@ -392,38 +472,3 @@ public class ClientHandler implements Runnable, AuctionObserver {
         return summaries;
     }
 }
-//    // ── Ví / Wallet ────────────────────────────────────────────────────
-//    private void handleGetWallet() {
-//        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
-//        try {
-//            Connection conn = DatabaseManager.getInstance().getConnection();
-//            writer.println(server.WalletHandler.handleGetWallet(currentUser.getUsername(), conn));
-//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
-//    }
-//
-//    private void handleDeposit(String json) {
-//        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
-//        try {
-//            Connection conn = DatabaseManager.getInstance().getConnection();
-//            writer.println(server.WalletHandler.handleDeposit(currentUser.getUsername(), json, conn));
-//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
-//    }
-//
-//    private void handleBidHold(String json) {
-//        if (!(currentUser instanceof Bidder)) { writer.println("ERROR===Chỉ Bidder mới đặt cọc"); return; }
-//        try {
-//            Connection conn = DatabaseManager.getInstance().getConnection();
-//            writer.println(server.WalletHandler.handleBidHold(currentUser.getUsername(), json, conn));
-//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
-//    }
-//
-//    private void handleGetTransactions(String json) {
-//        if (currentUser == null) { writer.println("ERROR===Chưa đăng nhập"); return; }
-//        try {
-//            Connection conn = DatabaseManager.getInstance().getConnection();
-//            writer.println(server.WalletHandler.handleGetTransactions(currentUser.getUsername(), json, conn));
-//        } catch (Exception e) { writer.println("ERROR===" + e.getMessage()); }
-//    }
-//}
-
-

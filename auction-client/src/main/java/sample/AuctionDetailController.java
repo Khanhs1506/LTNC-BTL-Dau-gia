@@ -23,11 +23,15 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Duration;
+import sample.model.PlacedBidRequest;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.function.Consumer;
 
 public class AuctionDetailController {
 
@@ -64,6 +68,10 @@ public class AuctionDetailController {
     private Circle toggleThumb;
     private double dragOffsetX;
     private double dragOffsetY;
+    private XYChart.Series<String, Number> bidSeries;
+
+    // Observer BID_UPDATE — giữ reference để có thể huỷ đăng ký khi đóng màn hình
+    private Consumer<PlacedBidRequest> bidUpdateListener;
 
     // Colors
     private static final String RED  = "#B91C1C";
@@ -148,7 +156,52 @@ public class AuctionDetailController {
         buildParticipants();
         startCountdown();
         loadBidChart();
+        registerBidUpdateListener();
     }
+
+    //ĐĂNG KÍ THÔNG BÁO
+    private void registerBidUpdateListener() {
+        // Huỷ listener cũ nếu có (tránh leak khi setAuction gọi lại)
+        unregisterBidUpdateListener();
+
+        bidUpdateListener = (req) -> {
+            // Chỉ xử lý nếu là phiên đấu giá đang xem
+            if (req.auctionId != auction.id) return;
+
+            // Cập nhật dữ liệu local
+            auction.currentHighest = req.amount;
+            auction.totalBids = auction.totalBids + 1;
+
+            // Cập nhật UI (đã chạy trên FX thread vì NotificationManager gọi Platform.runLater)
+            currentBidLabel.setText(formatVND(req.amount));
+            bidHintLabel.setText("Gia toi thieu phai cao hon gia hien tai: " + formatVND(req.amount));
+            buildQuickBidButtons();
+            buildParticipants();
+            if (bidSeries != null) {
+                String timeLabel = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+                bidSeries.getData().add(new XYChart.Data<>(timeLabel, req.amount));
+                if (bidSeries.getData().size() > 20)
+                    bidSeries.getData().remove(0);  // tránh chart chật
+                applyChartStyle();
+            }
+            if (notifyOn) {
+                String msg = "🔔 " + req.bidder + " vừa đặt giá " + formatVND(req.amount) + " cho \"" + auction.title + "\"";
+                try {
+                    Window win = headerBar.getScene().getWindow();
+                    ToastNotification.info(win, msg);
+                } catch (Exception ignored) {}
+            }
+        };
+        NotificationManager.getInstance().addBidUpdateListener(bidUpdateListener);
+    }
+
+    private void unregisterBidUpdateListener() {
+        if (bidUpdateListener != null) {
+            NotificationManager.getInstance().removeBidUpdateListener(bidUpdateListener);
+            bidUpdateListener = null;
+        }
+    }
+
 
     // =========================================================
     // Load data methods
@@ -363,24 +416,42 @@ public class AuctionDetailController {
     private void loadBidChart() {
         bidChart.getData().clear();
 
-        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        // Hiển thị điểm khởi đầu ngay
+        bidSeries = new XYChart.Series<>();
+        XYChart.Series<String, Number> series = bidSeries;
         series.setName("Gia thau");
-
-        double base = auction.startingPrice;
-        double top  = auction.currentHighest;
-
-        series.getData().add(new XYChart.Data<>("10:00", base));
-        series.getData().add(new XYChart.Data<>("10:08", base * 1.04));
-        series.getData().add(new XYChart.Data<>("10:15", base * 1.04));
-        series.getData().add(new XYChart.Data<>("10:22", base + (top - base) * 0.45));
-        series.getData().add(new XYChart.Data<>("10:30", base + (top - base) * 0.45));
-        series.getData().add(new XYChart.Data<>("10:38", base + (top - base) * 0.75));
-        series.getData().add(new XYChart.Data<>("10:45", top));
-        series.getData().add(new XYChart.Data<>("10:52", top));
-
+        series.getData().add(new XYChart.Data<>("Bat dau", auction.startingPrice));
         bidChart.getData().add(series);
+        int auctionId = auction.id;
 
-        Platform.runLater(() -> applyChartStyle());
+        // Gọi server trong background thread để không block UI
+        new Thread(() -> {
+            try {
+                String raw = ServerConnection.getInstance().getBidHistory(auctionId);
+                // raw = "BID_HISTORY===[ {time, bidder, amount}, ... ]"
+                String jsonPart = raw.contains("===") ? raw.split("===", 2)[1] : "[]";
+
+                com.google.gson.JsonArray arr =
+                        com.google.gson.JsonParser.parseString(jsonPart).getAsJsonArray();
+
+                Platform.runLater(() -> {
+                    series.getData().clear();
+                    series.getData().add(new XYChart.Data<>("Bat dau", auction.startingPrice));
+
+                    for (com.google.gson.JsonElement el : arr) {
+                        com.google.gson.JsonObject obj = el.getAsJsonObject();
+                        String time   = obj.get("time").getAsString();
+                        double amount = obj.get("amount").getAsDouble();
+                        series.getData().add(new XYChart.Data<>(time, amount));
+                    }
+                    applyChartStyle();
+                });
+
+            } catch (Exception e) {
+                System.out.println("[BidChart] Loi tai du lieu: " + e.getMessage());
+                Platform.runLater(() -> applyChartStyle());
+            }
+        }, "BidChartLoader").start();
     }
 
     // =========================================================
@@ -401,6 +472,7 @@ public class AuctionDetailController {
     @FXML
     private void handleClose() {
         stopCountdown();
+        unregisterBidUpdateListener();
         getStage().close();
     }
 
@@ -476,25 +548,32 @@ public class AuctionDetailController {
             return;
         }
 
-        try {
-            String response = ServerConnection.getInstance().placeBid(6, UserSession.getInstance().getUsername(), amount);
+        final int   auctionId = auction.id;
+        final double finalAmt  = amount;
 
-            if (response != null && response.equalsIgnoreCase("BID SUCCESS")) {
-                auction.currentHighest = amount;
-                currentBidLabel.setText(formatVND(amount));
-                bidHintLabel.setText("Gia toi thieu phai cao hon: " + formatVND(amount));
-                messageLabel.setStyle("-fx-text-fill: #16A34A; -fx-font-size: 13;");
-                messageLabel.setText("Dat gia thanh cong!");
-                bidAmountField.clear();
-                buildQuickBidButtons();
-                buildParticipants();
-            } else {
-                messageLabel.setText("Dat gia that bai: " + response);
+        new Thread(() -> {
+            try {
+                String response = ServerConnection.getInstance().placeBid(auctionId, UserSession.getInstance().getUsername(), finalAmt);
+
+                Platform.runLater(() -> {
+                    if (response != null && response.equalsIgnoreCase("BID SUCCESS")) {
+                        System.out.println("[BID] auctionId=" + auctionId + " amount=" + finalAmt);
+                        // Chart / giá / nút sẽ được cập nhật bởi bidUpdateListener
+                        // khi BID_UPDATE broadcast về — không cập nhật lại ở đây
+                        // để tránh duplicate data point trên chart.
+                        bidAmountField.clear();
+                        messageLabel.setStyle("-fx-text-fill: #16A34A; -fx-font-size: 13;");
+                        messageLabel.setText("Dat gia thanh cong!");
+                    } else {
+                        messageLabel.setText("Dat gia that bai: " + response);
+                    }
+                });
+            } catch (Exception e) {
+                Platform.runLater(() ->
+                        messageLabel.setText("Loi ket noi. Vui long thu lai."));
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            messageLabel.setText("Loi ket noi. Vui long thu lai.");
-            e.printStackTrace();
-        }
+        }, "PlaceBidThread").start();
     }
 
     // =========================================================

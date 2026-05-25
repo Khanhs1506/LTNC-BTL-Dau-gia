@@ -116,7 +116,6 @@ public class AdminDashboardController implements Initializable {
             System.out.println("Không tải được logo");
         }
 
-        loadMockData();
         setupUsersTable();
         setupAuctionsTable();
         setupBidsTable();
@@ -125,6 +124,44 @@ public class AdminDashboardController implements Initializable {
         initAuctionFilter();
         showPanel(adminPanelOverview, adminMenuOverview, "Dashboard");
         setupNotificationBadge();
+        loadUsersFromServer();
+    }
+
+    //LẦY DỮ LIỆU NGƯỜI DÙNG
+    private void loadUsersFromServer() {
+        new Thread(() -> {
+            try {
+                String raw = ServerConnection.getInstance().getUsers();
+                // raw = "GET_USERS===[{id, username, role, status}, ...]"
+                String jsonPart = raw.contains("===") ? raw.split("===", 2)[1] : "[]";
+
+                com.google.gson.JsonArray arr =
+                        com.google.gson.JsonParser.parseString(jsonPart).getAsJsonArray();
+
+                List<User> users = new java.util.ArrayList<>();
+                for (com.google.gson.JsonElement el : arr) {
+                    com.google.gson.JsonObject obj = el.getAsJsonObject();
+                    User u = new User(
+                            obj.get("id").getAsString(),
+                            obj.get("username").getAsString(),
+                            "",
+                            obj.get("role").getAsString()
+                    );
+                    String status = obj.has("status") ? obj.get("status").getAsString() : "active";
+                    u.setStatus(status);
+                    users.add(u);
+                }
+
+                javafx.application.Platform.runLater(() -> {
+                    allUsers.setAll(users);
+                    if (adminStatUsers != null)
+                        adminStatUsers.setText(String.valueOf(users.size()));
+                });
+
+            } catch (Exception e) {
+                System.out.println("[Admin] Lỗi tải danh sách user: " + e.getMessage());
+            }
+        }, "AdminUserLoader").start();
     }
 
     //SET UP NÚT THÔNG BÁO
@@ -250,21 +287,21 @@ public class AdminDashboardController implements Initializable {
                 bounds.getMaxY() + 4);
     }
 
-    // ── Mock data ─────────────────────────────────────────────────
-    private void loadMockData() {
-        // Users mock
-        allUsers = FXCollections.observableArrayList(
-                new User(1, "bidder_alpha", "BIDDER"),
-                new User(2, "seller_pro",   "SELLER"),
-                new User(3, "user_spammer", "BIDDER")
-        );
-
-        // Auctions mock – reuse Auction model
-        allAuctions = FXCollections.observableArrayList();
-
-        // Bids mock
-        allBids = FXCollections.observableArrayList();
-    }
+//    // ── Mock data ─────────────────────────────────────────────────
+//    private void loadMockData() {
+//        // Users mock
+//        allUsers = FXCollections.observableArrayList(
+//                new User(1, "bidder_alpha", "BIDDER"),
+//                new User(2, "seller_pro",   "SELLER"),
+//                new User(3, "user_spammer", "BIDDER")
+//        );
+//
+//        // Auctions mock – reuse Auction model
+//        allAuctions = FXCollections.observableArrayList();
+//
+//        // Bids mock
+//        allBids = FXCollections.observableArrayList();
+//    }
 
     // ── Setup tables ──────────────────────────────────────────────
     private void setupUsersTable() {
@@ -420,50 +457,54 @@ public class AdminDashboardController implements Initializable {
         confirm.getButtonTypes().setAll(ButtonType.YES, ButtonType.NO);
 
         confirm.showAndWait().ifPresent(btn -> {
-            if (btn == ButtonType.YES) {
-                // 1. Xóa session
-                UserSession.getInstance().logout();
+            try {
+                ServerConnection.getInstance().logout();
+                if (btn == ButtonType.YES) {
+                    // 1. Xóa session
+                    UserSession.getInstance().logout();
 
-                // 2. Tìm FXML qua chính HomeController class (luôn đúng package)
-                java.net.URL fxmlUrl = HomeController.class.getResource("home.fxml");
+                    // 2. Tìm FXML qua chính HomeController class (luôn đúng package)
+                    java.net.URL fxmlUrl = HomeController.class.getResource("home.fxml");
 
-                // Fallback nếu home.fxml cùng thư mục với HomeController
-                if (fxmlUrl == null) {
-                    fxmlUrl = HomeController.class.getResource("/sample/home_demo.fxml");
+                    // Fallback nếu home.fxml cùng thư mục với HomeController
+                    if (fxmlUrl == null) {
+                        fxmlUrl = HomeController.class.getResource("/sample/home_demo.fxml");
+                    }
+
+                    if (fxmlUrl == null) {
+                        // In ra tất cả để debug
+                        System.err.println("[Logout] Thư mục class: "
+                                + HomeController.class.getPackage().getName());
+                        System.err.println("[Logout] Thử path: "
+                                + HomeController.class.getResource("."));
+                        new Alert(Alert.AlertType.ERROR,
+                                "Không tìm thấy home.fxml!\n"
+                                        + "Kiểm tra tên file có đúng chữ thường/hoa không.")
+                                .showAndWait();
+                        return;
+                    }
+
+                    try {
+                        javafx.fxml.FXMLLoader loader =
+                                new javafx.fxml.FXMLLoader(fxmlUrl);
+                        javafx.scene.Parent root = loader.load();
+
+                        // 3. Reset Home về trạng thái khách
+                        HomeController homeCtrl = loader.getController();
+                        homeCtrl.resetToGuest();
+
+                        // 4. Chuyển scene
+                        javafx.stage.Stage stage =
+                                (javafx.stage.Stage) adminMenuOverview.getScene().getWindow();
+                        stage.setScene(new javafx.scene.Scene(root, 1200, 800));
+                        stage.setTitle("TINY HOARDER'S KEY MARKET");
+                        stage.centerOnScreen();
+                    } catch (java.io.IOException e) {
+                        e.printStackTrace();
+                    }
                 }
-
-                if (fxmlUrl == null) {
-                    // In ra tất cả để debug
-                    System.err.println("[Logout] Thư mục class: "
-                            + HomeController.class.getPackage().getName());
-                    System.err.println("[Logout] Thử path: "
-                            + HomeController.class.getResource("."));
-                    new Alert(Alert.AlertType.ERROR,
-                            "Không tìm thấy home.fxml!\n"
-                                    + "Kiểm tra tên file có đúng chữ thường/hoa không.")
-                            .showAndWait();
-                    return;
-                }
-
-                try {
-                    javafx.fxml.FXMLLoader loader =
-                            new javafx.fxml.FXMLLoader(fxmlUrl);
-                    javafx.scene.Parent root = loader.load();
-
-                    // 3. Reset Home về trạng thái khách
-                    HomeController homeCtrl = loader.getController();
-                    homeCtrl.resetToGuest();
-
-                    // 4. Chuyển scene
-                    javafx.stage.Stage stage =
-                            (javafx.stage.Stage) adminMenuOverview.getScene().getWindow();
-                    stage.setScene(new javafx.scene.Scene(root, 1200, 800));
-                    stage.setTitle("TINY HOARDER'S KEY MARKET");
-                    stage.centerOnScreen();
-
-                } catch (java.io.IOException e) {
-                    e.printStackTrace();
-                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
     }
@@ -471,8 +512,35 @@ public class AdminDashboardController implements Initializable {
     // ── Helpers ───────────────────────────────────────────────────
     private void toggleBan(User u, Button btn) {
         boolean isBanned = "banned".equals(u.getStatus());
-        // TODO: gửi lệnh lên server
-        btn.setText(isBanned ? "Khóa" : "Mở khóa");
+        new Thread(() -> {
+            try {
+                String response = isBanned
+                        ? ServerConnection.getInstance().unbanUser(u.getUsername())
+                        : ServerConnection.getInstance().banUser(u.getUsername());
+
+                boolean ok = response != null && response.contains("OK");
+                javafx.application.Platform.runLater(() -> {
+                    if (ok) {
+                        u.setStatus(isBanned ? "active" : "banned");
+                        btn.setText(isBanned ? "Khóa" : "Mở khóa");
+                        usersTable.refresh();
+                        showToast(isBanned
+                                ? "Đã mở khóa: " + u.getUsername()
+                                : "Đã khóa: " + u.getUsername());
+                    } else {
+                        showToast("Lỗi: không thể cập nhật trạng thái user");
+                    }
+                });
+            } catch (Exception e) {
+                javafx.application.Platform.runLater(() ->
+                        showToast("Lỗi kết nối: " + e.getMessage()));
+            }
+        }, "BanUserThread").start();
+    }
+
+    private void showToast(String message) {
+        new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION, message)
+                .showAndWait();
     }
 
     private String roleBadgeStyle(String role) {
