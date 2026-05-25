@@ -397,8 +397,8 @@ public class SellerCreateAuctionController implements Initializable {
     private void handleNext() {
         if (currentStep == 1 && !validateStep1()) return;
         if (currentStep == 2 && !validateStep2()) return;
+        if (currentStep == 2) populateConfirm(); // ← populate trước khi tăng
         currentStep++;
-        if (currentStep == 3) populateConfirm();
         showStep(currentStep);
     }
 
@@ -614,10 +614,12 @@ public class SellerCreateAuctionController implements Initializable {
     }
 
     private String getTypeName() {
-        if (btnTypeSoftware.isSelected()) return "Tác phẩm nghệ thuật";
-        if (btnTypePhysical.isSelected()) return "Phương tiện";
-        if (btnTypeCollect.isSelected())  return "Thiết bị điện tử";
-        return "Khác";
+        return switch (selectedCategory) {
+            case "ArtItem"         -> "Tác phẩm nghệ thuật";
+            case "VehicleItem"     -> "Phương tiện";
+            case "ElectronicsItem" -> "Thiết bị điện tử";
+            default -> selectedCategory.isBlank() ? "Khác" : selectedCategory;
+        };
     }
 
     private String formatMoney(double v) {
