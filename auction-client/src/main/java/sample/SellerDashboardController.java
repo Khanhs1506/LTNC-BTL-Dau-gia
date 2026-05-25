@@ -11,6 +11,7 @@ import javafx.stage.Popup;
 import javafx.stage.Stage;
 import sample.model.Auction;
 import sample.model.Item;
+import sample.model.PlacedBidRequest;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -20,6 +21,7 @@ import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
+import java.util.function.Consumer;
 
 import java.io.IOException;
 import java.net.URL;
@@ -92,6 +94,9 @@ public class SellerDashboardController implements Initializable {
     private ObservableList<Auction> allAuctions;
     private final List<Button> sidebarButtons = new java.util.ArrayList<>();
 
+    // ✅ FIX: Listener nhận BID_UPDATE realtime từ NotificationManager
+    private Consumer<PlacedBidRequest> bidUpdateListener;
+
     @Override
     public void initialize(URL url, ResourceBundle rb) {
         String user = UserSession.getInstance().getUsername();
@@ -111,6 +116,8 @@ public class SellerDashboardController implements Initializable {
         setupPieChart();
         showPanel(panelOverview, menuOverview, "Dashboard");
         setupNotificationBadge();
+        // ✅ FIX: Đăng ký nhận BID_UPDATE realtime để bảng cập nhật ngay khi có người đặt giá
+        registerBidUpdateListener();
     }
 
     //SET UP NÚT CHUÔNG THÔNG BÁO
@@ -119,6 +126,34 @@ public class SellerDashboardController implements Initializable {
         if (bellStackSeller != null) bellStackSeller.getChildren().add(notifBadgeSeller);
         notifBadgeSeller.setVisible(false);
         NotificationManager.getInstance().addNotificationListener(() -> javafx.application.Platform.runLater(this :: refreshBadge));
+    }
+
+    // ✅ FIX: Đăng ký lắng nghe BID_UPDATE — cập nhật bảng và stat ngay khi có giá mới
+    private void registerBidUpdateListener() {
+        bidUpdateListener = (req) -> {
+            // Chạy trên FX thread (NotificationManager đã dùng Platform.runLater)
+            if (allAuctions == null) return;
+
+            boolean changed = false;
+            for (Auction a : allAuctions) {
+                if (a.getId() == req.auctionId && req.amount > a.getCurrentHighestBid()) {
+                    // Cập nhật giá và người đang dẫn đầu trong model
+                    a.getItem().setCurrentHighestBid(req.amount);
+                    a.updateHighestBid(req.amount, req.bidder);
+                    changed = true;
+                    break;
+                }
+            }
+
+            if (changed) {
+                // Yêu cầu TableView vẽ lại để hiện giá mới
+                overviewTable.refresh();
+                productsTable.refresh();
+                // Cập nhật các thẻ thống kê tổng quan
+                updateStatsFromData();
+            }
+        };
+        NotificationManager.getInstance().addBidUpdateListener(bidUpdateListener);
     }
 
     private Label creatBadgeLabel() {
@@ -577,7 +612,7 @@ public class SellerDashboardController implements Initializable {
 
                 // 2. Ngắt kết nối server
                 try { ServerConnection.getInstance().disconnect();
-                      ServerConnection.getInstance().logout();}
+                    ServerConnection.getInstance().logout();}
                 catch (Exception ignored) {}
 
                 // 3. Quay về Home (đã có sẵn HomeController + home.fxml)

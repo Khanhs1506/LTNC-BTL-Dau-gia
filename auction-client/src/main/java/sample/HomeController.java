@@ -22,9 +22,7 @@ import javafx.stage.StageStyle;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class HomeController {
 
@@ -90,6 +88,8 @@ public class HomeController {
 
     // ===== Toàn bộ dữ liệu (không thay đổi khi lọc) =====
     private List<AuctionItem> allItems = new ArrayList<>();
+    private final Map<Integer, Label> cardPriceLabels    = new HashMap<>();
+    private final Map<Integer, Label> cardBidCountLabels = new HashMap<>();
 
     // ===== Initialize =====
     @FXML
@@ -106,45 +106,6 @@ public class HomeController {
         //LẤY DỮ LIỆU TỪ SERVER
         loadFromServer();
         setupNotificationBadge();
-
-//        // ── Dữ liệu mẫu có category ──────────────────────────
-//        allItems = Arrays.asList(
-//                new AuctionItem("G.5 - BKS 30K - 888.88",
-//                        "120.000.000 VNĐ", "215.000.000 VNĐ", "22:01:45", 36, "23/12/2026",
-//                        "Biển số xe"),
-//                new AuctionItem("H.5 - BKS 51K - 777.77",
-//                        "80.000.000 VNĐ", "150.000.000 VNĐ", "18:30:00", 12, "15/11/2026",
-//                        "Biển số xe"),
-//                new AuctionItem("Biệt thự Hồ Tây",
-//                        "5.000.000.000 VNĐ", "6.200.000.000 VNĐ", "10:00:00", 8, "01/08/2026",
-//                        "Bất động sản"),
-//                new AuctionItem("Căn hộ Quận 1 - Tầng 15",
-//                        "3.500.000.000 VNĐ", "4.100.000.000 VNĐ", "14:30:00", 5, "20/07/2026",
-//                        "Bất động sản"),
-//                new AuctionItem("Tranh sơn dầu - Bùi Xuân Phái",
-//                        "200.000.000 VNĐ", "380.000.000 VNĐ", "09:15:00", 19, "10/06/2026",
-//                        "Nghệ thuật"),
-//                new AuctionItem("Tượng đồng cổ - Thế kỷ 18",
-//                        "450.000.000 VNĐ", "520.000.000 VNĐ", "16:00:00", 7, "25/06/2026",
-//                        "Nghệ thuật"),
-//                new AuctionItem("Mercedes-Benz S500 2020",
-//                        "2.800.000.000 VNĐ", "3.100.000.000 VNĐ", "11:00:00", 14, "05/07/2026",
-//                        "Xe cộ"),
-//                new AuctionItem("Porsche 911 GT3 2022",
-//                        "6.500.000.000 VNĐ", "7.200.000.000 VNĐ", "17:45:00", 22, "30/06/2026",
-//                        "Xe cộ"),
-//                new AuctionItem("Rolex Submariner Date",
-//                        "180.000.000 VNĐ", "245.000.000 VNĐ", "13:20:00", 31, "18/06/2026",
-//                        "Đồng hồ"),
-//                new AuctionItem("Patek Philippe Nautilus",
-//                        "950.000.000 VNĐ", "1.200.000.000 VNĐ", "20:00:00", 11, "12/07/2026",
-//                        "Đồng hồ")
-//        );
-//
-//        // Thêm dữ liệu random từ factory nếu cần 100 items
-//        // allItems.addAll(AuctionDataFactory.generate(90));
-//
-//        renderCards(currentCategory);
     }
 
     private void loadFromServer() {
@@ -184,7 +145,7 @@ public class HomeController {
                         loaded.add(ai);
                     }
 
-                    // ✅ runLater ở NGOÀI for — đợi load xong hết rồi mới render 1 lần
+                    //runLater ở NGOÀI for — đợi load xong hết rồi mới render 1 lần
                     Platform.runLater(() -> {
                         allItems = loaded.isEmpty() ? buildMockItems() : loaded;
                         renderCards(currentCategory);
@@ -287,6 +248,28 @@ public class HomeController {
         NotificationManager.getInstance().addNotificationListener(() ->
                 javafx.application.Platform.runLater(this::refreshBadge)
         );
+
+        // CẬP NHẬT GIÁ VÀ SỐ LƯỢNG ĐẤU TRÊN CARD KHI CÓ BID_UPDATE
+        NotificationManager.getInstance().addBidUpdateListener(req -> {
+            // Cập nhật label giá cao nhất trên card
+            Label priceLabel = cardPriceLabels.get(req.auctionId);
+            if (priceLabel != null) {
+                priceLabel.setText(formatVND(req.amount));
+            }
+
+            // Cập nhật dữ liệu gốc và label số thầu
+            for (AuctionItem item : allItems) {
+                if (item.auctionId == req.auctionId) {
+                    item.giaCaoNhat = formatVND(req.amount);
+                    item.thauThu++;
+                    Label countLabel = cardBidCountLabels.get(req.auctionId);
+                    if (countLabel != null) {
+                        countLabel.setText(String.valueOf(item.thauThu));
+                    }
+                    break;
+                }
+            }
+        });
     }
     //HIỆN SỐ LƯỢNG THÔNG BÁO
     private Label createBadgeLabel() {
@@ -666,11 +649,30 @@ public class HomeController {
         cc1.setHgrow(Priority.NEVER);
         grid.getColumnConstraints().addAll(cc0, cc1);
 
-        addRow(grid, 0, "Giá khởi điểm:",          item.giaKhoiDiem,             false);
-        addRow(grid, 1, "*Giá cao nhất hiện tại:",  item.giaCaoNhat,              true);
-        addRow(grid, 2, "Thời gian:",               item.thoiGian,                false);
-        addRow(grid, 3, "Thầu thứ:",                String.valueOf(item.thauThu), false);
-        addRow(grid, 4, "Hạn đăng kí đến:",         item.hanDangKi,              false);
+        addRow(grid, 0, "Giá khởi điểm:",       item.giaKhoiDiem, false);
+
+        //CẬP NHẬT GIÁ CAO NHẤT
+        Label lblHighKey = new Label("*Giá cao nhất hiện tại:");
+        lblHighKey.setStyle("-fx-text-fill: #e05252; -fx-font-weight: bold; -fx-font-size: 13;");
+        Label lblHighVal = new Label(item.giaCaoNhat);
+        lblHighVal.setStyle("-fx-text-fill: #e05252; -fx-font-weight: bold; -fx-font-size: 14;");
+        grid.add(lblHighKey, 0, 1);
+        grid.add(lblHighVal, 1, 1);
+        if (item.auctionId > 0) cardPriceLabels.put(item.auctionId, lblHighVal);
+
+        addRow(grid, 2, "Thời gian:", item.thoiGian, false);
+
+        //THẦU THỨ (CẬP NHẬT)
+        Label lblCountKey = new Label("Thầu thứ:");
+        lblCountKey.setStyle("-fx-text-fill: #555555; -fx-font-size: 13;");
+        Label lblCountVal = new Label(String.valueOf(item.thauThu));
+        lblCountVal.setStyle("-fx-text-fill: #111111; -fx-font-weight: bold; -fx-font-size: 13;");
+        grid.add(lblCountKey, 0, 3);
+        grid.add(lblCountVal, 1, 3);
+        if (item.auctionId > 0) cardBidCountLabels.put(item.auctionId, lblCountVal);
+
+        addRow(grid, 4, "Hạn đăng kí đến:", item.hanDangKi, false);
+
 
         // ── Nút đấu giá ───────────────────────────────────────
         boolean loggedIn = UserSession.getInstance().isLoggedIn();
@@ -708,9 +710,9 @@ public class HomeController {
     private String heartStyle(boolean favorited) {
         return favorited
                 ? "-fx-background-color: transparent; -fx-text-fill: #e05252;" +
-                  "-fx-font-size: 18; -fx-cursor: hand; -fx-padding: 0 0 0 8;"
+                "-fx-font-size: 18; -fx-cursor: hand; -fx-padding: 0 0 0 8;"
                 : "-fx-background-color: transparent; -fx-text-fill: #222;" +
-                  "-fx-font-size: 18; -fx-cursor: hand; -fx-padding: 0 0 0 8;";
+                "-fx-font-size: 18; -fx-cursor: hand; -fx-padding: 0 0 0 8;";
     }
 
     private void addRow(GridPane grid, int row,
