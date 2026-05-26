@@ -3,7 +3,6 @@ package com.auction.server.service;
 import com.auction.server.model.Auction;
 import com.auction.server.repository.AuctionDaoImpl;
 import com.auction.server.repository.IAuctionDAO;
-import com.auction.server.repository.IItemDAO;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -129,24 +128,6 @@ public class AuctionManager {
         auctionDao.updateStatus(auctionId, status);
     }
 
-    public synchronized boolean deleteItemAndAuction(int itemId, IItemDAO itemDao) {
-        Integer foundAuctionId = null;
-        for (Map.Entry<Integer, Auction> entry : activeAuctions.entrySet()) {
-            if (entry.getValue().getItem().getId() != null && entry.getValue().getItem().getId().equalsIgnoreCase(String.valueOf(itemId))) {
-                foundAuctionId = entry.getKey();
-                break;
-            }
-        }
-        if (foundAuctionId != null) {
-            activeAuctions.remove(foundAuctionId);
-            System.out.println("[AuctionManager] Xóa phiên id=" + foundAuctionId + " khỏi RAM (item_id=" + itemId + ")");
-        }
-
-        boolean auctionDeleted = auctionDao.deleteAuctionByItemId(itemId);
-        boolean itemDeleted = itemDao.deleteItem(itemId);
-        return auctionDeleted && itemDeleted;
-     }
-
     /**
      * Duyệt tất cả phiên trong RAM và tự động chuyển trạng thái theo thời gian thực.
      * Gọi định kỳ từ một ScheduledExecutorService trong ServerApp.
@@ -167,6 +148,4 @@ public class AuctionManager {
             }
         }
     }
-
-
 }

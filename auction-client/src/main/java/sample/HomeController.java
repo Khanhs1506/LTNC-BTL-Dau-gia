@@ -1,16 +1,12 @@
 package sample;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -19,10 +15,9 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class HomeController {
 
@@ -45,12 +40,6 @@ public class HomeController {
     @FXML private Button btnBellUser;
     @FXML private StackPane bellStackGuest;
     @FXML private StackPane bellStackUser;
-    @FXML private Label     lblBalance;
-    @FXML private Button btnWallet;
-
-    @FXML private Button btnNgheThuat;
-    @FXML private Button btnPhuongTien;
-    @FXML private Button btnDienTu;
 
 
     private Label badgeGuest;
@@ -67,12 +56,10 @@ public class HomeController {
 
     // ===== Model =====
     static class AuctionItem {
-        int auctionId;
         String title, giaKhoiDiem, giaCaoNhat, thoiGian, hanDangKi;
         int thauThu;
         String category;    // dùng để lọc
         boolean favorited = false;
-        java.time.LocalDateTime endTimeRaw;
 
         AuctionItem(String title, String giaKhoiDiem, String giaCaoNhat,
                     String thoiGian, int thauThu, String hanDangKi, String category) {
@@ -88,8 +75,6 @@ public class HomeController {
 
     // ===== Toàn bộ dữ liệu (không thay đổi khi lọc) =====
     private List<AuctionItem> allItems = new ArrayList<>();
-    private final Map<Integer, Label> cardPriceLabels    = new HashMap<>();
-    private final Map<Integer, Label> cardBidCountLabels = new HashMap<>();
 
     // ===== Initialize =====
     @FXML
@@ -103,134 +88,46 @@ public class HomeController {
 
         buildKhacMenu();
 
-        //LẤY DỮ LIỆU TỪ SERVER
-        loadFromServer();
+        // ── Dữ liệu mẫu có category ──────────────────────────
+        allItems = Arrays.asList(
+                new AuctionItem("G.5 - BKS 30K - 888.88",
+                        "120.000.000 VNĐ", "215.000.000 VNĐ", "22:01:45", 36, "23/12/2026",
+                        "Biển số xe"),
+                new AuctionItem("H.5 - BKS 51K - 777.77",
+                        "80.000.000 VNĐ", "150.000.000 VNĐ", "18:30:00", 12, "15/11/2026",
+                        "Biển số xe"),
+                new AuctionItem("Biệt thự Hồ Tây",
+                        "5.000.000.000 VNĐ", "6.200.000.000 VNĐ", "10:00:00", 8, "01/08/2026",
+                        "Bất động sản"),
+                new AuctionItem("Căn hộ Quận 1 - Tầng 15",
+                        "3.500.000.000 VNĐ", "4.100.000.000 VNĐ", "14:30:00", 5, "20/07/2026",
+                        "Bất động sản"),
+                new AuctionItem("Tranh sơn dầu - Bùi Xuân Phái",
+                        "200.000.000 VNĐ", "380.000.000 VNĐ", "09:15:00", 19, "10/06/2026",
+                        "Nghệ thuật"),
+                new AuctionItem("Tượng đồng cổ - Thế kỷ 18",
+                        "450.000.000 VNĐ", "520.000.000 VNĐ", "16:00:00", 7, "25/06/2026",
+                        "Nghệ thuật"),
+                new AuctionItem("Mercedes-Benz S500 2020",
+                        "2.800.000.000 VNĐ", "3.100.000.000 VNĐ", "11:00:00", 14, "05/07/2026",
+                        "Xe cộ"),
+                new AuctionItem("Porsche 911 GT3 2022",
+                        "6.500.000.000 VNĐ", "7.200.000.000 VNĐ", "17:45:00", 22, "30/06/2026",
+                        "Xe cộ"),
+                new AuctionItem("Rolex Submariner Date",
+                        "180.000.000 VNĐ", "245.000.000 VNĐ", "13:20:00", 31, "18/06/2026",
+                        "Đồng hồ"),
+                new AuctionItem("Patek Philippe Nautilus",
+                        "950.000.000 VNĐ", "1.200.000.000 VNĐ", "20:00:00", 11, "12/07/2026",
+                        "Đồng hồ")
+        );
+
+        // Thêm dữ liệu random từ factory nếu cần 100 items
+        // allItems.addAll(AuctionDataFactory.generate(90));
+
+        renderCards(currentCategory);
         setupNotificationBadge();
     }
-
-    private void loadFromServer() {
-        new Thread(() -> {
-            try {
-                String response = ServerConnection.getInstance().getAuctions();
-
-                if (response != null && response.startsWith("AUCTIONS===")) {
-                    String json = response.substring("AUCTIONS===".length());
-                    JsonArray arr = JsonParser.parseString(json).getAsJsonArray();
-                    List<AuctionItem> loaded = new ArrayList<>();
-                    DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-                    for (JsonElement el : arr) {
-                        JsonObject obj = el.getAsJsonObject();
-
-                        String status = obj.get("status").getAsString();
-                        if (!status.equals("RUNNING") && !status.equals("OPEN")) continue;
-
-                        String name       = obj.get("itemName").getAsString();
-                        double startPrice = obj.get("startingPrice").getAsDouble();
-                        double highBid    = obj.get("currentHighestBid").getAsDouble();
-                        String itemType   = obj.get("itemType").getAsString();
-                        String endTimeStr = obj.get("endTime").getAsString();
-
-                        LocalDateTime endTime   = LocalDateTime.parse(endTimeStr, fmt);
-                        String timeLeft         = computeTimeLeft(endTime);
-                        String endDateFormatted = endTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-                        String category         = mapItemTypeToCategory(itemType);
-                        int auctionId = obj.has("auctionId") ? obj.get("auctionId").getAsInt() : 0;
-                        AuctionItem ai = new AuctionItem(
-                                name, formatVND(startPrice), formatVND(highBid),
-                                timeLeft, 0, endDateFormatted, category
-                        );
-                        ai.auctionId = auctionId;
-                        loaded.add(ai);
-                    }
-
-                    //runLater ở NGOÀI for — đợi load xong hết rồi mới render 1 lần
-                    Platform.runLater(() -> {
-                        allItems = loaded.isEmpty() ? buildMockItems() : loaded;
-                        renderCards(currentCategory);
-                    });
-
-                } else {
-                    Platform.runLater(() -> {
-                        allItems = buildMockItems();
-                        renderCards(currentCategory);
-                    });
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                Platform.runLater(() -> {
-                    allItems = buildMockItems();
-                    renderCards(currentCategory);
-                });
-            }
-        }, "HomeLoader").start();
-    }
-
-    private String formatVND(double amount) {
-        return String.format("%,.0f VNĐ", amount);
-    }
-
-    //TÍNH THỜI GIAN CÒN LẠI
-    private String computeTimeLeft(LocalDateTime endTime) {
-        Duration d = Duration.between(LocalDateTime.now(), endTime);
-        if (d.isNegative()) return "Đã kết thúc";
-        long hours   = d.toHours();
-        long minutes = d.toMinutesPart();
-        long seconds = d.toSecondsPart();
-        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
-    }
-
-    //PHÂN LOẠI SẢN PHẨM
-    private String mapItemTypeToCategory(String itemType) {
-        if (itemType == null) return "Khác";
-        return switch (itemType) {
-            // Server trả về dạng viết hoa
-            case "ART"              -> "Nghệ thuật";
-            case "ELECTRONICS"      -> "Điện tử";
-            case "VEHICLE"          -> "Phương tiện";
-            // Client gửi lên dạng key
-            case "ArtItem"          -> "Nghệ thuật";
-            case "ElectronicsItem"  -> "Điện tử";
-            case "VehicleItem"      -> "Phương tiện";
-            // Các danh mục từ menu Khác — giữ nguyên tiếng Việt
-            case "Nội thất",
-                 "Bất động sản",
-                 "Vé sự kiện",
-                 "Trò chơi điện tử",
-                 "Thể thao",
-                 "Sách",
-                 "Thời trang"       -> itemType;
-            default                 -> "Khác";
-        };
-    }
-
-    /**
-     * Dữ liệu mẫu – chỉ dùng khi server chưa khởi động (chạy offline).
-     * Có thể xóa khi ứng dụng hoàn thiện.
-     */
-    private List<AuctionItem> buildMockItems() {
-        return Arrays.asList(
-                new AuctionItem("G.5 - BKS 30K - 888.88",
-                        "120.000.000 VNĐ", "215.000.000 VNĐ",
-                        "22:01:45", 36, "23/12/2026", "Biển số xe"),
-                new AuctionItem("H.5 - BKS 51K - 777.77",
-                        "80.000.000 VNĐ", "150.000.000 VNĐ",
-                        "18:30:00", 12, "15/11/2026", "Biển số xe"),
-                new AuctionItem("Biệt thự Hồ Tây",
-                        "5.000.000.000 VNĐ", "6.200.000.000 VNĐ",
-                        "10:00:00", 8, "01/08/2026", "Bất động sản"),
-                new AuctionItem("Tranh sơn dầu - Bùi Xuân Phái",
-                        "200.000.000 VNĐ", "380.000.000 VNĐ",
-                        "09:15:00", 19, "10/06/2026", "Nghệ thuật"),
-                new AuctionItem("Mercedes-Benz S500 2020",
-                        "2.800.000.000 VNĐ", "3.100.000.000 VNĐ",
-                        "11:00:00", 14, "05/07/2026", "Xe cộ"),
-                new AuctionItem("Rolex Submariner Date",
-                        "180.000.000 VNĐ", "245.000.000 VNĐ",
-                        "13:20:00", 31, "18/06/2026", "Khác")
-        );
-    }
-
 
     private void setupNotificationBadge() {
         //TẠO CHUÔNG
@@ -244,31 +141,9 @@ public class HomeController {
         badgeUser .setVisible(false);
 
         //TẠO THÔNG BÁO
-        NotificationManager.getInstance().addNotificationListener(() ->
+        NotificationManager.getInstance().setOnNewNotification(() ->
                 javafx.application.Platform.runLater(this::refreshBadge)
         );
-
-        // CẬP NHẬT GIÁ VÀ SỐ LƯỢNG ĐẤU TRÊN CARD KHI CÓ BID_UPDATE
-        NotificationManager.getInstance().addBidUpdateListener(req -> {
-            // Cập nhật label giá cao nhất trên card
-            Label priceLabel = cardPriceLabels.get(req.auctionId);
-            if (priceLabel != null) {
-                priceLabel.setText(formatVND(req.amount));
-            }
-
-            // Cập nhật dữ liệu gốc và label số thầu
-            for (AuctionItem item : allItems) {
-                if (item.auctionId == req.auctionId) {
-                    item.giaCaoNhat = formatVND(req.amount);
-                    item.thauThu++;
-                    Label countLabel = cardBidCountLabels.get(req.auctionId);
-                    if (countLabel != null) {
-                        countLabel.setText(String.valueOf(item.thauThu));
-                    }
-                    break;
-                }
-            }
-        });
     }
     //HIỆN SỐ LƯỢNG THÔNG BÁO
     private Label createBadgeLabel() {
@@ -432,17 +307,6 @@ public class HomeController {
         // ✅ null-check: tránh NPE nếu fx:id chưa được gán
         if (btnTienSanh   != null)
             btnTienSanh.setStyle(category.equals("Tất cả")         ? selected : normal);
-        if (btnNgheThuat  != null)
-            btnNgheThuat.setStyle(category.equals("Nghệ thuật")  ? selected : normal);
-        if (btnPhuongTien != null)
-            btnPhuongTien.setStyle(category.equals("Phương tiện") ? selected : normal);
-        if (btnDienTu     != null)
-            btnDienTu.setStyle(category.equals("Điện tử")        ? selected : normal);
-        if (btnKhac       != null)
-            btnKhac.setStyle(
-                    (!category.equals("Tất cả") && !category.equals("Nghệ thuật")
-                            && !category.equals("Phương tiện") && !category.equals("Điện tử"))
-                            ? selected : normal);
         if (btnBienSoXe   != null)
             btnBienSoXe.setStyle(category.equals("Biển số xe")     ? selected : normal);
         if (btnBatDongSan != null)
@@ -453,9 +317,6 @@ public class HomeController {
     @FXML private void handleTienSanh()    { currentCategory = "Tất cả";        renderCards(currentCategory); }
     @FXML private void handleBienSoXe()   { currentCategory = "Biển số xe";     renderCards(currentCategory); }
     @FXML private void handleBatDongSan() { currentCategory = "Bất động sản";   renderCards(currentCategory); }
-    @FXML private void handleNgheThuat()  { currentCategory = "Nghệ thuật";  renderCards(currentCategory); }
-    @FXML private void handlePhuongTien() { currentCategory = "Phương tiện"; renderCards(currentCategory); }
-    @FXML private void handleDienTu()     { currentCategory = "Điện tử";     renderCards(currentCategory); }
 
     // ===== Menu Khác =====
     private void buildKhacMenu() {
@@ -463,8 +324,14 @@ public class HomeController {
 
         // Danh mục có trong dữ liệu sẽ lọc được
         String[] categories = {
-                "Nội thất", "Bất động sản", "Vé sự kiện",
-                "Trò chơi điện tử", "Thể thao", "Sách", "Thời trang"
+                "Nghệ thuật", "Đồng hồ", "Trang sức",
+                "Xe cộ", "Túi xách", "Thời trang",
+                "Thiết bị điện tử", "Điện thoại", "Máy tính",
+                "Nội thất", "Sách và tài liệu sưu tầm",
+                "Đồ lưu niệm", "Nhạc cụ", "Đồ chơi sưu tầm",
+                "Thẻ bài / mô hình", "Tiền xu / tem",
+                "Vật phẩm game", "NFT / tài sản số",
+                "Đồ gia dụng", "Máy móc", "Vé sự kiện"
         };
 
         for (String cat : categories) {
@@ -500,24 +367,21 @@ public class HomeController {
         userBox.setVisible(true);
         userBox.setManaged(true);
 
-        // Hiện số dư ví (chỉ Bidder mới có ví)
-        refreshBalanceLabel();
-
+        // ✅ Đổi tất cả nút "Đăng kí đấu giá" → "Đấu giá"
         for (Button btn : allBidButtons) {
             btn.setText("Đấu giá");
         }
     }
 
     @FXML
-    private void handleLogout() {
+    private void handleDangXuat() {
         UserSession.getInstance().logout();
         userBox.setVisible(false);
         userBox.setManaged(false);
         guestBox.setVisible(true);
         guestBox.setManaged(true);
 
-        if (lblBalance != null) lblBalance.setText("");
-
+        // ✅ Đổi lại "Đăng kí đấu giá"
         for (Button btn : allBidButtons) {
             btn.setText("Đăng kí đấu giá");
         }
@@ -564,29 +428,13 @@ public class HomeController {
                     getClass().getResource("/sample/AuctionDetail.fxml"));
             Parent root = loader.load();
 
-            // ✅ Map đầy đủ dữ liệu từ AuctionItem → AuctionItemDTO
-            AuctionItemDTO dto = new AuctionItemDTO();
-            dto.id             = item.auctionId;
-            dto.title          = item.title;
-            dto.sellerUsername = "";
-            dto.startingPrice  = parseAmount(item.giaKhoiDiem);
-            dto.currentHighest = parseAmount(item.giaCaoNhat);
-            dto.stepPrice      = 500_000;
-            dto.totalBids      = item.thauThu;
-
-            // Parse endTime từ hanDangKi (dd/MM/yyyy)
-            if (item.endTimeRaw != null) {
-                dto.endTime = item.endTimeRaw; // ← dùng endTime thực từ server
-            } else {
-                try {
-                    java.time.format.DateTimeFormatter fmt =
-                            java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                    java.time.LocalDate date = java.time.LocalDate.parse(item.hanDangKi, fmt);
-                    dto.endTime = date.atTime(23, 59, 59);
-                } catch (Exception ex) {
-                    dto.endTime = java.time.LocalDateTime.now().plusDays(1);
-                }
-            }
+            AuctionItemDTO dto = new AuctionItemDTO(
+                    0, item.title,
+                    parseAmount(item.giaKhoiDiem),
+                    parseAmount(item.giaCaoNhat),
+                    item.hanDangKi + " 23:59:59",
+                    "RUNNING"
+            );
 
             AuctionDetailController ctrl = loader.getController();
             ctrl.setAuction(dto);
@@ -594,16 +442,21 @@ public class HomeController {
             Stage stage = new Stage();
             stage.initStyle(StageStyle.UNDECORATED);
             stage.initModality(Modality.APPLICATION_MODAL);
-            stage.setScene(new Scene(root, 720, 780));
-            stage.setResizable(true);
-            stage.setMinWidth(680);
-            stage.setMinHeight(700);
+            stage.setScene(new Scene(root, 700, 620));
             stage.setOnCloseRequest(ev -> ctrl.stopCountdown());
             stage.showAndWait();
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private double parseAmount(String formatted) {
+        try {
+            return Double.parseDouble(
+                    formatted.replace(".", "").replace(",", "")
+                            .replace(" VNĐ", "").trim());
+        } catch (Exception e) { return 0; }
     }
 
     // ===== Tạo Card =====
@@ -649,30 +502,11 @@ public class HomeController {
         cc1.setHgrow(Priority.NEVER);
         grid.getColumnConstraints().addAll(cc0, cc1);
 
-        addRow(grid, 0, "Giá khởi điểm:",       item.giaKhoiDiem, false);
-
-        //CẬP NHẬT GIÁ CAO NHẤT
-        Label lblHighKey = new Label("*Giá cao nhất hiện tại:");
-        lblHighKey.setStyle("-fx-text-fill: #e05252; -fx-font-weight: bold; -fx-font-size: 13;");
-        Label lblHighVal = new Label(item.giaCaoNhat);
-        lblHighVal.setStyle("-fx-text-fill: #e05252; -fx-font-weight: bold; -fx-font-size: 14;");
-        grid.add(lblHighKey, 0, 1);
-        grid.add(lblHighVal, 1, 1);
-        if (item.auctionId > 0) cardPriceLabels.put(item.auctionId, lblHighVal);
-
-        addRow(grid, 2, "Thời gian:", item.thoiGian, false);
-
-        //THẦU THỨ (CẬP NHẬT)
-        Label lblCountKey = new Label("Thầu thứ:");
-        lblCountKey.setStyle("-fx-text-fill: #555555; -fx-font-size: 13;");
-        Label lblCountVal = new Label(String.valueOf(item.thauThu));
-        lblCountVal.setStyle("-fx-text-fill: #111111; -fx-font-weight: bold; -fx-font-size: 13;");
-        grid.add(lblCountKey, 0, 3);
-        grid.add(lblCountVal, 1, 3);
-        if (item.auctionId > 0) cardBidCountLabels.put(item.auctionId, lblCountVal);
-
-        addRow(grid, 4, "Hạn đăng kí đến:", item.hanDangKi, false);
-
+        addRow(grid, 0, "Giá khởi điểm:",          item.giaKhoiDiem,             false);
+        addRow(grid, 1, "*Giá cao nhất hiện tại:",  item.giaCaoNhat,              true);
+        addRow(grid, 2, "Thời gian:",               item.thoiGian,                false);
+        addRow(grid, 3, "Thầu thứ:",                String.valueOf(item.thauThu), false);
+        addRow(grid, 4, "Hạn đăng kí đến:",         item.hanDangKi,              false);
 
         // ── Nút đấu giá ───────────────────────────────────────
         boolean loggedIn = UserSession.getInstance().isLoggedIn();
@@ -710,9 +544,9 @@ public class HomeController {
     private String heartStyle(boolean favorited) {
         return favorited
                 ? "-fx-background-color: transparent; -fx-text-fill: #e05252;" +
-                "-fx-font-size: 18; -fx-cursor: hand; -fx-padding: 0 0 0 8;"
+                  "-fx-font-size: 18; -fx-cursor: hand; -fx-padding: 0 0 0 8;"
                 : "-fx-background-color: transparent; -fx-text-fill: #222;" +
-                "-fx-font-size: 18; -fx-cursor: hand; -fx-padding: 0 0 0 8;";
+                  "-fx-font-size: 18; -fx-cursor: hand; -fx-padding: 0 0 0 8;";
     }
 
     private void addRow(GridPane grid, int row,
@@ -730,89 +564,4 @@ public class HomeController {
         grid.add(lbl, 0, row);
         grid.add(val, 1, row);
     }
-
-    /**
-     * Gọi từ bên ngoài (vd: SellerDashboard logout) để reset Home
-     * về trạng thái khách chưa đăng nhập.
-     */
-    public void resetToGuest() {
-        // Reset session (phòng trường hợp chưa clear)
-        UserSession.getInstance().logout();
-
-        // Ẩn userBox, hiện guestBox
-        userBox.setVisible(false);
-        userBox.setManaged(false);
-        guestBox.setVisible(true);
-        guestBox.setManaged(true);
-
-        // Đổi tất cả nút "Đấu giá" → "Đăng kí đấu giá"
-        for (Button btn : allBidButtons) {
-            btn.setText("Đăng kí đấu giá");
-        }
-
-        // Reset về tab Tất cả
-        currentCategory = "Tất cả";
-        renderCards(currentCategory);
-    }
-
-    /**
-     * Cập nhật nhãn số dư ví — gọi sau mỗi lần balance thay đổi.
-     * Chỉ hiển thị khi role là BIDDER; ẩn với SELLER / ADMIN.
-     */
-    public void refreshBalanceLabel() {
-        if (lblBalance == null) return;
-
-        UserSession session = UserSession.getInstance();
-        boolean isBidder = "BIDDER".equalsIgnoreCase(session.getRole());
-
-        if (isBidder) {
-            String formatted = String.format("💰 Số dư: %,.0f VNĐ", session.getBalance());
-            lblBalance.setText(formatted);
-            lblBalance.setVisible(true);
-            lblBalance.setManaged(true);
-        } else {
-            lblBalance.setText("");
-            lblBalance.setVisible(false);
-            lblBalance.setManaged(false);
-        }
-    }
-
-    @FXML
-    private void handleOpenWallet() {
-        if (!"BIDDER".equalsIgnoreCase(UserSession.getInstance().getRole())) {
-            ToastNotification.warning(
-                    rootPane.getScene().getWindow(),
-                    "Chức năng ví chỉ dành cho Bidder");
-            return;
-        }
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/sample/wallet.fxml"));
-            Parent root = loader.load();
-            Stage stage = new Stage();
-            stage.setTitle("Ví của tôi");
-            stage.setScene(new Scene(root, 920, 700));
-            stage.initModality(Modality.APPLICATION_MODAL);
-            // Sau khi đóng ví, làm mới số dư trên navbar
-            stage.setOnHidden(e -> refreshBalanceLabel());
-            stage.show();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private double parseAmount(String formatted) {
-        if (formatted == null) return 0;
-        try {
-            return Double.parseDouble(
-                    formatted.replace(".", "")
-                            .replace(",", "")
-                            .replace(" VND", "")
-                            .replace(" VNĐ", "")
-                            .trim()
-            );
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-
 }

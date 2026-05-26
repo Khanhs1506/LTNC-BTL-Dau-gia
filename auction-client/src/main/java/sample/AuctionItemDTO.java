@@ -1,39 +1,20 @@
 package sample;
 
 public class AuctionItemDTO {
-
-    // ── Đã có (giữ nguyên) ────────────────────────────────────
     public int    id;
     public String title;
-    public String description;
-    public String category;
-    public String status;
-    public int    warrantyMonths;
-    public String artist;
-    public String brand;
-    public int    year;
+    public double giaKhoiDiem;
+    public double giaCaoNhat;
+    public String endTime;   // "23/12/2026 23:59:59"
+    public String status;    // "RUNNING" | "ENDED"
 
-    // ── THÊM những fields này vào ─────────────────────────────
-    public double startingPrice;
-    public double stepPrice;
-    public double buyNowPrice;
-    public double currentHighest;
-    public int    totalBids;
-
-    public String imageUrl;
-    public String sellerUsername;
-    public String currentWinner;
-
-    public String platform;
-    public String version;
-    public String productKey;
-
-    // Thời gian
-    public java.time.LocalDateTime startTime;
-    public java.time.LocalDateTime endTime;
-    public String author;
-    public String certificate;
-
-    // ── Constructor rỗng
-    public AuctionItemDTO() {}
+    public AuctionItemDTO(int id, String title, double giaKhoiDiem,
+                          double giaCaoNhat, String endTime, String status) {
+        this.id          = id;
+        this.title       = title;
+        this.giaKhoiDiem = giaKhoiDiem;
+        this.giaCaoNhat  = giaCaoNhat;
+        this.endTime     = endTime;
+        this.status      = status;
+    }
 }

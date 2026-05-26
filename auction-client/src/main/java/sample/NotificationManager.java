@@ -1,11 +1,8 @@
 package sample;
 
-import sample.model.PlacedBidRequest;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
 
 /*Singleton lưu danh sách thông báo đấu giá realtime.
 Thread-safe: dùng synchronized list.*/
@@ -36,10 +33,7 @@ public class NotificationManager {
     private int unreadCount = 0;
 
     //GỌI LẠI ĐỂ CẬP NHẬT
-    private final List<Runnable> listeners = new ArrayList<>();
-
-    //OBSERVER CHO BID_UPDATE
-    private final List<Consumer<PlacedBidRequest>> bidUpdateListeners = new ArrayList<>();
+    private Runnable onNewNotification;
 
     private NotificationManager() {}
 
@@ -47,26 +41,9 @@ public class NotificationManager {
     public synchronized void addNotification(String message) {
         notifications.add(new Notification(message));
         unreadCount++;
-        for (Runnable callback : listeners) {
-            callback.run();
+        if (onNewNotification != null) {
+            onNewNotification.run();
         }
-    }
-
-    //PHÁT BID_UPDATE ĐẾN TẤT CẢ SUBCRIBER
-    public synchronized void notifyBidUpdate(PlacedBidRequest req) {
-        for (Consumer<PlacedBidRequest> listener : bidUpdateListeners) {
-            listener.accept(req);
-        }
-    }
-
-    //ĐĂNG KÍ THÔNG BÁO
-    public synchronized void addBidUpdateListener(Consumer<PlacedBidRequest> listener) {
-        bidUpdateListeners.add(listener);
-    }
-
-    // HUỶ ĐĂNG KÝ
-    public synchronized void removeBidUpdateListener(Consumer<PlacedBidRequest> listener) {
-        bidUpdateListeners.remove(listener);
     }
 
     //ĐÁNH DẤU ĐỌC TẤT CẢ
@@ -81,7 +58,7 @@ public class NotificationManager {
     }
 
     //TẠO CALLBACK
-    public synchronized void addNotificationListener(Runnable callback) {
-        listeners.add(callback);
+    public void setOnNewNotification(Runnable callback) {
+        this.onNewNotification = callback;
     }
 }
