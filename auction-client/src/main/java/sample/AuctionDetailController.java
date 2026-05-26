@@ -73,6 +73,9 @@ public class AuctionDetailController {
     // Observer BID_UPDATE — giữ reference để có thể huỷ đăng ký khi đóng màn hình
     private Consumer<PlacedBidRequest> bidUpdateListener;
 
+    // Observer TIME_EXTENDED (Anti-sniping) — giữ reference để có thể huỷ đăng ký
+    private Consumer<NotificationManager.TimeExtendedEvent> timeExtendedListener;
+
     // Colors
     private static final String RED  = "#B91C1C";
     private static final String GRAY = "#D1D5DB";
@@ -157,6 +160,7 @@ public class AuctionDetailController {
         startCountdown();
         loadBidChart();
         registerBidUpdateListener();
+        registerTimeExtendedListener();
     }
 
     //ĐĂNG KÍ THÔNG BÁO
@@ -199,6 +203,56 @@ public class AuctionDetailController {
         if (bidUpdateListener != null) {
             NotificationManager.getInstance().removeBidUpdateListener(bidUpdateListener);
             bidUpdateListener = null;
+        }
+    }
+
+    /**
+     * Đăng ký lắng nghe sự kiện Anti-sniping gia hạn thời gian.
+     * Khi server gia hạn, đồng hồ đếm ngược sẽ tự động cập nhật.
+     */
+    private void registerTimeExtendedListener() {
+        unregisterTimeExtendedListener();
+
+        timeExtendedListener = (event) -> {
+            if (event.auctionId != auction.id) return;
+
+            // Cập nhật endTime local
+            auction.endTime = event.newEndTime;
+
+            // Khởi động lại đồng hồ đếm ngược với thời gian mới
+            startCountdown();
+
+            // Cập nhật nhãn thời gian kết thúc
+            java.time.format.DateTimeFormatter fmt =
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+            endTimeLabel.setText(event.newEndTime.format(fmt));
+
+            // Hiển thị thông báo nổi bật cho người dùng
+            messageLabel.setText("⏰ Phiên được gia hạn thêm " + event.extensionMinutes + " phút!");
+            messageLabel.setStyle(
+                    "-fx-text-fill: #D97706; -fx-font-weight: bold; -fx-font-size: 12;");
+
+            // Hiển thị toast nếu cửa sổ đang mở
+            if (notifyOn) {
+                try {
+                    javafx.stage.Window win = headerBar.getScene().getWindow();
+                    ToastNotification.info(win,
+                            "⏰ Anti-Sniping: Phiên \"" + auction.title + "\" được gia hạn thêm "
+                                    + event.extensionMinutes + " phút!");
+                } catch (Exception ignored) {}
+            }
+
+            System.out.println("[AuctionDetail] Anti-sniping: Phiên " + event.auctionId
+                    + " gia hạn đến " + event.newEndTime);
+        };
+
+        NotificationManager.getInstance().addTimeExtendedListener(timeExtendedListener);
+    }
+
+    private void unregisterTimeExtendedListener() {
+        if (timeExtendedListener != null) {
+            NotificationManager.getInstance().removeTimeExtendedListener(timeExtendedListener);
+            timeExtendedListener = null;
         }
     }
 
@@ -384,9 +438,9 @@ public class AuctionDetailController {
             return;
         }
 
-        LocalDateTime end = auction.endTime;
         countdown = new Timeline(new KeyFrame(Duration.seconds(1), ev -> {
-            long secs = ChronoUnit.SECONDS.between(LocalDateTime.now(), end);
+            // Dùng auction.endTime trực tiếp để tự động nhận cập nhật Anti-sniping
+            long secs = ChronoUnit.SECONDS.between(LocalDateTime.now(), auction.endTime);
             if (secs <= 0) {
                 countdownLabel.setText("Da ket thuc");
                 statusBadge.setText("Da ket thuc");
@@ -473,6 +527,7 @@ public class AuctionDetailController {
     private void handleClose() {
         stopCountdown();
         unregisterBidUpdateListener();
+        unregisterTimeExtendedListener();
         getStage().close();
     }
 

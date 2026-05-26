@@ -1,3 +1,4 @@
+
 package com.auction.server.network;
 
 import com.auction.server.exception.AuctionClosedException;
@@ -54,6 +55,20 @@ public class ClientHandler implements Runnable, AuctionObserver {
             String notification = String.format(
                     "BID_UPDATE==={\"auctionId\":%d,\"bidder\":\"%s\",\"amount\":%.2f}",
                     auctionId, bidderUsername, newBidAmount);
+            writer.println(notification);
+        }
+    }
+
+    /**
+     * Anti-sniping: gửi thông báo gia hạn thời gian đến client.
+     */
+    @Override
+    public void onTimeExtended(int auctionId, java.time.LocalDateTime newEndTime) {
+        if (writer != null) {
+            String formatted = newEndTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            String notification = String.format(
+                    "TIME_EXTENDED==={\"auctionId\":%d,\"newEndTime\":\"%s\",\"extensionMinutes\":5}",
+                    auctionId, formatted);
             writer.println(notification);
         }
     }

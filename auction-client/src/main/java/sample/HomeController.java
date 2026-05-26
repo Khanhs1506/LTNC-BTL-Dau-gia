@@ -13,6 +13,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -733,7 +734,7 @@ public class HomeController {
 
         VBox linkBox = new VBox(lblLink);
         linkBox.setAlignment(Pos.CENTER);
-
+        card.setUserData(item.auctionId);
         card.getChildren().addAll(titleRow, new Separator(), grid, btnBid, linkBox);
         return card;
     }
@@ -884,6 +885,25 @@ public class HomeController {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void removeAuctionCard(int itemId) {
+        // Tìm AuctionItem tương ứng trong allItems
+        AuctionItem toRemove = allItems.stream()
+                .filter(ai -> ai.auctionId == itemId)
+                .findFirst()
+                .orElse(null);
+        if (toRemove == null) return;
+
+        // Xóa khỏi danh sách dữ liệu
+        allItems.remove(toRemove);
+        cardPriceLabels.remove(toRemove.auctionId);
+        cardBidCountLabels.remove(toRemove.auctionId);
+
+        // Xóa card trên FlowPane (tìm card có userData == auctionId)
+        flowPane.getChildren().removeIf(node ->
+                Integer.valueOf(itemId).equals(node.getUserData())
+        );
     }
 
 }

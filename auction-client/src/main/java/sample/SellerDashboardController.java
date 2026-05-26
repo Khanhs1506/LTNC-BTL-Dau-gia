@@ -1,3 +1,4 @@
+
 package sample;
 
 import javafx.fxml.FXMLLoader;
@@ -28,14 +29,17 @@ import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
 
 public class SellerDashboardController implements Initializable {
 
@@ -77,10 +81,29 @@ public class SellerDashboardController implements Initializable {
     @FXML private TableView<Auction> expiredTable;
     @FXML private TableView<Auction> historyTable;
 
+    // Overview table columns
     @FXML private TableColumn<Auction,String> colOvId, colOvName, colOvBid,
             colOvBidder, colOvStatus;
+
+    // Products table columns
     @FXML private TableColumn<Auction,String> colPId, colPName, colPPrice,
             colPCat, colPStatus, colPActions;
+
+    // ── Active table columns (Đang hoạt động) ─────────────────────
+    @FXML private TableColumn<Auction,String> colActId, colActName, colActBid,
+            colActBidder, colActEnd, colActCount;
+
+    // ── Unpaid table columns (Chưa thanh toán) ────────────────────
+    @FXML private TableColumn<Auction,String> colUpId, colUpName, colUpPrice,
+            colUpWinner, colUpTime, colUpAction;
+
+    // ── Paid table columns (Đã thanh toán) ───────────────────────
+    @FXML private TableColumn<Auction,String> colPdId, colPdName, colPdPrice,
+            colPdWinner, colPdDate;
+
+    // ── Expired table columns (Hết hạn) ──────────────────────────
+    @FXML private TableColumn<Auction,String> colExId, colExName, colExPrice,
+            colExTime, colExAction;
 
     // ── Search / filter ───────────────────────────────────────────
     @FXML private TextField txtSearch;
@@ -90,12 +113,27 @@ public class SellerDashboardController implements Initializable {
     @FXML private StackPane bellStackSeller;
     private Label notifBadgeSeller;
 
-    // ── Mock data ────────────────────────────────────────────────
+    // ── Data ─────────────────────────────────────────────────────
     private ObservableList<Auction> allAuctions;
     private final List<Button> sidebarButtons = new java.util.ArrayList<>();
 
-    // ✅ FIX: Listener nhận BID_UPDATE realtime từ NotificationManager
+    /**
+     * Lưu ID các phiên đã thanh toán (đánh dấu cục bộ qua nút "Đánh dấu đã TT").
+     * Phân biệt "Chưa thanh toán" vs "Đã thanh toán" trong trạng thái FINISHED.
+     */
+    private final Set<Integer> paidAuctionIds = new HashSet<>();
+
+    private static final DateTimeFormatter TIME_FMT =
+            DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+
+    // ✅ Listener nhận BID_UPDATE realtime từ NotificationManager
     private Consumer<PlacedBidRequest> bidUpdateListener;
+
+    // ── Setup bảng (chỉ gọi 1 lần) ───────────────────────────────
+    private boolean activeTableReady   = false;
+    private boolean unpaidTableReady   = false;
+    private boolean paidTableReady     = false;
+    private boolean expiredTableReady  = false;
 
     @Override
     public void initialize(URL url, ResourceBundle rb) {
@@ -108,7 +146,7 @@ public class SellerDashboardController implements Initializable {
                 menuUnpaid, menuExpired, menuProducts,
                 menuRevenue, menuHistory));
 
-        //HIỆN THỊ DỮ LIỆU TỪ SERVER
+        // Hiển thị dữ liệu từ server
         loadFromServer();
         setupOverviewTable();
         setupProductsTable();
@@ -116,28 +154,258 @@ public class SellerDashboardController implements Initializable {
         setupPieChart();
         showPanel(panelOverview, menuOverview, "Dashboard");
         setupNotificationBadge();
-        // ✅ FIX: Đăng ký nhận BID_UPDATE realtime để bảng cập nhật ngay khi có người đặt giá
+        // Đăng ký nhận BID_UPDATE realtime
         registerBidUpdateListener();
     }
 
-    //SET UP NÚT CHUÔNG THÔNG BÁO
+    // ── Setup 4 bảng Đấu giá ─────────────────────────────────────
+
+    /**
+     * Bảng "Đang hoạt động" — hiển thị các phiên RUNNING.
+     * Cột: ID | Sản phẩm | Giá cao nhất | Người dẫn đầu | Kết thúc | Lượt đấu
+     */
+    private void setupActiveTable() {
+        if (activeTableReady) return;
+        activeTableReady = true;
+
+        colActId.setCellValueFactory(c ->
+                new SimpleStringProperty(String.valueOf(c.getValue().getId())));
+
+        colActName.setCellValueFactory(c ->
+                new SimpleStringProperty(c.getValue().getItem().getName()));
+
+        colActBid.setCellValueFactory(c ->
+                new SimpleStringProperty(formatMoney((long) c.getValue().getCurrentHighestBid())));
+        colActBid.setCellFactory(col -> new TableCell<>() {
+            @Override protected void updateItem(String s, boolean empty) {
+                super.updateItem(s, empty);
+                if (empty || s == null) { setText(null); return; }
+                setText(s);
+                setStyle("-fx-text-fill: #B91C1C; -fx-font-weight: bold;");
+            }
+        });
+
+        colActBidder.setCellValueFactory(c -> {
+            String w = c.getValue().getCurrentWinnerUsername();
+            return new SimpleStringProperty(w != null ? w : "—");
+        });
+
+        colActEnd.setCellValueFactory(c ->
+                new SimpleStringProperty(
+                        c.getValue().getEndTime() != null
+                                ? c.getValue().getEndTime().format(TIME_FMT) : "—"));
+
+        // Lượt đấu lấy từ bidHistory.size() (có thể = 0 nếu server không trả về)
+        colActCount.setCellValueFactory(c ->
+                new SimpleStringProperty(
+                        String.valueOf(c.getValue().getBidHistory().size())));
+
+        activeTable.setPlaceholder(new Label("Không có phiên nào đang hoạt động."));
+    }
+
+    /**
+     * Bảng "Chưa thanh toán" — FINISHED, có người thắng, chưa được đánh dấu paid.
+     * Cột: ID | Sản phẩm | Giá chốt | Người thắng | Chốt lúc | Hành động (Đánh dấu đã TT)
+     */
+    private void setupUnpaidTable() {
+        if (unpaidTableReady) return;
+        unpaidTableReady = true;
+
+        colUpId.setCellValueFactory(c ->
+                new SimpleStringProperty(String.valueOf(c.getValue().getId())));
+
+        colUpName.setCellValueFactory(c ->
+                new SimpleStringProperty(c.getValue().getItem().getName()));
+
+        colUpPrice.setCellValueFactory(c ->
+                new SimpleStringProperty(formatMoney((long) c.getValue().getCurrentHighestBid())));
+        colUpPrice.setCellFactory(col -> new TableCell<>() {
+            @Override protected void updateItem(String s, boolean empty) {
+                super.updateItem(s, empty);
+                if (empty || s == null) { setText(null); return; }
+                setText(s);
+                setStyle("-fx-text-fill: #B91C1C; -fx-font-weight: bold;");
+            }
+        });
+
+        colUpWinner.setCellValueFactory(c -> {
+            String w = c.getValue().getCurrentWinnerUsername();
+            return new SimpleStringProperty(w != null ? w : "Không có");
+        });
+
+        colUpTime.setCellValueFactory(c ->
+                new SimpleStringProperty(
+                        c.getValue().getEndTime() != null
+                                ? c.getValue().getEndTime().format(TIME_FMT) : "—"));
+
+        // Nút "Đánh dấu đã TT" → chuyển sang paidAuctionIds
+        colUpAction.setCellFactory(col -> new TableCell<>() {
+            private final Button btnPay = new Button("Đã thanh toán");
+            {
+                btnPay.setStyle(
+                        "-fx-background-color: #16A34A; -fx-text-fill: white;" +
+                                "-fx-font-size: 11; -fx-cursor: hand; -fx-background-radius: 6;" +
+                                "-fx-padding: 4 8;");
+                btnPay.setOnAction(e -> {
+                    Auction a = getTableRow().getItem();
+                    if (a == null) return;
+                    paidAuctionIds.add(a.getId());
+                    // Làm mới cả 2 bảng
+                    refreshUnpaidTable();
+                    refreshPaidTable();
+                    updateStatsFromData();
+                });
+            }
+            @Override protected void updateItem(String s, boolean empty) {
+                super.updateItem(s, empty);
+                setGraphic(empty ? null : btnPay);
+            }
+        });
+
+        unpaidTable.setPlaceholder(new Label("Không có phiên nào chờ thanh toán."));
+    }
+
+    /**
+     * Bảng "Đã thanh toán" — FINISHED + có trong paidAuctionIds.
+     * Cột: ID | Sản phẩm | Giá chốt | Người thắng | Ngày TT
+     */
+    private void setupPaidTable() {
+        if (paidTableReady) return;
+        paidTableReady = true;
+
+        colPdId.setCellValueFactory(c ->
+                new SimpleStringProperty(String.valueOf(c.getValue().getId())));
+
+        colPdName.setCellValueFactory(c ->
+                new SimpleStringProperty(c.getValue().getItem().getName()));
+
+        colPdPrice.setCellValueFactory(c ->
+                new SimpleStringProperty(formatMoney((long) c.getValue().getCurrentHighestBid())));
+        colPdPrice.setCellFactory(col -> new TableCell<>() {
+            @Override protected void updateItem(String s, boolean empty) {
+                super.updateItem(s, empty);
+                if (empty || s == null) { setText(null); return; }
+                setText(s);
+                setStyle("-fx-text-fill: #16A34A; -fx-font-weight: bold;");
+            }
+        });
+
+        colPdWinner.setCellValueFactory(c -> {
+            String w = c.getValue().getCurrentWinnerUsername();
+            return new SimpleStringProperty(w != null ? w : "—");
+        });
+
+        // Dùng endTime làm ngày thanh toán (gần đúng)
+        colPdDate.setCellValueFactory(c ->
+                new SimpleStringProperty(
+                        c.getValue().getEndTime() != null
+                                ? c.getValue().getEndTime().format(TIME_FMT) : "—"));
+
+        paidTable.setPlaceholder(new Label("Chưa có phiên nào được xác nhận thanh toán."));
+    }
+
+    /**
+     * Bảng "Hết hạn" — CANCELED hoặc FINISHED không có người thắng.
+     * Cột: ID | Sản phẩm | Giá khởi điểm | Hết hạn lúc | Hành động (Đăng lại)
+     */
+    private void setupExpiredTable() {
+        if (expiredTableReady) return;
+        expiredTableReady = true;
+
+        colExId.setCellValueFactory(c ->
+                new SimpleStringProperty(String.valueOf(c.getValue().getId())));
+
+        colExName.setCellValueFactory(c ->
+                new SimpleStringProperty(c.getValue().getItem().getName()));
+
+        colExPrice.setCellValueFactory(c ->
+                new SimpleStringProperty(formatMoney((long) c.getValue().getItem().getStartingPrice())));
+
+        colExTime.setCellValueFactory(c ->
+                new SimpleStringProperty(
+                        c.getValue().getEndTime() != null
+                                ? c.getValue().getEndTime().format(TIME_FMT) : "—"));
+
+        // Nút "Đăng lại" — placeholder, mở SellerCreateAuction
+        colExAction.setCellFactory(col -> new TableCell<>() {
+            private final Button btnRepost = new Button("Đăng lại");
+            {
+                btnRepost.setStyle(
+                        "-fx-background-color: #2563EB; -fx-text-fill: white;" +
+                                "-fx-font-size: 11; -fx-cursor: hand; -fx-background-radius: 6;" +
+                                "-fx-padding: 4 8;");
+                btnRepost.setOnAction(e -> {
+                    try {
+                        handleAddProduct();
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
+                });
+            }
+            @Override protected void updateItem(String s, boolean empty) {
+                super.updateItem(s, empty);
+                setGraphic(empty ? null : btnRepost);
+            }
+        });
+
+        expiredTable.setPlaceholder(new Label("Không có phiên nào hết hạn."));
+    }
+
+    // ── Refresh helpers ───────────────────────────────────────────
+
+    private void refreshActiveTable() {
+        if (allAuctions == null) return;
+        activeTable.setItems(allAuctions.filtered(
+                a -> a.getStatus() == Auction.Status.RUNNING));
+        activeTable.refresh();
+    }
+
+    private void refreshUnpaidTable() {
+        if (allAuctions == null) return;
+        // Chưa thanh toán = FINISHED + có người thắng + chưa trong paidAuctionIds
+        unpaidTable.setItems(allAuctions.filtered(a ->
+                a.getStatus() == Auction.Status.FINISHED
+                        && a.getCurrentWinnerUsername() != null
+                        && !paidAuctionIds.contains(a.getId())));
+        unpaidTable.refresh();
+    }
+
+    private void refreshPaidTable() {
+        if (allAuctions == null) return;
+        // Đã thanh toán = FINISHED + đã được đánh dấu trong paidAuctionIds
+        paidTable.setItems(allAuctions.filtered(a ->
+                a.getStatus() == Auction.Status.FINISHED
+                        && paidAuctionIds.contains(a.getId())));
+        paidTable.refresh();
+    }
+
+    private void refreshExpiredTable() {
+        if (allAuctions == null) return;
+        // Hết hạn = CANCELED hoặc FINISHED không có người thắng
+        expiredTable.setItems(allAuctions.filtered(a ->
+                a.getStatus() == Auction.Status.CANCELED
+                        || (a.getStatus() == Auction.Status.FINISHED
+                        && a.getCurrentWinnerUsername() == null)));
+        expiredTable.refresh();
+    }
+
+    // ── Notification badge ────────────────────────────────────────
+
     private void setupNotificationBadge() {
         notifBadgeSeller = creatBadgeLabel();
         if (bellStackSeller != null) bellStackSeller.getChildren().add(notifBadgeSeller);
         notifBadgeSeller.setVisible(false);
-        NotificationManager.getInstance().addNotificationListener(() -> javafx.application.Platform.runLater(this :: refreshBadge));
+        NotificationManager.getInstance().addNotificationListener(
+                () -> javafx.application.Platform.runLater(this::refreshBadge));
     }
 
-    // ✅ FIX: Đăng ký lắng nghe BID_UPDATE — cập nhật bảng và stat ngay khi có giá mới
     private void registerBidUpdateListener() {
         bidUpdateListener = (req) -> {
-            // Chạy trên FX thread (NotificationManager đã dùng Platform.runLater)
             if (allAuctions == null) return;
 
             boolean changed = false;
             for (Auction a : allAuctions) {
                 if (a.getId() == req.auctionId && req.amount > a.getCurrentHighestBid()) {
-                    // Cập nhật giá và người đang dẫn đầu trong model
                     a.getItem().setCurrentHighestBid(req.amount);
                     a.updateHighestBid(req.amount, req.bidder);
                     changed = true;
@@ -146,10 +414,9 @@ public class SellerDashboardController implements Initializable {
             }
 
             if (changed) {
-                // Yêu cầu TableView vẽ lại để hiện giá mới
                 overviewTable.refresh();
                 productsTable.refresh();
-                // Cập nhật các thẻ thống kê tổng quan
+                if (activeTableReady)  activeTable.refresh();
                 updateStatsFromData();
             }
         };
@@ -253,7 +520,8 @@ public class SellerDashboardController implements Initializable {
                 bounds.getMaxY() + 4);
     }
 
-    //LẤY DỮ LIỆU TỪ SERVER
+    // ── Load data from server ─────────────────────────────────────
+
     private void loadFromServer() {
         new Thread(() -> {
             try {
@@ -283,7 +551,6 @@ public class SellerDashboardController implements Initializable {
                         LocalDateTime endTime   =
                                 LocalDateTime.parse(obj.get("endTime").getAsString(), fmt);
 
-                        // Tạo Item ẩn danh vì Item là abstract
                         final String finalItemType = itemType;
                         Item item = new Item(String.valueOf(auctionId), itemName, startPrice) {
                             @Override public String getType_item() { return finalItemType; }
@@ -318,15 +585,22 @@ public class SellerDashboardController implements Initializable {
         }, "SellerLoader").start();
     }
 
-    //LÀM MỚI TRẠNG THÁI
     private void updateStatsFromData() {
+        if (allAuctions == null) return;
         statTotal.setText(String.valueOf(allAuctions.size()));
         statActive.setText(String.valueOf(count(Auction.Status.RUNNING)));
-        statUnpaid.setText(String.valueOf(count(Auction.Status.FINISHED)));
-        unpaidBadge.setText(count(Auction.Status.FINISHED) + " phiên chờ xử lý");
+
+        // Chưa thanh toán = FINISHED + có winner + chưa paid
+        long unpaidCount = allAuctions.stream()
+                .filter(a -> a.getStatus() == Auction.Status.FINISHED
+                        && a.getCurrentWinnerUsername() != null
+                        && !paidAuctionIds.contains(a.getId()))
+                .count();
+        statUnpaid.setText(String.valueOf(unpaidCount));
+        unpaidBadge.setText(unpaidCount + " phiên chờ xử lý");
 
         long revenue = allAuctions.stream()
-                .filter(a -> a.getStatus() == Auction.Status.FINISHED)
+                .filter(a -> paidAuctionIds.contains(a.getId()))
                 .mapToLong(a -> (long) a.getCurrentHighestBid())
                 .sum();
         statRevenue.setText(formatMoney(revenue));
@@ -367,6 +641,7 @@ public class SellerDashboardController implements Initializable {
     }
 
     private long count(Auction.Status status) {
+        if (allAuctions == null) return 0;
         return allAuctions.stream()
                 .filter(a -> a.getStatus() == status)
                 .count();
@@ -375,22 +650,17 @@ public class SellerDashboardController implements Initializable {
     // ── Setup tables ─────────────────────────────────────────────
     private void setupOverviewTable() {
         colOvId.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleStringProperty(
-                        String.valueOf(c.getValue().getId())));
+                new SimpleStringProperty(String.valueOf(c.getValue().getId())));
         colOvName.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleStringProperty(
-                        c.getValue().getItem().getName()));
+                new SimpleStringProperty(c.getValue().getItem().getName()));
         colOvBid.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleStringProperty(
-                        formatMoney((long) c.getValue().getCurrentHighestBid())));
+                new SimpleStringProperty(formatMoney((long) c.getValue().getCurrentHighestBid())));
         colOvBidder.setCellValueFactory(c -> {
             String winner = c.getValue().getCurrentWinnerUsername();
-            return new javafx.beans.property.SimpleStringProperty(
-                    winner != null ? winner : "—");
+            return new SimpleStringProperty(winner != null ? winner : "—");
         });
         colOvStatus.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleStringProperty(
-                        c.getValue().getStatus().name()));
+                new SimpleStringProperty(c.getValue().getStatus().name()));
         colOvStatus.setCellFactory(col -> new TableCell<>() {
             @Override protected void updateItem(String s, boolean empty) {
                 super.updateItem(s, empty);
@@ -405,20 +675,15 @@ public class SellerDashboardController implements Initializable {
 
     private void setupProductsTable() {
         colPId.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleStringProperty(
-                        String.valueOf(c.getValue().getId())));
+                new SimpleStringProperty(String.valueOf(c.getValue().getId())));
         colPName.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleStringProperty(
-                        c.getValue().getItem().getName()));
+                new SimpleStringProperty(c.getValue().getItem().getName()));
         colPPrice.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleStringProperty(
-                        formatMoney((long) c.getValue().getItem().getStartingPrice())));
+                new SimpleStringProperty(formatMoney((long) c.getValue().getItem().getStartingPrice())));
         colPCat.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleStringProperty(
-                        c.getValue().getItem().getTypeItem()));
+                new SimpleStringProperty(c.getValue().getItem().getTypeItem()));
         colPStatus.setCellValueFactory(c ->
-                new javafx.beans.property.SimpleStringProperty(
-                        c.getValue().getStatus().name()));
+                new SimpleStringProperty(c.getValue().getStatus().name()));
         colPStatus.setCellFactory(col -> new TableCell<>() {
             @Override protected void updateItem(String s, boolean empty) {
                 super.updateItem(s, empty);
@@ -515,22 +780,31 @@ public class SellerDashboardController implements Initializable {
 
     @FXML void showOverview()  { showPanel(panelOverview,  menuOverview,  "Dashboard"); }
     @FXML void showProducts()  { showPanel(panelProducts,  menuProducts,  "Sản phẩm"); }
+
     @FXML void showActive() {
         showPanel(panelActive, menuActive, "Đang hoạt động");
-        activeTable.setItems(filter(Auction.Status.RUNNING));
+        setupActiveTable();
+        refreshActiveTable();
     }
+
     @FXML void showUnpaid() {
         showPanel(panelUnpaid, menuUnpaid, "Chưa thanh toán");
-        unpaidTable.setItems(filter(Auction.Status.FINISHED));
+        setupUnpaidTable();
+        refreshUnpaidTable();
     }
+
     @FXML void showPaid() {
         showPanel(panelPaid, menuPaid, "Đã thanh toán");
-        paidTable.setItems(filter(Auction.Status.FINISHED));
+        setupPaidTable();
+        refreshPaidTable();
     }
+
     @FXML void showExpired() {
         showPanel(panelExpired, menuExpired, "Hết hạn");
-        expiredTable.setItems(filter(Auction.Status.CANCELED));
+        setupExpiredTable();
+        refreshExpiredTable();
     }
+
     @FXML void showRevenue()   { showPanel(panelRevenue,   menuRevenue,   "Doanh thu"); }
     @FXML void showHistory()   { showPanel(panelHistory,   menuHistory,   "Lịch sử giao dịch"); }
 
@@ -541,7 +815,7 @@ public class SellerDashboardController implements Initializable {
         Parent root = loader.load();
         SellerCreateAuctionController ctrl = loader.getController();
         Stage stage = new Stage();
-        stage.initOwner(menuProducts.getScene().getWindow()); // ← thêm owner
+        stage.initOwner(menuProducts.getScene().getWindow());
         stage.initModality(Modality.WINDOW_MODAL);
         stage.setScene(new Scene(root, 900, 720));
         stage.showAndWait();
@@ -553,7 +827,6 @@ public class SellerDashboardController implements Initializable {
     }
 
     private void addAuctionToTable(AuctionItemDTO dto) {
-        // Tạo Item inline (giống loadFromServer)
         final String type = dto.category != null ? dto.category : "OTHER";
         Item item = new Item(String.valueOf(dto.id), dto.title, dto.startingPrice) {
             @Override public String getType_item() { return type; }
@@ -568,20 +841,15 @@ public class SellerDashboardController implements Initializable {
         a.updateHighestBid(dto.startingPrice, null);
         a.updateStatus(Auction.Status.OPEN);
 
-        // Thêm thẳng vào list đang có — không gọi server
         allAuctions.add(0, a);
-
-        // Cập nhật stat và chart
         updateStatsFromData();
         setupPieChart();
     }
 
-    // ===== SỬA THÔNG TIN SẢN PHẨM =====
     private void handleEditProduct(Auction a) {
         // TODO: Mở dialog sửa
     }
 
-    //XÓA SẢN PHẨM
     private void handleDeleteProduct(Auction a) {
         if (a == null) return;
 
@@ -606,21 +874,24 @@ public class SellerDashboardController implements Initializable {
                     Platform.runLater(() -> {
                         if ("DELETE_ITEM_SUCCESS".equals(response)) {
                             allAuctions.remove(a);
+                            paidAuctionIds.remove(a.getId());
                             updateStatsFromData();
                             setupPieChart();
-                            showAlert(Alert.AlertType.INFORMATION, "Thành công", "Đã xóa sản phẩm \"" + a.getItem().getName() + "\".");
+                            showAlert(Alert.AlertType.INFORMATION, "Thành công",
+                                    "Đã xóa sản phẩm \"" + a.getItem().getName() + "\".");
                         } else {
-                            showAlert(Alert.AlertType.ERROR, "Thất bại", "Server từ chối xóa: " + response);
+                            showAlert(Alert.AlertType.ERROR, "Thất bại",
+                                    "Server từ chối xóa: " + response);
                         }
                     });
                 } catch (Exception e) {
                     Platform.runLater(() ->
-                            showAlert(Alert.AlertType.ERROR, "Lỗi kết nối", "Không gửi được yêu cầu đến server: " + e.getMessage()));
+                            showAlert(Alert.AlertType.ERROR, "Lỗi kết nối",
+                                    "Không gửi được yêu cầu đến server: " + e.getMessage()));
                 }
             }, "DeleteItemThread").start();
         });
     }
-
 
     @FXML
     void handleLogout() {
@@ -630,21 +901,15 @@ public class SellerDashboardController implements Initializable {
         confirm.getButtonTypes().setAll(ButtonType.YES, ButtonType.NO);
         confirm.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.YES) {
-                // 1. Xóa session
                 UserSession.getInstance().logout();
-
-                // 2. Ngắt kết nối server
                 try { ServerConnection.getInstance().disconnect();
                     ServerConnection.getInstance().logout();}
                 catch (Exception ignored) {}
 
-                // 3. Quay về Home (đã có sẵn HomeController + home.fxml)
                 try {
                     FXMLLoader loader = new FXMLLoader(
                             getClass().getResource("/sample/home_demo.fxml"));
                     Parent root = loader.load();
-
-                    // 4. Reset trạng thái Home về chưa đăng nhập
                     HomeController homeCtrl = loader.getController();
                     homeCtrl.resetToGuest();
 
@@ -665,7 +930,6 @@ public class SellerDashboardController implements Initializable {
         return allAuctions.filtered(a -> a.getStatus() == status);
     }
 
-    //HÀM HỖ TRỢ
     private void showAlert(Alert.AlertType type, String title, String content) {
         Alert alert = new Alert(type);
         alert.setTitle(title);
