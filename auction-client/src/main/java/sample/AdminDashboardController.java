@@ -3,14 +3,28 @@ package sample;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.stage.Popup;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javafx.stage.Stage;
 import sample.model.Auction;
 import sample.model.BidTransaction;
 import sample.model.Report;
@@ -23,6 +37,9 @@ import java.util.ResourceBundle;
 
 import javafx.scene.image.ImageView;
 import javafx.scene.image.Image;
+
+import java.awt.Desktop;
+import java.net.URI;
 
 public class AdminDashboardController implements Initializable {
 
@@ -76,6 +93,9 @@ public class AdminDashboardController implements Initializable {
 
     @FXML private javafx.scene.image.ImageView logoImageView;
 
+    //TẠO CHUÔNG
+    @FXML private StackPane bellStackAdmin;
+    private Label notifBadgeAdmin;
 
     // ── Data ──────────────────────────────────────────────────────
     private ObservableList<User>           allUsers;
@@ -89,14 +109,13 @@ public class AdminDashboardController implements Initializable {
 
         // Load logo giống hệt LoginController
         try {
-            URL logoUrl = getClass().getResource("/images/logo_new.png");
+            URL logoUrl = getClass().getResource("/images/logo_app.png");
             if (logoUrl != null)
                 logoImageView.setImage(new Image(logoUrl.toString()));
         } catch (Exception e) {
             System.out.println("Không tải được logo");
         }
 
-        loadMockData();
         setupUsersTable();
         setupAuctionsTable();
         setupBidsTable();
@@ -104,23 +123,185 @@ public class AdminDashboardController implements Initializable {
         initRoleFilter();
         initAuctionFilter();
         showPanel(adminPanelOverview, adminMenuOverview, "Dashboard");
+        setupNotificationBadge();
+        loadUsersFromServer();
     }
 
-    // ── Mock data ─────────────────────────────────────────────────
-    private void loadMockData() {
-        // Users mock
-        allUsers = FXCollections.observableArrayList(
-                new User(1, "bidder_alpha", "BIDDER"),
-                new User(2, "seller_pro",   "SELLER"),
-                new User(3, "user_spammer", "BIDDER")
+    //LẦY DỮ LIỆU NGƯỜI DÙNG
+    private void loadUsersFromServer() {
+        new Thread(() -> {
+            try {
+                String raw = ServerConnection.getInstance().getUsers();
+                // raw = "GET_USERS===[{id, username, role, status}, ...]"
+                String jsonPart = raw.contains("===") ? raw.split("===", 2)[1] : "[]";
+
+                com.google.gson.JsonArray arr =
+                        com.google.gson.JsonParser.parseString(jsonPart).getAsJsonArray();
+
+                List<User> users = new java.util.ArrayList<>();
+                for (com.google.gson.JsonElement el : arr) {
+                    com.google.gson.JsonObject obj = el.getAsJsonObject();
+                    User u = new User(
+                            obj.get("id").getAsString(),
+                            obj.get("username").getAsString(),
+                            "",
+                            obj.get("role").getAsString()
+                    );
+                    String status = obj.has("status") ? obj.get("status").getAsString() : "active";
+                    u.setStatus(status);
+                    users.add(u);
+                }
+
+                javafx.application.Platform.runLater(() -> {
+                    allUsers.setAll(users);
+                    if (adminStatUsers != null)
+                        adminStatUsers.setText(String.valueOf(users.size()));
+                });
+
+            } catch (Exception e) {
+                System.out.println("[Admin] Lỗi tải danh sách user: " + e.getMessage());
+            }
+        }, "AdminUserLoader").start();
+    }
+
+    //SET UP NÚT THÔNG BÁO
+    private void setupNotificationBadge() {
+        notifBadgeAdmin = createBadgeLabel();
+        if (bellStackAdmin != null) bellStackAdmin.getChildren().add(notifBadgeAdmin);
+        notifBadgeAdmin.setVisible(false);
+
+        NotificationManager.getInstance().addNotificationListener(() ->
+                javafx.application.Platform.runLater(this::refreshBadge)
+        );
+    }
+
+    //CẬP NHẬT DẤU ĐỎ
+    private void refreshBadge() {
+        int count = NotificationManager.getInstance().getUnreadCount();
+        String text = count > 99 ? "99+" : String.valueOf(count);
+        boolean show = count > 0;
+        notifBadgeAdmin.setText(text);
+        notifBadgeAdmin.setVisible(show);
+    }
+
+    //TẠO DẤU ĐỎ HIỆN SỐ LƯỢNG
+    private Label createBadgeLabel() {
+        Label badge = new Label();
+        badge.setStyle(
+                "-fx-background-color: #e74c3c;" +
+                        "-fx-text-fill: white;" +
+                        "-fx-font-size: 9;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-background-radius: 10;" +
+                        "-fx-padding: 1 4;" +
+                        "-fx-min-width: 16;" +
+                        "-fx-alignment: center;"
+        );
+        StackPane.setAlignment(badge, Pos.TOP_RIGHT);
+        StackPane.setMargin(badge, new Insets(-4, -4, 0, 0));
+        return badge;
+    }
+
+    //XỬ LÍ BẤM CHUÔNG
+    @FXML
+    private void handleBellClick() {
+        NotificationManager.getInstance().markAllRead();
+        refreshBadge();
+
+        List<NotificationManager.Notification> list = NotificationManager.getInstance().getAll();
+
+        Popup popup = new Popup();
+        popup.setAutoHide(true);
+
+        VBox box = new VBox(0);
+        box.setPrefWidth(340);
+        box.setMaxHeight(420);
+        box.setStyle(
+                "-fx-background-color: #1e2228;" +
+                        "-fx-border-color: #444;" +
+                        "-fx-border-width: 1;" +
+                        "-fx-border-radius: 10;" +
+                        "-fx-background-radius: 10;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.4), 20, 0, 0, 8);"
         );
 
-        // Auctions mock – reuse Auction model
-        allAuctions = FXCollections.observableArrayList();
+        Label header = new Label("🔔  Thông báo đặt giá");
+        header.setStyle(
+                "-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #f0f0f0;" +
+                        "-fx-padding: 14 16 12 16;" +
+                        "-fx-border-color: #333; -fx-border-width: 0 0 1 0;"
+        );
+        header.setMaxWidth(Double.MAX_VALUE);
+        box.getChildren().add(header);
 
-        // Bids mock
-        allBids = FXCollections.observableArrayList();
+        if (list.isEmpty()) {
+            Label empty = new Label("Chưa có thông báo nào.");
+            empty.setStyle("-fx-text-fill: #888; -fx-font-size: 13; -fx-padding: 20 16;");
+            box.getChildren().add(empty);
+        } else {
+            ScrollPane scroll = new ScrollPane();
+            scroll.setFitToWidth(true);
+            scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            scroll.setPrefViewportHeight(Math.min(list.size() * 68.0, 360));
+            scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+
+            VBox items = new VBox(0);
+            List<NotificationManager.Notification> reversed = new ArrayList<>(list);
+            java.util.Collections.reverse(reversed);
+
+            java.time.format.DateTimeFormatter fmt =
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss dd/MM");
+
+            for (int i = 0; i < reversed.size(); i++) {
+                NotificationManager.Notification notif = reversed.get(i);
+
+                VBox row = new VBox(3);
+                row.setPadding(new Insets(10, 16, 10, 16));
+                row.setStyle(i % 2 == 0
+                        ? "-fx-background-color: #1e2228;"
+                        : "-fx-background-color: #252930;");
+
+                Label msgLabel = new Label(notif.message);
+                msgLabel.setWrapText(true);
+                msgLabel.setStyle("-fx-font-size: 13; -fx-text-fill: #e0e0e0;");
+
+                java.time.LocalDateTime ldt = java.time.Instant
+                        .ofEpochMilli(notif.timestamp)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDateTime();
+                Label timeLabel = new Label(fmt.format(ldt));
+                timeLabel.setStyle("-fx-font-size: 11; -fx-text-fill: #888;");
+
+                row.getChildren().addAll(msgLabel, timeLabel);
+                items.getChildren().add(row);
+            }
+            scroll.setContent(items);
+            box.getChildren().add(scroll);
+        }
+
+        popup.getContent().add(box);
+
+        javafx.geometry.Bounds bounds = bellStackAdmin.localToScreen(bellStackAdmin.getBoundsInLocal());
+        popup.show(bellStackAdmin.getScene().getWindow(),
+                bounds.getMaxX() - 340,
+                bounds.getMaxY() + 4);
     }
+
+//    // ── Mock data ─────────────────────────────────────────────────
+//    private void loadMockData() {
+//        // Users mock
+//        allUsers = FXCollections.observableArrayList(
+//                new User(1, "bidder_alpha", "BIDDER"),
+//                new User(2, "seller_pro",   "SELLER"),
+//                new User(3, "user_spammer", "BIDDER")
+//        );
+//
+//        // Auctions mock – reuse Auction model
+//        allAuctions = FXCollections.observableArrayList();
+//
+//        // Bids mock
+//        allBids = FXCollections.observableArrayList();
+//    }
 
     // ── Setup tables ──────────────────────────────────────────────
     private void setupUsersTable() {
@@ -268,16 +449,98 @@ public class AdminDashboardController implements Initializable {
         new Alert(Alert.AlertType.INFORMATION, "Đã lưu cài đặt!").showAndWait();
     }
 
-    @FXML void handleLogout() {
-        UserSession.getInstance().logout();
-        // TODO: quay về màn hình login
+    @FXML
+    void handleLogout() {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Đăng xuất");
+        confirm.setHeaderText("Bạn có chắc muốn đăng xuất?");
+        confirm.getButtonTypes().setAll(ButtonType.YES, ButtonType.NO);
+
+        confirm.showAndWait().ifPresent(btn -> {
+            try {
+                ServerConnection.getInstance().logout();
+                if (btn == ButtonType.YES) {
+                    // 1. Xóa session
+                    UserSession.getInstance().logout();
+
+                    // 2. Tìm FXML qua chính HomeController class (luôn đúng package)
+                    java.net.URL fxmlUrl = HomeController.class.getResource("home.fxml");
+
+                    // Fallback nếu home.fxml cùng thư mục với HomeController
+                    if (fxmlUrl == null) {
+                        fxmlUrl = HomeController.class.getResource("/sample/home_demo.fxml");
+                    }
+
+                    if (fxmlUrl == null) {
+                        // In ra tất cả để debug
+                        System.err.println("[Logout] Thư mục class: "
+                                + HomeController.class.getPackage().getName());
+                        System.err.println("[Logout] Thử path: "
+                                + HomeController.class.getResource("."));
+                        new Alert(Alert.AlertType.ERROR,
+                                "Không tìm thấy home.fxml!\n"
+                                        + "Kiểm tra tên file có đúng chữ thường/hoa không.")
+                                .showAndWait();
+                        return;
+                    }
+
+                    try {
+                        javafx.fxml.FXMLLoader loader =
+                                new javafx.fxml.FXMLLoader(fxmlUrl);
+                        javafx.scene.Parent root = loader.load();
+
+                        // 3. Reset Home về trạng thái khách
+                        HomeController homeCtrl = loader.getController();
+                        homeCtrl.resetToGuest();
+
+                        // 4. Chuyển scene
+                        javafx.stage.Stage stage =
+                                (javafx.stage.Stage) adminMenuOverview.getScene().getWindow();
+                        stage.setScene(new javafx.scene.Scene(root, 1200, 800));
+                        stage.setTitle("TINY HOARDER'S KEY MARKET");
+                        stage.centerOnScreen();
+                    } catch (java.io.IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     // ── Helpers ───────────────────────────────────────────────────
     private void toggleBan(User u, Button btn) {
         boolean isBanned = "banned".equals(u.getStatus());
-        // TODO: gửi lệnh lên server
-        btn.setText(isBanned ? "Khóa" : "Mở khóa");
+        new Thread(() -> {
+            try {
+                String response = isBanned
+                        ? ServerConnection.getInstance().unbanUser(u.getUsername())
+                        : ServerConnection.getInstance().banUser(u.getUsername());
+
+                boolean ok = response != null && response.contains("OK");
+                javafx.application.Platform.runLater(() -> {
+                    if (ok) {
+                        u.setStatus(isBanned ? "active" : "banned");
+                        btn.setText(isBanned ? "Khóa" : "Mở khóa");
+                        usersTable.refresh();
+                        showToast(isBanned
+                                ? "Đã mở khóa: " + u.getUsername()
+                                : "Đã khóa: " + u.getUsername());
+                    } else {
+                        showToast("Lỗi: không thể cập nhật trạng thái user");
+                    }
+                });
+            } catch (Exception e) {
+                javafx.application.Platform.runLater(() ->
+                        showToast("Lỗi kết nối: " + e.getMessage()));
+            }
+        }, "BanUserThread").start();
+    }
+
+    private void showToast(String message) {
+        new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION, message)
+                .showAndWait();
     }
 
     private String roleBadgeStyle(String role) {
@@ -303,4 +566,14 @@ public class AdminDashboardController implements Initializable {
             default        -> "";
         };
     }
+
+    // =====SỰ KIỆN CỦA CHUÔNG THÔNG BÁO=====
+//    @FXML
+//    private void handleBellClick() {
+//        try {
+//            Desktop.getDesktop().browse(new URI("https://youtu.be/dQw4w9WgXcQ?si=pkMnzjiXULSLfJeH"));
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 }

@@ -6,6 +6,7 @@ public class UserSession {
     private String username;
     private String role; // SELLER, BIDDER, ADMIN
     private boolean loggedIn = false;
+    private double balance = 0.0;
 
     private UserSession() {}
 
@@ -31,6 +32,22 @@ public class UserSession {
         this.username = null;
         this.role     = null;
         this.loggedIn = false;
+        this.balance = 0.0; // <-- Lưu số dư sau khi đăng nhập ở đây !!! (Tạm thời cho bằng 0)
+    }
+
+    // ── Getter / Setter balance ────────────────────────────
+    public double getBalance() { return balance; }
+
+    public void setBalance(double balance) { this.balance = balance; }
+
+    /** Cộng thêm tiền (nạp ví) */
+    public void addBalance(double amount) { this.balance += amount; }
+
+    /** Trừ tiền (đặt cọc / đấu giá) — trả false nếu không đủ số dư */
+    public boolean deductBalance(double amount) {
+        if (this.balance < amount) return false;
+        this.balance -= amount;
+        return true;
     }
 
     public String  getUsername() { return username; }

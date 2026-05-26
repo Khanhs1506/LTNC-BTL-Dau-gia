@@ -101,6 +101,25 @@ public class AuctionDaoImpl implements IAuctionDAO {
     }
 
     @Override
+    public List<Auction> getAuctionsBySellerId(String sellerId) {
+        String sql = "SELECT a.* FROM auctions a " + "JOIN Items i ON a.item_id = i.id " + "WHERE i.seller_id = ? ORDER BY a.created_at DESC";
+        List<Auction> auctions = new ArrayList<>();
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, sellerId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Auction auction = buildAuction(rs);
+                    if (auction != null) auctions.add(auction);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return auctions;
+    }
+
+    @Override
     public int insertAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime) {
         // Lấy startingPrice của item để set làm current_highest_bid ban đầu
         Item item = itemDAO.getItemById(itemId);
@@ -179,6 +198,21 @@ public class AuctionDaoImpl implements IAuctionDAO {
 
         } catch (Exception e) {
             System.err.println("[AuctionDaoImpl] Lỗi updateHighestBid: " + e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public boolean deleteAuctionByItemId(int itemId) {
+        String sql = "DELETE FROM auctions WHERE item_id = ?";
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, itemId);
+            int rows = stmt.executeUpdate();
+            System.out.println("[AuctionDaoImpl] Xóa " + rows + " phiên đấu giá của item_id=" + itemId);
+            return rows >= 0;
+        } catch (Exception e) {
+            System.err.println("[AuctionDaoImpl] Lỗi deleteAuctionByItemId: " + e.getMessage());
             return false;
         }
     }
