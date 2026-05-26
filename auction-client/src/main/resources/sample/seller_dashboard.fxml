@@ -60,12 +60,7 @@
             <HBox alignment="CENTER_LEFT" prefHeight="52" spacing="12" styleClass="topbar">
                 <Label fx:id="pageTitle" style="-fx-font-size:15; -fx-font-weight:bold; -fx-text-fill:#222;" text="Bảng điều khiển" />
                 <Region HBox.hgrow="ALWAYS" />
-                <StackPane fx:id="bellStackSeller">
-                    <Button fx:id="btnBellSeller" onAction="#handleBellClick"
-                            style="-fx-background-color:transparent; -fx-border-color:transparent;
-                   -fx-font-size:16; -fx-cursor:hand; -fx-text-fill:#555;
-                   -fx-padding:4 8;" text="🔔" />
-                </StackPane>
+                <Label style="-fx-font-size:16; -fx-cursor:hand;" text="🔔" />
                 <Label fx:id="avatarLabel" style="-fx-background-color:#c0392b; -fx-text-fill:white;                               -fx-font-weight:bold; -fx-font-size:12;                               -fx-padding:6 10; -fx-background-radius:20;" text="NS" />
                 <Label fx:id="lblUsername" style="-fx-font-size:13; -fx-text-fill:#555;" text="Nguyễn Seller" />
             </HBox>

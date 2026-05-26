@@ -15,9 +15,6 @@ public interface IAuctionDAO {
     // Lấy các phiên theo trạng thái
     List<Auction> getAuctionsByStatus(Auction.Status status);
 
-    //LẤY PHIÊN THEO ID SELLER
-    List<Auction> getAuctionsBySellerId(String sellerId);
-
     // Thêm phiên đấu giá mới
     int insertAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime);
 
@@ -28,6 +25,4 @@ public interface IAuctionDAO {
     boolean updateHighestBid(int auctionId, double amount, String winnerUsername);
     // cập nhật thời gian kêt thúc cho anti-snipping
     boolean updateEndTime(int auctionId, LocalDateTime newEndTime);
-    //xóa phiên đấu giá theo item_id (dùng khi seller xóa)
-    boolean deleteAuctionByItemId(int itemId);
 }
