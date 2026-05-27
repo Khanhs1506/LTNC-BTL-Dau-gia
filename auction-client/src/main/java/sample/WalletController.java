@@ -179,8 +179,11 @@ public class WalletController {
             Wallet w = WalletService.getInstance().fetchWallet();
             List<Transaction> txs = WalletService.getInstance()
                     .fetchTransactions(null, null, null, null, currentPage, PAGE_SIZE);
+            List<Transaction> allTxs = WalletService.getInstance()
+                    .fetchTransactions(null, null, null, null, 1, 10000);
             Platform.runLater(() -> {
                 this.wallet = w;
+                calculateSummary(allTxs);
                 refreshSummary();
                 txList.setAll(txs);
                 updatePageLabel();
@@ -392,6 +395,36 @@ public class WalletController {
     @FXML private void handleQuickDeposit5M()   { setDepositAmount(5_000_000);  }
     @FXML
     private void handleQuickDeposit10M()  { setDepositAmount(10_000_000); }
+
+    // ── Hàm tự động phân loại và cộng dồn 4 ô thông số ────────────────
+    private void calculateSummary(List<Transaction> allTxs) {
+        double deposited = 0, paid = 0, refunded = 0, hold = 0, release = 0;
+
+        for (Transaction tx : allTxs) {
+            // Chỉ tính tiền vào các giao dịch có trạng thái THÀNH CÔNG
+            if (tx.getStatus() == Transaction.Status.SUCCESS) {
+                String type = tx.getType().name();
+                switch (type) {
+                    case "DEPOSIT":     deposited += tx.getAmount(); break;
+                    case "PAYMENT":     paid      += tx.getAmount(); break;
+                    case "REFUND":      refunded  += tx.getAmount(); break;
+                    case "BID_HOLD":    hold      += tx.getAmount(); break;
+                    case "BID_RELEASE": release   += tx.getAmount(); break;
+                }
+            }
+        }
+
+        // Tiền đang cọc thực tế = Tổng tiền hệ thống đã giữ (Hold) - Tổng tiền hệ thống đã trả lại (Release)
+        double currentHolding = hold - release;
+
+        // Gán số liệu vừa tính được vào đối tượng wallet để refreshSummary() lấy hiển thị
+        if (this.wallet != null) {
+            this.wallet.setTotalDeposited(deposited);
+            this.wallet.setTotalPaid(paid);
+            this.wallet.setTotalRefunded(refunded);
+            this.wallet.setTotalHeld(currentHolding > 0 ? currentHolding : 0);
+        }
+    }
 
     private void setDepositAmount(double amount) {
         txtDepositAmount.setText(String.format("%.0f", amount));
