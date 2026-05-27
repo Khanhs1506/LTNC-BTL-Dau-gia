@@ -60,6 +60,13 @@ public class AuctionDetailController {
     @FXML private HBox notifyRow;
     @FXML private StackPane notifyTogglePane;
 
+    @FXML private VBox autoBidSection;
+    @FXML private TextField tfMaxBid;
+    @FXML private TextField tfIncrement;
+    @FXML private TextField tfMinutesTrigger;
+    @FXML private Button btnToggleAutoBid;
+    @FXML private Label lblAutoBidStatus;
+
     // State
     private AuctionItemDTO auction;
     private Timeline countdown;
@@ -69,6 +76,8 @@ public class AuctionDetailController {
     private double dragOffsetX;
     private double dragOffsetY;
     private XYChart.Series<String, Number> bidSeries;
+
+    private boolean autoBidActive = false;
 
     // Observer BID_UPDATE — giữ reference để có thể huỷ đăng ký khi đóng màn hình
     private Consumer<PlacedBidRequest> bidUpdateListener;
@@ -133,6 +142,112 @@ public class AuctionDetailController {
         });
     }
 
+    @FXML
+    private void handleToggleAutoBid() {
+        if (autoBidActive) {
+            // Hủy auto-bid
+            new Thread(() -> {
+                try {
+                    String res = ServerConnection.getInstance().cancelAutoBid(auction.id);
+                    Platform.runLater(() -> {
+                        autoBidActive = false;
+                        updateAutoBidUI(false);
+                        lblAutoBidStatus.setText("Đã hủy đấu giá tự động.");
+                        lblAutoBidStatus.setStyle("-fx-text-fill: #6B7280; -fx-font-size: 11;");
+                    });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        } else {
+            // Đăng ký auto-bid
+            String maxBidStr     = tfMaxBid.getText().replace(".", "").replace(",", "").trim();
+            String incrementStr  = tfIncrement.getText().replace(".", "").replace(",", "").trim();
+            String minutesStr    = tfMinutesTrigger.getText().trim();
+
+            if (maxBidStr.isEmpty() || incrementStr.isEmpty() || minutesStr.isEmpty()) {
+                lblAutoBidStatus.setText("Vui lòng điền đầy đủ thông tin.");
+                lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11;");
+                return;
+            }
+
+            try {
+                double maxBid    = Double.parseDouble(maxBidStr);
+                double increment = Double.parseDouble(incrementStr);
+                int    minutes   = Integer.parseInt(minutesStr);
+
+                if (maxBid <= auction.currentHighest) {
+                    lblAutoBidStatus.setText("Giá tối đa phải lớn hơn giá hiện tại.");
+                    lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11;");
+                    return;
+                }
+                if (increment <= 0) {
+                    lblAutoBidStatus.setText("Mức tăng phải lớn hơn 0.");
+                    lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11;");
+                    return;
+                }
+                if (minutes <= 0) {
+                    lblAutoBidStatus.setText("Số phút phải lớn hơn 0.");
+                    lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11;");
+                    return;
+                }
+
+                double finalMaxBid    = maxBid;
+                double finalIncrement = increment;
+                new Thread(() -> {
+                    try {
+                        String res = ServerConnection.getInstance()
+                                .registerAutoBid(auction.id, finalMaxBid, finalIncrement, minutes);
+                        Platform.runLater(() -> {
+                            if (res != null && res.contains("OK")) {
+                                autoBidActive = true;
+                                updateAutoBidUI(true);
+                                lblAutoBidStatus.setText("✅ Đấu giá tự động đã được kích hoạt!");
+                                lblAutoBidStatus.setStyle("-fx-text-fill: #16A34A; -fx-font-size: 11;");
+                            } else {
+                                lblAutoBidStatus.setText("❌ Đăng ký thất bại: " + res);
+                                lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11;");
+                            }
+                        });
+                    } catch (Exception e) {
+                        Platform.runLater(() -> {
+                            lblAutoBidStatus.setText("Lỗi kết nối.");
+                            lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11;");
+                        });
+                    }
+                }).start();
+
+            } catch (NumberFormatException e) {
+                lblAutoBidStatus.setText("Vui lòng nhập số hợp lệ.");
+                lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11;");
+            }
+        }
+    }
+
+    private void updateAutoBidUI(boolean active) {
+        if (btnToggleAutoBid == null) return;
+        if (active) {
+            btnToggleAutoBid.setText("🚫 Hủy tự động");
+            btnToggleAutoBid.setStyle(
+                    "-fx-background-color: transparent; -fx-text-fill: #6B7280;" +
+                            "-fx-font-size: 12; -fx-padding: 7 16;" +
+                            "-fx-border-color: #6B7280; -fx-border-width: 0.5;" +
+                            "-fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand;");
+            tfMaxBid.setDisable(true);
+            tfIncrement.setDisable(true);
+            tfMinutesTrigger.setDisable(true);
+        } else {
+            btnToggleAutoBid.setText("🤖 Bật tự động");
+            btnToggleAutoBid.setStyle(
+                    "-fx-background-color: #B91C1C; -fx-text-fill: white;" +
+                            "-fx-font-size: 12; -fx-font-weight: bold; -fx-padding: 7 16;" +
+                            "-fx-background-radius: 8; -fx-cursor: hand; -fx-border-width: 0;");
+            tfMaxBid.setDisable(false);
+            tfIncrement.setDisable(false);
+            tfMinutesTrigger.setDisable(false);
+        }
+    }
+
     private void applyChartStyle() {
         bidChart.lookupAll(".chart-series-line").forEach(n ->
                 n.setStyle("-fx-stroke: " + RED + "; -fx-stroke-width: 2;"));
@@ -161,6 +276,7 @@ public class AuctionDetailController {
         loadBidChart();
         registerBidUpdateListener();
         registerTimeExtendedListener();
+        loadAutoBidStatus();
     }
 
     //ĐĂNG KÍ THÔNG BÁO
@@ -648,5 +764,24 @@ public class AuctionDetailController {
         alert.setHeaderText(title);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    private void loadAutoBidStatus() {
+        new Thread(() -> {
+            try {
+                String res = ServerConnection.getInstance().getAutoBid(auction.id);
+                Platform.runLater(() -> {
+                    if (res != null && !res.endsWith("==={}")) {
+                        autoBidActive = true;
+                        updateAutoBidUI(true);
+                    } else {
+                        autoBidActive = false;
+                        updateAutoBidUI(false);
+                    }
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 }

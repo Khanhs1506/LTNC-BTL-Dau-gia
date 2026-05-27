@@ -6,6 +6,7 @@ import com.auction.server.model.*;
 import com.auction.server.repository.*;
 import com.auction.server.service.AuctionManager;
 import com.auction.server.service.AuctionObserver;
+import com.auction.server.service.AutoBiddingService;
 import com.auction.server.service.BiddingEngine;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -46,6 +47,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
     private IBidTransactionDAO bidRepo = new BidTransactionDaoImpl();
     private IReportDAO reportRepo = new ReportDaoImpl();
     private final WalletHandler walletHandler = new WalletHandler();
+
+    private IFavoriteDAO favoriteRepo = new FavoriteDaoImpl();
 
     private User currentUser;
 
@@ -199,6 +202,26 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
                 case "SUBMIT_REPORT":
                     handleSubmitReport(json);
+                    break;
+
+                case "ADD_FAVORITE":
+                    handleAddFavorite(json);
+                    break;
+                case "REMOVE_FAVORITE":
+                    handleRemoveFavorite(json);
+                    break;
+                case "GET_FAVORITES":
+                    handleGetFavorites();
+                    break;
+
+                case "REGISTER_AUTO_BID":
+                    handleRegisterAutoBid(json);
+                    break;
+                case "CANCEL_AUTO_BID":
+                    handleCancelAutoBid(json);
+                    break;
+                case "GET_AUTO_BID":
+                    handleGetAutoBid(json);
                     break;
 
                 case "GET_BALANCE":
@@ -777,5 +800,108 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
     }
 
+    private void handleAddFavorite(String json) {
+        if (currentUser == null) { writer.println("ADD_FAVORITE===FAIL===Chưa đăng nhập"); return; }
+        try {
+            int auctionId = com.google.gson.JsonParser.parseString(json)
+                    .getAsJsonObject().get("auctionId").getAsInt();
+            boolean ok = favoriteRepo.addFavorite(currentUser.getUsername(), auctionId);
+            writer.println(ok ? "ADD_FAVORITE===OK" : "ADD_FAVORITE===FAIL");
+        } catch (Exception e) {
+            writer.println("ADD_FAVORITE===FAIL");
+        }
+    }
 
+    private void handleRemoveFavorite(String json) {
+        if (currentUser == null) { writer.println("REMOVE_FAVORITE===FAIL===Chưa đăng nhập"); return; }
+        try {
+            int auctionId = com.google.gson.JsonParser.parseString(json)
+                    .getAsJsonObject().get("auctionId").getAsInt();
+            boolean ok = favoriteRepo.removeFavorite(currentUser.getUsername(), auctionId);
+            writer.println(ok ? "REMOVE_FAVORITE===OK" : "REMOVE_FAVORITE===FAIL");
+        } catch (Exception e) {
+            writer.println("REMOVE_FAVORITE===FAIL");
+        }
+    }
+
+    private void handleGetFavorites() {
+        if (currentUser == null) { writer.println("GET_FAVORITES===[]"); return; }
+
+        // GHI LOGDEBUG
+        System.out.println("[Favorites] Getting favorites for: " + currentUser.getUsername());
+
+        try {
+            java.util.List<Integer> ids = favoriteRepo.getFavoriteAuctionIds(currentUser.getUsername());
+            writer.println("GET_FAVORITES===" + new com.google.gson.Gson().toJson(ids));
+        } catch (Exception e) {
+            writer.println("GET_FAVORITES===[]");
+        }
+    }
+
+    private void handleRegisterAutoBid(String json) {
+        if (!(currentUser instanceof Bidder)) {
+            writer.println("REGISTER_AUTO_BID===FAIL===Chỉ Bidder mới dùng được");
+            return;
+        }
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            int    auctionId  = obj.get("auctionId").getAsInt();
+            double maxBid     = obj.get("maxBid").getAsDouble();
+            double increment  = obj.get("increment").getAsDouble();
+            int    minutesTrigger = obj.has("minutesTrigger")
+                    ? obj.get("minutesTrigger").getAsInt() : 5;
+
+            AutoBidEntry entry = new AutoBidEntry(auctionId,
+                    currentUser.getUsername(), maxBid, increment);
+
+            boolean ok = AutoBiddingService.getInstance().registerAutoBid(entry);
+            if (ok) {
+                // Lưu thêm minutesTrigger vào DB
+                AutoBiddingService.getInstance()
+                        .setMinutesTrigger(auctionId, currentUser.getUsername(), minutesTrigger);
+                writer.println("REGISTER_AUTO_BID===OK");
+            } else {
+                writer.println("REGISTER_AUTO_BID===FAIL===Không thể đăng ký");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("REGISTER_AUTO_BID===FAIL===SERVER_ERROR");
+        }
+    }
+
+    private void handleCancelAutoBid(String json) {
+        if (currentUser == null) {
+            writer.println("CANCEL_AUTO_BID===FAIL"); return;
+        }
+        try {
+            int auctionId = JsonParser.parseString(json).getAsJsonObject()
+                    .get("auctionId").getAsInt();
+            boolean ok = AutoBiddingService.getInstance()
+                    .cancelAutoBid(auctionId, currentUser.getUsername());
+            writer.println(ok ? "CANCEL_AUTO_BID===OK" : "CANCEL_AUTO_BID===FAIL");
+        } catch (Exception e) {
+            writer.println("CANCEL_AUTO_BID===FAIL");
+        }
+    }
+
+    private void handleGetAutoBid(String json) {
+        if (currentUser == null) {
+            writer.println("GET_AUTO_BID==={}"); return;
+        }
+        try {
+            int auctionId = JsonParser.parseString(json).getAsJsonObject()
+                    .get("auctionId").getAsInt();
+            boolean exists = AutoBiddingService.getInstance()
+                    .hasAutoBid(auctionId, currentUser.getUsername());
+            if (exists) {
+                AutoBidEntry entry = AutoBiddingService.getInstance()
+                        .getAutoBid(auctionId, currentUser.getUsername());
+                writer.println("GET_AUTO_BID===" + new Gson().toJson(entry));
+            } else {
+                writer.println("GET_AUTO_BID==={}");
+            }
+        } catch (Exception e) {
+            writer.println("GET_AUTO_BID==={}");
+        }
+    }
 }

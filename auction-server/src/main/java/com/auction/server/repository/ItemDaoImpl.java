@@ -128,7 +128,14 @@ public class ItemDaoImpl implements IItemDAO {
 
             try (PreparedStatement stmt = conn.prepareStatement(sqlItem, Statement.RETURN_GENERATED_KEYS)) {
                 stmt.setString(1, item.getName());
-                stmt.setString(2, item.getType_item().replace(" Item", "").toUpperCase()); // "Electronics Item" → "ELECTRONICS"
+                String typeStr;
+                switch (item.getType_item()) {
+                    case "ArtItem":         typeStr = "ART";         break;
+                    case "ElectronicsItem": typeStr = "ELECTRONICS";  break;
+                    case "VehicleItem":     typeStr = "VEHICLE";      break;
+                    default:                typeStr = item.getType_item().toUpperCase(); break;
+                }
+                stmt.setString(2, typeStr); // "Electronics Item" → "ELECTRONICS"
                 stmt.setDouble(3, item.getStartingPrice());
                 stmt.setDouble(4, item.getStartingPrice()); // currentHighestBid ban đầu = startingPrice
                 stmt.setString(5, sellerId);

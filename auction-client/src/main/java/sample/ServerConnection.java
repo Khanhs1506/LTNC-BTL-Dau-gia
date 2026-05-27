@@ -342,4 +342,34 @@ public class ServerConnection {
         String json = String.format("{\"limit\":%d}", limit);
         return sendRequest("GET_TX_HISTORY", json);
     }
+
+    public String addFavorite(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("ADD_FAVORITE", json);
+    }
+
+    public String removeFavorite(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("REMOVE_FAVORITE", json);
+    }
+
+    public String getFavorites() throws Exception {
+        return sendRequest("GET_FAVORITES", "{}");
+    }
+
+    public String registerAutoBid(int auctionId, double maxBid, double increment, int minutesTrigger) throws Exception {
+        String json = String.format("{\"auctionId\":%d,\"maxBid\":%.2f,\"increment\":%.2f,\"minutesTrigger\":%d}",
+                auctionId, maxBid, increment, minutesTrigger);
+        return sendRequest("REGISTER_AUTO_BID", json);
+    }
+
+    public String cancelAutoBid(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("CANCEL_AUTO_BID", json);
+    }
+
+    public String getAutoBid(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("GET_AUTO_BID", json);
+    }
 }

@@ -205,5 +205,76 @@
             </HBox>
         </VBox>
 
+        <!-- ===== ĐẤU GIÁ TỰ ĐỘNG ===== -->
+        <VBox fx:id="autoBidSection"
+              style="-fx-background-color: #FFF7ED;
+             -fx-padding: 13 16;
+             -fx-border-color: #FED7AA;
+             -fx-border-width: 1 0 0 0;"
+              spacing="10">
+
+            <Label text="🤖  Đấu giá tự động"
+                   style="-fx-font-size: 13; -fx-font-weight: bold; -fx-text-fill: #92400E;"/>
+
+            <Label text="Hệ thống sẽ tự động đặt giá thay bạn khi còn X phút."
+                   style="-fx-font-size: 11; -fx-text-fill: #B45309;"/>
+
+            <!-- 3 input fields -->
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Giá tối đa (VNĐ)"
+                           style="-fx-font-size: 11; -fx-text-fill: #6B7280;"/>
+                    <TextField fx:id="tfMaxBid"
+                               promptText="VD: 5.000.000"
+                               style="-fx-background-color: white;
+                              -fx-border-color: #FED7AA;
+                              -fx-border-width: 0.5;
+                              -fx-border-radius: 6;
+                              -fx-background-radius: 6;
+                              -fx-padding: 6 10;
+                              -fx-font-size: 12;"/>
+                </VBox>
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Mức tăng mỗi lần (VNĐ)"
+                           style="-fx-font-size: 11; -fx-text-fill: #6B7280;"/>
+                    <TextField fx:id="tfIncrement"
+                               promptText="VD: 500.000"
+                               style="-fx-background-color: white;
+                              -fx-border-color: #FED7AA;
+                              -fx-border-width: 0.5;
+                              -fx-border-radius: 6;
+                              -fx-background-radius: 6;
+                              -fx-padding: 6 10;
+                              -fx-font-size: 12;"/>
+                </VBox>
+                <VBox spacing="4" prefWidth="90">
+                    <Label text="Kích hoạt khi còn (phút)"
+                           style="-fx-font-size: 11; -fx-text-fill: #6B7280;"/>
+                    <TextField fx:id="tfMinutesTrigger"
+                               promptText="VD: 10"
+                               style="-fx-background-color: white;
+                              -fx-border-color: #FED7AA;
+                              -fx-border-width: 0.5;
+                              -fx-border-radius: 6;
+                              -fx-background-radius: 6;
+                              -fx-padding: 6 10;
+                              -fx-font-size: 12;"/>
+                </VBox>
+            </HBox>
+
+            <!-- Nút + trạng thái -->
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Button fx:id="btnToggleAutoBid"
+                        text="🤖 Bật tự động"
+                        onAction="#handleToggleAutoBid"
+                        style="-fx-background-color: #B91C1C; -fx-text-fill: white;
+                       -fx-font-size: 12; -fx-font-weight: bold;
+                       -fx-padding: 7 16; -fx-background-radius: 8;
+                       -fx-cursor: hand; -fx-border-width: 0;"/>
+                <Label fx:id="lblAutoBidStatus" text=""
+                       style="-fx-font-size: 11; -fx-text-fill: #6B7280;"
+                       wrapText="true" HBox.hgrow="ALWAYS"/>
+            </HBox>
+        </VBox>
     </VBox>
 </AnchorPane>

@@ -38,10 +38,8 @@ public class HomeController {
     @FXML private HBox      guestBox;
     @FXML private HBox      userBox;
     @FXML private Label     lblUsername;
-    @FXML private Button    btnKhac;
+    @FXML private Button btnYeuThich;
     @FXML private Button    btnTienSanh;
-    @FXML private Button    btnBienSoXe;
-    @FXML private Button    btnBatDongSan;
     @FXML private BorderPane rootPane;
     @FXML private Button btnBellGuest;
     @FXML private Button btnBellUser;
@@ -56,7 +54,6 @@ public class HomeController {
 
     private Label badgeGuest;
     private Label badgeUser;
-    private ContextMenu khacMenu;
 
     // ===== State =====
     private String currentCategory = "Tất cả"; // danh mục đang lọc
@@ -103,8 +100,6 @@ public class HomeController {
         userBox.setVisible(false);
         userBox.setManaged(false);
 
-        buildKhacMenu();
-
         //LẤY DỮ LIỆU TỪ SERVER
         loadFromServer();
         setupNotificationBadge();
@@ -123,6 +118,9 @@ public class HomeController {
 
                     for (JsonElement el : arr) {
                         JsonObject obj = el.getAsJsonObject();
+
+//                        // 🚨🚨🚨🚨🚨XÓA LOGBUG
+//                        System.out.println("DEBUG: " + obj);
 
                         String status = obj.get("status").getAsString();
                         if (!status.equals("RUNNING") && !status.equals("OPEN")) continue;
@@ -151,6 +149,7 @@ public class HomeController {
                     Platform.runLater(() -> {
                         allItems = loaded.isEmpty() ? buildMockItems() : loaded;
                         renderCards(currentCategory);
+                        loadFavoritesFromServer();
                     });
 
                 } else {
@@ -190,20 +189,18 @@ public class HomeController {
         return switch (itemType) {
             // Server trả về dạng viết hoa
             case "ART"              -> "Nghệ thuật";
-            case "ELECTRONICS"      -> "Điện tử";
             case "VEHICLE"          -> "Phương tiện";
+            case "ELECTRONICS"      -> "Điện tử";
             // Client gửi lên dạng key
-            case "ArtItem"          -> "Nghệ thuật";
-            case "ElectronicsItem"  -> "Điện tử";
-            case "VehicleItem"      -> "Phương tiện";
+//            case "ArtItem"          -> "Nghệ thuật";
+//            case "VehicleItem"      -> "Phương tiện";
+//            case "ElectronicsItem"  -> "Điện tử";
+
+            case "Art Item"          -> "Nghệ thuật";
+            case "Vehicle Item"      -> "Phương tiện";
+            case "Electronics Item"  -> "Điện tử";
             // Các danh mục từ menu Khác — giữ nguyên tiếng Việt
-            case "Nội thất",
-                 "Bất động sản",
-                 "Vé sự kiện",
-                 "Trò chơi điện tử",
-                 "Thể thao",
-                 "Sách",
-                 "Thời trang"       -> itemType;
+            case "Không hiển thị !"       -> itemType;
             default                 -> "Khác";
         };
     }
@@ -454,15 +451,8 @@ public class HomeController {
             btnPhuongTien.setStyle(category.equals("Phương tiện") ? selected : normal);
         if (btnDienTu     != null)
             btnDienTu.setStyle(category.equals("Điện tử")        ? selected : normal);
-        if (btnKhac       != null)
-            btnKhac.setStyle(
-                    (!category.equals("Tất cả") && !category.equals("Nghệ thuật")
-                            && !category.equals("Phương tiện") && !category.equals("Điện tử"))
-                            ? selected : normal);
-        if (btnBienSoXe   != null)
-            btnBienSoXe.setStyle(category.equals("Biển số xe")     ? selected : normal);
-        if (btnBatDongSan != null)
-            btnBatDongSan.setStyle(category.equals("Bất động sản") ? selected : normal);
+        if (btnYeuThich != null)
+            btnYeuThich.setStyle(category.equals("Yêu thích") ? selected : normal);
     }
 
     // ===== Xử lý nút menu =====
@@ -470,40 +460,19 @@ public class HomeController {
     @FXML private void handleNgheThuat()  { currentCategory = "Nghệ thuật";  renderCards(currentCategory); }
     @FXML private void handlePhuongTien() { currentCategory = "Phương tiện"; renderCards(currentCategory); }
     @FXML private void handleDienTu()     { currentCategory = "Điện tử";     renderCards(currentCategory); }
-
-    // ===== Menu Khác =====
-    private void buildKhacMenu() {
-        khacMenu = new ContextMenu();
-
-        // Danh mục có trong dữ liệu sẽ lọc được
-        String[] categories = {
-                "Nội thất", "Bất động sản", "Vé sự kiện",
-                "Trò chơi điện tử", "Thể thao", "Sách", "Thời trang"
-        };
-
-        for (String cat : categories) {
-            MenuItem menuItem = new MenuItem(cat);
-            menuItem.setStyle("-fx-font-size: 13px; -fx-padding: 6 16;");
-            menuItem.setOnAction(e -> {
-                currentCategory = cat;
-                renderCards(cat);
-            });
-            khacMenu.getItems().add(menuItem);
-        }
-
-        khacMenu.setStyle(
-                "-fx-background-color: white;" +
-                        "-fx-border-color: #e8e0d0;" +
-                        "-fx-border-width: 1;" +
-                        "-fx-border-radius: 8;" +
-                        "-fx-background-radius: 8;" +
-                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.12), 12, 0, 0, 4);"
-        );
-    }
-
     @FXML
-    private void handleKhacMenu(ActionEvent event) {
-        khacMenu.show(btnKhac, Side.BOTTOM, 0, 6);
+    private void handleYeuThich() {
+        currentCategory = "Yêu thích";
+        activeTimers.forEach(Timeline::stop);
+        activeTimers.clear();
+        flowPane.getChildren().clear();
+        allBidButtons.clear();
+        for (AuctionItem item : allItems) {
+            if (item.favorited) {
+                flowPane.getChildren().add(createCard(item));
+            }
+        }
+        highlightCategoryButton("Yêu thích");
     }
 
     // ===== Login / Logout =====
@@ -520,6 +489,13 @@ public class HomeController {
         for (Button btn : allBidButtons) {
             btn.setText("Đấu giá");
         }
+
+        // Reset toàn bộ favorited trước khi load của user mới
+        for (AuctionItem item : allItems) {
+            item.favorited = false;
+        }
+
+        loadFavoritesFromServer(); // load favorites của user mới
     }
 
     @FXML
@@ -534,6 +510,17 @@ public class HomeController {
 
         for (Button btn : allBidButtons) {
             btn.setText("Đăng kí đấu giá");
+        }
+
+        // Reset favorites khi logout
+        for (AuctionItem item : allItems) {
+            item.favorited = false;
+        }
+
+        // Nếu đang ở tab Yêu thích thì về Tất cả
+        if (currentCategory.equals("Yêu thích")) {
+            currentCategory = "Tất cả";
+            renderCards(currentCategory);
         }
     }
 
@@ -645,9 +632,23 @@ public class HomeController {
         Button btnHeart = new Button(item.favorited ? "♥" : "♡");
         btnHeart.setStyle(heartStyle(item.favorited));
         btnHeart.setOnAction(e -> {
-            item.favorited = !item.favorited;          // toggle trạng thái
+            if (!UserSession.getInstance().isLoggedIn()) {
+                handleDangNhap();
+                return;
+            }
+            item.favorited = !item.favorited;
             btnHeart.setText(item.favorited ? "♥" : "♡");
             btnHeart.setStyle(heartStyle(item.favorited));
+            int aid = item.auctionId;
+            boolean fav = item.favorited;
+            new Thread(() -> {
+                try {
+                    if (fav) ServerConnection.getInstance().addFavorite(aid);
+                    else     ServerConnection.getInstance().removeFavorite(aid);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }).start();
         });
 
         titleRow.getChildren().addAll(lblTitle, btnHeart);
@@ -913,6 +914,33 @@ public class HomeController {
         flowPane.getChildren().removeIf(node ->
                 Integer.valueOf(itemId).equals(node.getUserData())
         );
+    }
+
+    private void loadFavoritesFromServer() {
+        if (!UserSession.getInstance().isLoggedIn()) return;
+        new Thread(() -> {
+            try {
+                String res = ServerConnection.getInstance().getFavorites();
+                if (res != null && res.startsWith("GET_FAVORITES===")) {
+                    String json = res.substring("GET_FAVORITES===".length());
+                    com.google.gson.JsonArray arr = com.google.gson.JsonParser
+                            .parseString(json).getAsJsonArray();
+                    Set<Integer> favIds = new HashSet<>();
+                    for (com.google.gson.JsonElement el : arr) {
+                        favIds.add(el.getAsInt());
+                    }
+                    Platform.runLater(() -> {
+                        for (AuctionItem item : allItems) {
+                            if (favIds.contains(item.auctionId)) {
+                                item.favorited = true;
+                            }
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, "FavLoader").start();
     }
 
 }

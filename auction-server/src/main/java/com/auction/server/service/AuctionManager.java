@@ -2,6 +2,7 @@
 package com.auction.server.service;
 
 import com.auction.server.model.Auction;
+import com.auction.server.model.AutoBidEntry;
 import com.auction.server.repository.AuctionDaoImpl;
 import com.auction.server.repository.IAuctionDAO;
 import com.auction.server.repository.IItemDAO;
@@ -10,6 +11,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -177,6 +179,31 @@ public class AuctionManager {
                         || auction.getStatus() == Auction.Status.RUNNING)
                         && !now.isBefore(endTime)) {
                     endAuction(auction.getId());
+                }
+            }
+        }
+
+        for (Auction auction : activeAuctions.values()) {
+            if (auction.getStatus() != Auction.Status.RUNNING) continue;
+            long secsLeft = java.time.temporal.ChronoUnit.SECONDS
+                    .between(java.time.LocalDateTime.now(), auction.getEndTime());
+
+            PriorityQueue<AutoBidEntry> pq =
+                    AutoBiddingService.getInstance().getQueue(auction.getId());
+            if (pq == null || pq.isEmpty()) continue;
+
+            for (com.auction.server.model.AutoBidEntry entry : pq) {
+                int triggerMins = AutoBiddingService.getInstance()
+                        .getMinutesTrigger(auction.getId(), entry.getUsername());
+                long triggerSecs = triggerMins * 60L;
+
+                // Trigger khi còn đúng trong khoảng triggerSecs (±5 giây để không bỏ lỡ)
+                if (secsLeft <= triggerSecs && secsLeft > triggerSecs - 5) {
+                    System.out.println("[AutoBid] Trigger theo giờ cho "
+                            + entry.getUsername() + " phiên " + auction.getId());
+                    AutoBiddingService.getInstance().triggerAutoBids(
+                            auction.getId(), "", BiddingEngine.getInstance());
+                    break;
                 }
             }
         }
