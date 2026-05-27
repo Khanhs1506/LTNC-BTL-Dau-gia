@@ -4,6 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -11,6 +13,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -90,6 +93,7 @@ public class HomeController {
     private List<AuctionItem> allItems = new ArrayList<>();
     private final Map<Integer, Label> cardPriceLabels    = new HashMap<>();
     private final Map<Integer, Label> cardBidCountLabels = new HashMap<>();
+    private final List<Timeline> activeTimers = new ArrayList<>();
 
     // ===== Initialize =====
     @FXML
@@ -141,6 +145,7 @@ public class HomeController {
                                 timeLeft, 0, endDateFormatted, category
                         );
                         ai.auctionId = auctionId;
+                        ai.endTimeRaw = endTime; // ← thêm dòng này
                         loaded.add(ai);
                     }
 
@@ -408,6 +413,8 @@ public class HomeController {
 
     // ===== Render cards theo danh mục =====
     private void renderCards(String category) {
+        activeTimers.forEach(Timeline::stop);  // ← thêm dòng này
+        activeTimers.clear();
         flowPane.getChildren().clear();
         allBidButtons.clear();
 
@@ -660,7 +667,33 @@ public class HomeController {
         grid.add(lblHighVal, 1, 1);
         if (item.auctionId > 0) cardPriceLabels.put(item.auctionId, lblHighVal);
 
-        addRow(grid, 2, "Thời gian:", item.thoiGian, false);
+        Label lblTimeKey = new Label("Thời gian còn lại:");
+        lblTimeKey.setStyle("-fx-text-fill: #555555; -fx-font-size: 13;");
+
+        Label lblTimeLeft = new Label(computeTimeLeft(item.endTimeRaw));
+        lblTimeLeft.setStyle("-fx-text-fill: #111111; -fx-font-weight: bold; -fx-font-size: 13;");
+
+        grid.add(lblTimeKey, 0, 2);
+        grid.add(lblTimeLeft, 1, 2);
+
+        if (item.endTimeRaw != null) {
+            Timeline clock = new Timeline(
+                    new KeyFrame(javafx.util.Duration.seconds(1), e -> {
+                        String t = computeTimeLeft(item.endTimeRaw);
+                        lblTimeLeft.setText(t);
+                        if (t.equals("Đã kết thúc")) {
+                            lblTimeLeft.setStyle("-fx-text-fill: #999; -fx-font-size: 13;");
+                        }
+                    })
+            );
+            clock.setCycleCount(Timeline.INDEFINITE);
+            clock.play();
+            activeTimers.add(clock);
+
+            card.sceneProperty().addListener((obs, oldScene, newScene) -> {
+                if (newScene == null) clock.stop();
+            });
+        }
 
         //THẦU THỨ (CẬP NHẬT)
         Label lblCountKey = new Label("Thầu thứ:");
@@ -701,7 +734,7 @@ public class HomeController {
 
         VBox linkBox = new VBox(lblLink);
         linkBox.setAlignment(Pos.CENTER);
-
+        card.setUserData(item.auctionId);
         card.getChildren().addAll(titleRow, new Separator(), grid, btnBid, linkBox);
         return card;
     }
@@ -813,6 +846,64 @@ public class HomeController {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    public void addNewAuctionCard(String json) {
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            String status = obj.get("status").getAsString();
+            if (!status.equals("RUNNING") && !status.equals("OPEN")) return;
+
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            String name       = obj.get("itemName").getAsString();
+            double startPrice = obj.get("startingPrice").getAsDouble();
+            double highBid    = obj.get("currentHighestBid").getAsDouble();
+            String itemType   = obj.get("itemType").getAsString();
+            String endTimeStr = obj.get("endTime").getAsString();
+            int    auctionId  = obj.get("auctionId").getAsInt();
+
+            LocalDateTime endTime = LocalDateTime.parse(endTimeStr, fmt);
+
+            AuctionItem ai = new AuctionItem(
+                    name, formatVND(startPrice), formatVND(highBid),
+                    computeTimeLeft(endTime), 0,
+                    endTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    mapItemTypeToCategory(itemType)
+            );
+            ai.auctionId  = auctionId;
+            ai.endTimeRaw = endTime;
+
+            allItems.add(ai);
+
+            // Chỉ thêm card nếu đang ở đúng category
+            boolean match = currentCategory.equals("Tất cả")
+                    || ai.category.equals(currentCategory);
+            if (match) {
+                flowPane.getChildren().add(0, createCard(ai)); // thêm lên đầu danh sách
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void removeAuctionCard(int itemId) {
+        // Tìm AuctionItem tương ứng trong allItems
+        AuctionItem toRemove = allItems.stream()
+                .filter(ai -> ai.auctionId == itemId)
+                .findFirst()
+                .orElse(null);
+        if (toRemove == null) return;
+
+        // Xóa khỏi danh sách dữ liệu
+        allItems.remove(toRemove);
+        cardPriceLabels.remove(toRemove.auctionId);
+        cardBidCountLabels.remove(toRemove.auctionId);
+
+        // Xóa card trên FlowPane (tìm card có userData == auctionId)
+        flowPane.getChildren().removeIf(node ->
+                Integer.valueOf(itemId).equals(node.getUserData())
+        );
     }
 
 }

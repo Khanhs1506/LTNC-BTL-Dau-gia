@@ -1,3 +1,4 @@
+
 package com.auction.server.network;
 
 import com.auction.server.exception.AuctionClosedException;
@@ -54,6 +55,20 @@ public class ClientHandler implements Runnable, AuctionObserver {
             String notification = String.format(
                     "BID_UPDATE==={\"auctionId\":%d,\"bidder\":\"%s\",\"amount\":%.2f}",
                     auctionId, bidderUsername, newBidAmount);
+            writer.println(notification);
+        }
+    }
+
+    /**
+     * Anti-sniping: gửi thông báo gia hạn thời gian đến client.
+     */
+    @Override
+    public void onTimeExtended(int auctionId, java.time.LocalDateTime newEndTime) {
+        if (writer != null) {
+            String formatted = newEndTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            String notification = String.format(
+                    "TIME_EXTENDED==={\"auctionId\":%d,\"newEndTime\":\"%s\",\"extensionMinutes\":5}",
+                    auctionId, formatted);
             writer.println(notification);
         }
     }
@@ -281,7 +296,21 @@ public class ClientHandler implements Runnable, AuctionObserver {
                 int auctionId = AuctionManager.getInstance().createAuction(itemId, startTime, endTime);
                 if (auctionId > 0) {
                     System.out.println("[Server] Tạo phiên đấu giá id=" + auctionId + " cho item id=" + itemId);
-                    writer.println("CREATE_ITEM_SUCCESS");
+                    Auction newAuction = auctionRepo.getAuctionById(auctionId);
+                    String auctionJson = (newAuction != null)
+                            ? gson.toJson(toSummaryList(List.of(newAuction)).get(0))
+                            : "{}";
+                    writer.println("CREATE_ITEM_SUCCESS===" + auctionJson);
+
+                    if (newAuction != null) {
+                        List<AuctionSummary> single = toSummaryList(List.of(newAuction));
+                        String notify = "NEW_AUCTION_NOTIFY===" + gson.toJson(single.get(0));
+                        for (ClientHandler client : connectedClients) {
+                            if (client != this && client.writer != null) {
+                                client.writer.println(notify);
+                            }
+                        }
+                    }
                 } else {
                     writer.println("CREATE_ITEM_FAIL");
                 }

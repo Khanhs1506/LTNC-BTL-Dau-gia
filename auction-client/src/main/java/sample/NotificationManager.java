@@ -1,3 +1,4 @@
+
 package sample;
 
 import sample.model.PlacedBidRequest;
@@ -21,14 +22,14 @@ public class NotificationManager {
         }
     }
 
-   // SINGLETON
+    // SINGLETON
     private static NotificationManager instance;
     public static synchronized NotificationManager getInstance() {
         if (instance == null) instance = new NotificationManager();
         return instance;
     }
 
-   //DANH SÁCH THÔNG BÁO
+    //DANH SÁCH THÔNG BÁO
     private final List<Notification> notifications =
             Collections.synchronizedList(new ArrayList<>());
 
@@ -41,9 +42,27 @@ public class NotificationManager {
     //OBSERVER CHO BID_UPDATE
     private final List<Consumer<PlacedBidRequest>> bidUpdateListeners = new ArrayList<>();
 
+    /**
+     * Event khi Anti-sniping gia hạn thời gian phiên đấu giá.
+     */
+    public static class TimeExtendedEvent {
+        public final int auctionId;
+        public final java.time.LocalDateTime newEndTime;
+        public final int extensionMinutes;
+
+        public TimeExtendedEvent(int auctionId, java.time.LocalDateTime newEndTime, int extensionMinutes) {
+            this.auctionId       = auctionId;
+            this.newEndTime      = newEndTime;
+            this.extensionMinutes = extensionMinutes;
+        }
+    }
+
+    //OBSERVER CHO TIME_EXTENDED (Anti-sniping)
+    private final List<Consumer<TimeExtendedEvent>> timeExtendedListeners = new ArrayList<>();
+
     private NotificationManager() {}
 
-   //THÊM THÔNG BÁO VÀO DANH SÁCH
+    //THÊM THÔNG BÁO VÀO DANH SÁCH
     public synchronized void addNotification(String message) {
         notifications.add(new Notification(message));
         unreadCount++;
@@ -67,6 +86,23 @@ public class NotificationManager {
     // HUỶ ĐĂNG KÝ
     public synchronized void removeBidUpdateListener(Consumer<PlacedBidRequest> listener) {
         bidUpdateListeners.remove(listener);
+    }
+
+    // PHÁT TIME_EXTENDED ĐẾN TẤT CẢ SUBSCRIBER (Anti-sniping)
+    public synchronized void notifyTimeExtended(TimeExtendedEvent event) {
+        for (Consumer<TimeExtendedEvent> listener : timeExtendedListeners) {
+            listener.accept(event);
+        }
+    }
+
+    // ĐĂNG KÝ LẮNG NGHE SỰ KIỆN GIA HẠN THỜI GIAN
+    public synchronized void addTimeExtendedListener(Consumer<TimeExtendedEvent> listener) {
+        timeExtendedListeners.add(listener);
+    }
+
+    // HUỶ ĐĂNG KÝ SỰ KIỆN GIA HẠN THỜI GIAN
+    public synchronized void removeTimeExtendedListener(Consumer<TimeExtendedEvent> listener) {
+        timeExtendedListeners.remove(listener);
     }
 
     //ĐÁNH DẤU ĐỌC TẤT CẢ

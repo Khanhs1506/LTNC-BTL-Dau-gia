@@ -1,6 +1,8 @@
+
 package sample;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import sample.model.PlacedBidRequest;
 
 import java.io.BufferedReader;
@@ -158,24 +160,52 @@ public class ServerConnection {
 
                         // Thêm vào NotificationManager (nó sẽ gọi callback của HomeController)
                         javafx.application.Platform.runLater(() -> {
-                                NotificationManager.getInstance().addNotification(msg);
-                                NotificationManager.getInstance().notifyBidUpdate(res);});
+                            NotificationManager.getInstance().addNotification(msg);
+                            NotificationManager.getInstance().notifyBidUpdate(res);
+                        });
 
                     } else if (line.startsWith("DELETE_ITEM_NOTIFY===")) {
-                        // Sản phẩm bị xóa bởi seller khác → thông báo để UI cập nhật
-                        javafx.application.Platform.runLater(() ->
-                                NotificationManager.getInstance().addNotification("Một sản phẩm vừa bị xóa khỏi danh sách"));
+                        String json = line.split("===", 2)[1];
+                        int deletedItemId = gson.fromJson(json, JsonObject.class).get("itemId").getAsInt();
+                        javafx.application.Platform.runLater(() -> {
+                            HomeController home = HomeController.getInstance();
+                            if (home != null) {
+                                home.removeAuctionCard(deletedItemId); // xóa card khỏi UI
+                            }
+                            NotificationManager.getInstance().addNotification("🗑️ Một sản phẩm vừa bị xóa khỏi danh sách");
+                        });
+                    } else if (line.startsWith("TIME_EXTENDED===")) {
+                        // Anti-sniping: server đã gia hạn thời gian phiên đấu giá
+                        String json = line.split("===", 2)[1];
+                        com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+                        int auctionId = obj.get("auctionId").getAsInt();
+                        String newEndTimeStr = obj.get("newEndTime").getAsString();
+                        int extensionMinutes = obj.has("extensionMinutes") ? obj.get("extensionMinutes").getAsInt() : 5;
 
-//                    } else if (line.startsWith("NOTIFY===")) {
-//                        String[] parts = line.split("===");
-//                        javafx.application.Platform.runLater(() -> {
-//                            switch (parts[1]) {
-//                                case "BID_REFUND"  -> WalletController.notifyAuctionLost(
-//                                        parts[2], Double.parseDouble(parts[3]));
-//                                case "AUCTION_WON" -> WalletController.notifyAuctionWon(parts[2], 0);
-//                            }
-//                        });
+                        java.time.LocalDateTime newEndTime = java.time.LocalDateTime.parse(
+                                newEndTimeStr,
+                                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
+                        NotificationManager.TimeExtendedEvent event =
+                                new NotificationManager.TimeExtendedEvent(auctionId, newEndTime, extensionMinutes);
+
+                        javafx.application.Platform.runLater(() -> {
+                            NotificationManager.getInstance().notifyTimeExtended(event);
+                            NotificationManager.getInstance().addNotification(
+                                    "⏰ Phiên đấu giá #" + auctionId + " được gia hạn thêm " + extensionMinutes + " phút!");
+                        });
+
+                    } else if (line.startsWith("NEW_AUCTION_NOTIFY===")) {
+                        String json = line.split("===", 2)[1];
+                        javafx.application.Platform.runLater(() -> {
+                            HomeController home = HomeController.getInstance();
+                            if (home != null) {
+                                home.addNewAuctionCard(json); // thêm card trực tiếp, không reload
+                            }
+                            NotificationManager.getInstance().addNotification(
+                                    "🆕 Phiên đấu giá mới vừa được mở!"
+                            );
+                        });
                     } else {
                         // Response thông thường — sendRequest() đang chờ
                         responseQueue.put(line);
@@ -243,19 +273,5 @@ public class ServerConnection {
     public String getTransactionHistory(int limit) throws Exception {
         String json = String.format("{\"limit\":%d}", limit);
         return sendRequest("GET_TX_HISTORY", json);
-
-//    public String getTransactions(String type, String status,
-//                                  String dateFrom, String dateTo,
-//                                  int page, int pageSize) throws Exception {
-//        String json = String.format(
-//                "{\"type\":\"%s\",\"status\":\"%s\",\"dateFrom\":\"%s\"," +
-//                        "\"dateTo\":\"%s\",\"page\":%d,\"pageSize\":%d}",
-//                type     != null ? type     : "ALL",
-//                status   != null ? status   : "ALL",
-//                dateFrom != null ? dateFrom : "",
-//                dateTo   != null ? dateTo   : "",
-//                page, pageSize);
-//        return sendRequest("GET_TRANSACTIONS", json);
-//    }
     }
 }

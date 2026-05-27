@@ -68,6 +68,15 @@ public class AuctionManager {
         Auction auction = auctionDao.getAuctionById(auctionId);
         if (auction != null) {
             activeAuctions.put(auctionId, auction);
+            LocalDateTime now = LocalDateTime.now();
+            if (auction.getStatus() == Auction.Status.OPEN
+                    && !now.isBefore(auction.getStartTime())
+                    && now.isBefore(auction.getEndTime())) {
+                auction.startAuction();
+                auctionDao.updateStatus(auctionId, Auction.Status.RUNNING);
+                System.out.println("[AuctionManager] Phiên " + auctionId
+                        + " tạo xong → tự động RUNNING ngay.");
+            }
             System.out.println("[AuctionManager] Tạo phiên đấu giá id=" + auctionId);
         }
         return auctionId;
