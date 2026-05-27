@@ -2,6 +2,7 @@ package sample;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import sample.model.PlacedBidRequest;
@@ -105,6 +106,16 @@ public class ServerConnection {
     //LẤY PHIÊN ĐẤU GIÁ SELLER ĐANG ĐĂNG NHẬP
     public String getAuctionsBySeller() throws Exception {
         return sendRequest("GET_AUCTIONS_BY_SELLER", "{}");
+    }
+
+    //LẤY CÁC PHIÊN ĐÃ THANH TOÁN CỦA SELLER
+    public String getSellerPaidAuctions() throws Exception {
+        return sendRequest("GET_SELLER_PAID_AUCTIONS", "{}");
+    }
+
+    public String markAuctionPaid(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("MARK_AUCTION_PAID", json);
     }
 
     //LẤY LỊCH SỬ ĐẶT GIÁ
@@ -215,7 +226,7 @@ public class ServerConnection {
                     } else if (line.startsWith("TIME_EXTENDED===")) {
                         // Anti-sniping: server đã gia hạn thời gian phiên đấu giá
                         String json = line.split("===", 2)[1];
-                        com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+                        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
                         int auctionId = obj.get("auctionId").getAsInt();
                         String newEndTimeStr = obj.get("newEndTime").getAsString();
                         int extensionMinutes = obj.has("extensionMinutes") ? obj.get("extensionMinutes").getAsInt() : 5;

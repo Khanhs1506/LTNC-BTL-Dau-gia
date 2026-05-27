@@ -22,6 +22,7 @@ abstract public class Item {   // ← bỏ <String>
     public void setId(String id) { this.id = id; }
 
     public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
     public double getStartingPrice() { return startingPrice; }
     public String getTypeItem() { return typeItem; }
     public double getCurrentHighestBid() { return currentHighestBid; }

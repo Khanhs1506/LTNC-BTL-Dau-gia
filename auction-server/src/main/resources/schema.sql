@@ -138,12 +138,27 @@ CREATE TABLE wallet_transactions (
                                      CONSTRAINT fk_wallet_user    FOREIGN KEY (user_id)
                                          REFERENCES users(id) ON DELETE CASCADE,
                                      CONSTRAINT fk_wallet_auction FOREIGN KEY (related_auction_id)
-                                         REFERENCES auctions(id) ON DELETE SET NULL
+                                           REFERENCES auctions(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_wallet_user_id ON wallet_transactions(user_id, created_at DESC);
 CREATE INDEX idx_wallet_type    ON wallet_transactions(type);
 CREATE INDEX idx_wallet_auction ON wallet_transactions(related_auction_id);
+
+-- ============================================================
+-- BẢNG 10: seller_payment_confirmations
+-- ============================================================
+CREATE TABLE IF NOT EXISTS seller_payment_confirmations (
+    auction_id    INT         NOT NULL PRIMARY KEY,
+    seller_id     VARCHAR(36) NOT NULL,
+    confirmed_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_spc_auction FOREIGN KEY (auction_id)
+        REFERENCES auctions(id) ON DELETE CASCADE,
+    CONSTRAINT fk_spc_seller FOREIGN KEY (seller_id)
+        REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_spc_seller ON seller_payment_confirmations(seller_id, confirmed_at DESC);
 
 -- ============================================================
 -- INDEX
@@ -154,6 +169,39 @@ CREATE INDEX idx_items_type        ON Items(item_type);
 CREATE INDEX idx_auctions_status   ON auctions(status);
 CREATE INDEX idx_bids_auction      ON bid_transactions(auction_id, timestamp);
 CREATE INDEX idx_auto_bids_auction ON auto_bids(auction_id);
+
+
+-- ============================================================
+-- BẢNG 11: reports (Quản lý báo cáo vi phạm)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS reports (
+    id                INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    reporter_username VARCHAR(50)  NOT NULL,
+    target_username   VARCHAR(50)  NOT NULL,
+    reason            VARCHAR(500) NOT NULL,
+    status            ENUM('PENDING', 'RESOLVED') NOT NULL DEFAULT 'PENDING',
+    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_report_reporter FOREIGN KEY (reporter_username)
+    REFERENCES users(username) ON DELETE CASCADE,
+    CONSTRAINT fk_report_target   FOREIGN KEY (target_username)
+    REFERENCES users(username) ON DELETE CASCADE
+    );
+CREATE INDEX idx_reports_status ON reports(status);
+
+-- ============================================================
+-- BẢNG 12: system_settings (Cấu hình hệ thống động)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS system_settings (
+                                               setting_key   VARCHAR(50)  NOT NULL PRIMARY KEY,
+    setting_value VARCHAR(255) NOT NULL,
+    description   VARCHAR(255) DEFAULT NULL,
+    updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    );
+
+-- Thêm cấu hình mặc định ban đầu: Phí sàn 5% (0.05)
+INSERT IGNORE INTO system_settings (setting_key, setting_value, description)
+VALUES ('PLATFORM_FEE_RATE', '0.05', 'Tỷ lệ phí sàn thu của Seller (VD: 0.05 = 5%)');
 
 -- ============================================================
 -- DỮ LIỆU MẶC ĐỊNH: Admin account

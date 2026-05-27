@@ -13,4 +13,5 @@ public class AuctionSummary {
     public String startTime;
     public String endTime;
     public String status;
+    public int bidCount;
 }

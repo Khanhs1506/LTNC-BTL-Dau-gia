@@ -1,5 +1,9 @@
 package sample;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -284,12 +288,11 @@ public class AdminDashboardController implements Initializable {
             String raw      = ServerConnection.getInstance().getUsers();
             String jsonPart = raw.contains("===") ? raw.split("===", 2)[1] : "[]";
 
-            com.google.gson.JsonArray arr =
-                    com.google.gson.JsonParser.parseString(jsonPart).getAsJsonArray();
+            JsonArray arr = JsonParser.parseString(jsonPart).getAsJsonArray();
 
             List<User> users = new ArrayList<>();
-            for (com.google.gson.JsonElement el : arr) {
-                com.google.gson.JsonObject obj = el.getAsJsonObject();
+            for (JsonElement el : arr) {
+                JsonObject obj = el.getAsJsonObject();
                 User u = new User(
                         obj.get("id").getAsString(),
                         obj.get("username").getAsString(),
@@ -426,12 +429,11 @@ public class AdminDashboardController implements Initializable {
             String jsonPart = raw.contains("===") ? raw.split("===", 2)[1] : "[]";
             if (jsonPart.startsWith("[]") || jsonPart.isEmpty()) jsonPart = "[]";
 
-            com.google.gson.JsonArray arr =
-                    com.google.gson.JsonParser.parseString(jsonPart).getAsJsonArray();
+            JsonArray arr = JsonParser.parseString(jsonPart).getAsJsonArray();
 
             List<AdminAuctionRow> rows = new ArrayList<>();
-            for (com.google.gson.JsonElement el : arr) {
-                com.google.gson.JsonObject obj = el.getAsJsonObject();
+            for (JsonElement el : arr) {
+                JsonObject obj = el.getAsJsonObject();
                 AdminAuctionRow r = new AdminAuctionRow();
                 r.auctionId            = obj.has("auctionId")            ? obj.get("auctionId").getAsInt()            : 0;
                 r.itemName             = obj.has("itemName")             ? obj.get("itemName").getAsString()           : "—";
@@ -556,13 +558,11 @@ public class AdminDashboardController implements Initializable {
             String raw      = ServerConnection.getInstance().getAdminBids();
             String jsonPart = raw.contains("===") ? raw.split("===", 2)[1] : "[]";
             if (jsonPart.startsWith("[]") || jsonPart.isEmpty()) jsonPart = "[]";
-
-            com.google.gson.JsonArray arr =
-                    com.google.gson.JsonParser.parseString(jsonPart).getAsJsonArray();
+            JsonArray arr = JsonParser.parseString(jsonPart).getAsJsonArray();
 
             List<AdminBidRow> rows = new ArrayList<>();
-            for (com.google.gson.JsonElement el : arr) {
-                com.google.gson.JsonObject obj = el.getAsJsonObject();
+            for (JsonElement el : arr) {
+                JsonObject obj = el.getAsJsonObject();
                 AdminBidRow r = new AdminBidRow();
                 r.transactionId  = obj.has("transactionId")  ? obj.get("transactionId").getAsString()  : "";
                 r.auctionId      = obj.has("auctionId")      ? obj.get("auctionId").getAsInt()         : 0;
@@ -649,20 +649,18 @@ public class AdminDashboardController implements Initializable {
             String raw      = ServerConnection.getInstance().getReports();
             String jsonPart = raw.contains("===") ? raw.split("===", 2)[1] : "[]";
             if (jsonPart.startsWith("[]") || jsonPart.isEmpty()) jsonPart = "[]";
-
-            com.google.gson.JsonArray arr =
-                    com.google.gson.JsonParser.parseString(jsonPart).getAsJsonArray();
+            JsonArray arr = JsonParser.parseString(jsonPart).getAsJsonArray();
 
             List<AdminReport> rows = new ArrayList<>();
-            for (com.google.gson.JsonElement el : arr) {
-                com.google.gson.JsonObject obj = el.getAsJsonObject();
+            for (JsonElement el : arr) {
+                JsonObject obj = el.getAsJsonObject();
                 AdminReport r = new AdminReport(
-                        obj.has("id")              ? String.valueOf(obj.get("id").getAsInt()) : "?",
+                        obj.has("id") ? String.valueOf(obj.get("id").getAsInt()) : "?",
                         obj.has("reporterUsername") ? obj.get("reporterUsername").getAsString() : "—",
-                        obj.has("targetUsername")   ? obj.get("targetUsername").getAsString()   : "—",
-                        obj.has("reason")           ? obj.get("reason").getAsString()           : "—",
-                        obj.has("createdAt")        ? obj.get("createdAt").getAsString()        : "—",
-                        obj.has("status")           ? obj.get("status").getAsString()           : "PENDING"
+                        obj.has("targetUsername") ? obj.get("targetUsername").getAsString() : "—",
+                        obj.has("reason") ? obj.get("reason").getAsString() : "—",
+                        obj.has("createdAt") ? obj.get("createdAt").getAsString() : "—",
+                        obj.has("status") ? obj.get("status").getAsString() : "PENDING"
                 );
                 rows.add(r);
             }
@@ -753,21 +751,19 @@ public class AdminDashboardController implements Initializable {
                 setLoading("stats", false);
                 return;
             }
-
-            com.google.gson.JsonObject obj =
-                    com.google.gson.JsonParser.parseString(jsonPart).getAsJsonObject();
+            JsonObject obj = JsonParser.parseString(jsonPart).getAsJsonObject();
 
             double revenue  = obj.has("totalRevenue") ? obj.get("totalRevenue").getAsDouble() : 0;
-            int    paid     = obj.has("paidCount")    ? obj.get("paidCount").getAsInt()        : 0;
-            int    unpaid   = obj.has("unpaidCount")  ? obj.get("unpaidCount").getAsInt()      : 0;
+            int paid = obj.has("paidCount") ? obj.get("paidCount").getAsInt() : 0;
+            int unpaid = obj.has("unpaidCount") ? obj.get("unpaidCount").getAsInt() : 0;
 
-            // Dữ liệu tháng: [{month:"Th.1", revenue:123456}, ...]
+
             List<String[]> monthly = new ArrayList<>();
             if (obj.has("monthlyRevenue")) {
-                for (com.google.gson.JsonElement el : obj.get("monthlyRevenue").getAsJsonArray()) {
-                    com.google.gson.JsonObject mo = el.getAsJsonObject();
-                    String label = mo.has("month")   ? mo.get("month").getAsString()            : "?";
-                    String rev   = mo.has("revenue") ? String.valueOf(mo.get("revenue").getAsDouble()) : "0";
+                for (JsonElement el : obj.get("monthlyRevenue").getAsJsonArray()) {
+                    JsonObject mo = el.getAsJsonObject();
+                    String label = mo.has("month") ? mo.get("month").getAsString() : "?";
+                    String rev = mo.has("revenue") ? String.valueOf(mo.get("revenue").getAsDouble()) : "0";
                     monthly.add(new String[]{label, rev});
                 }
             }
@@ -777,8 +773,8 @@ public class AdminDashboardController implements Initializable {
 
             javafx.application.Platform.runLater(() -> {
                 if (adminStatRevenue != null) adminStatRevenue.setText(formatRevenue(revenue));
-                if (adminStatPaid    != null) adminStatPaid.setText(String.valueOf(paid));
-                if (adminStatUnpaid  != null) adminStatUnpaid.setText(String.valueOf(unpaid));
+                if (adminStatPaid != null) adminStatPaid.setText(String.valueOf(paid));
+                if (adminStatUnpaid != null) adminStatUnpaid.setText(String.valueOf(unpaid));
                 if (!monthly.isEmpty()) updateRevenueChart(monthly);
             });
         } catch (Exception e) {

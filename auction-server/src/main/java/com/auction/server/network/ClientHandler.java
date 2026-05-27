@@ -1,3 +1,4 @@
+
 package com.auction.server.network;
 
 import com.auction.server.exception.AuctionClosedException;
@@ -7,10 +8,7 @@ import com.auction.server.repository.*;
 import com.auction.server.service.AuctionManager;
 import com.auction.server.service.AuctionObserver;
 import com.auction.server.service.BiddingEngine;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -18,6 +16,8 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.auction.server.network.handler.WalletHandler;
@@ -45,6 +45,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
     private IAuctionDAO auctionRepo = new AuctionDaoImpl();
     private IBidTransactionDAO bidRepo = new BidTransactionDaoImpl();
     private IReportDAO reportRepo = new ReportDaoImpl();
+    private AdminStatsDaoImpl adminStatsRepo = new AdminStatsDaoImpl();
     private final WalletHandler walletHandler = new WalletHandler();
 
     private User currentUser;
@@ -89,14 +90,19 @@ public class ClientHandler implements Runnable, AuctionObserver {
             writer = new PrintWriter(socket.getOutputStream(), true);
             String request;
             while ((request = reader.readLine()) != null) {
-                System.out.println("Khách gửi: " + request);
-
+                if (currentUser != null) {
+                    System.out.println(currentUser.getUsername() + " gửi: " + request);
+                } else {
+                    System.out.println("Khách gửi: " + request);
+                }
                 handlerRequest(request);
             }
 
             socket.close();
         } catch (Exception e) {
-            System.out.println("Khách hàng mất mạng hoặc ngắt kết nối đột ngột");
+            if (currentUser != null) {
+                System.out.println("[Server] Tài khoản [" + currentUser.getUsername() + "] tắt ứng dụng hoặc mất mạng đột ngột.");
+            }
         } finally {
             connectedClients.remove(this);
             //Huỷ đăng ký observer khi client ngắt kết nối tránh memory leak
@@ -159,6 +165,12 @@ public class ClientHandler implements Runnable, AuctionObserver {
                 case "GET_AUCTIONS_BY_SELLER":
                     handleGetAuctionsBySeller();
                     break;
+                case "GET_SELLER_PAID_AUCTIONS":
+                    handleGetSellerPaidAuctions();
+                    break;
+                case "MARK_AUCTION_PAID":
+                    handleMarkAuctionPaid(json);
+                    break;
 
                 case "GET_BID_HISTORY":
                     handleGetBidHistory(json);
@@ -187,6 +199,10 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
                 case "GET_ADMIN_BIDS":
                     handleGetAdminBids();
+                    break;
+
+                case "GET_ADMIN_STATS":
+                    handleGetAdminStats();
                     break;
 
                 case "GET_REPORTS":
@@ -270,10 +286,10 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     //GỬI TỚI CHO WALLETHANDLER XỬ LÍ
     private void handleWallet(String command, String json) {
-            if (currentUser == null) {
-                writer.println("ERROR===Chưa đăng nhập");
-                return;
-            }
+        if (currentUser == null) {
+            writer.println("ERROR===Chưa đăng nhập");
+            return;
+        }
         String userId = String.valueOf(currentUser.getId());
         String result = walletHandler.handle(command, userId, json);
         writer.println("WALLET_" + command + "===" + result);
@@ -398,11 +414,16 @@ public class ClientHandler implements Runnable, AuctionObserver {
             writer.println("ONLY BIDDER CAN BID");
             return;
         }
-
         try {
             PlacedBidResquest res = gson.fromJson(json, PlacedBidResquest.class);
+            //Kiểm tra số dư ví trước khi đặt giá
+            String userId = String.valueOf(currentUser.getId());
+            double balance = walletHandler.getBalance(userId);
+            if (balance < res.amount) {
+                writer.println(String.format("BID_FAIL===INSUFFICIENT_BALANCE: Số dư không đủ (cần %.0f, hiện có %.0f)", res.amount, balance));
+                return;
+            }
             boolean success = BiddingEngine.getInstance().processBid(res.auctionId, currentUser.getUsername(), res.amount);
-
             if (success) {
                 writer.println("BID SUCCESS");
             } else {
@@ -419,6 +440,9 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     //ĐĂNG XUẤT
     private void handleLogout() {
+        if (currentUser != null) {
+            System.out.println("[Server] Tài khoản [" + currentUser.getUsername() + "] đã đăng xuất chủ động.");
+        }
         currentUser = null;
         writer.println("LOGOUT SUCCESS");
     }
@@ -530,9 +554,95 @@ public class ClientHandler implements Runnable, AuctionObserver {
         writer.println("AUCTIONS===" + gson.toJson(toSummaryList(auctions)));
     }
 
+    private void handleGetSellerPaidAuctions() {
+        if (!(currentUser instanceof Seller)) {
+            writer.println("SELLER_PAID_AUCTIONS===[]");
+            return;
+        }
+        String sql = "SELECT DISTINCT auction_id FROM (" +
+                " SELECT spc.auction_id AS auction_id " +
+                " FROM seller_payment_confirmations spc " +
+                " WHERE spc.seller_id = ? " +
+                " UNION " +
+                " SELECT wt.related_auction_id AS auction_id " +
+                " FROM wallet_transactions wt " +
+                " JOIN auctions a ON a.id = wt.related_auction_id " +
+                " JOIN Items i ON i.id = a.item_id " +
+                " WHERE wt.type = 'PAYMENT' AND wt.related_auction_id IS NOT NULL AND i.seller_id = ? " + ") t";
+        JsonArray paidAuctionIds = new JsonArray();
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            ensureSellerPaymentTable(conn);
+            stmt.setString(1, currentUser.getId());
+            stmt.setString(2, currentUser.getId());
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    paidAuctionIds.add(rs.getInt("auction_id"));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[ClientHandler] handleGetSellerPaidAuctions lỗi: " + e.getMessage());
+        }
+        writer.println("SELLER_PAID_AUCTIONS===" + paidAuctionIds);
+    }
+
+    private void handleMarkAuctionPaid(String json) {
+        if (!(currentUser instanceof Seller)) {
+            writer.println("MARK_AUCTION_PAID===FAIL===ONLY_SELLER");
+            return;
+        }
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            int auctionId = obj.get("auctionId").getAsInt();
+            try (Connection conn = DatabaseManager.getInstance().getConnection()) {
+                ensureSellerPaymentTable(conn);
+                String validateSql = "SELECT a.id FROM auctions a " +
+                        "JOIN Items i ON i.id = a.item_id " +
+                        "WHERE a.id = ? AND i.seller_id = ? AND a.status = 'FINISHED' " +
+                        "AND a.current_winner_username IS NOT NULL";
+                try (PreparedStatement validate = conn.prepareStatement(validateSql)) {
+                    validate.setInt(1, auctionId);
+                    validate.setString(2, currentUser.getId());
+                    try (ResultSet rs = validate.executeQuery()) {
+                        if (!rs.next()) {
+                            writer.println("MARK_AUCTION_PAID===FAIL===INVALID_AUCTION");
+                            return;
+                        }
+                    }
+                }
+                String upsertSql = "INSERT INTO seller_payment_confirmations (auction_id, seller_id, confirmed_at) " +
+                        "VALUES (?, ?, NOW()) " +
+                        "ON DUPLICATE KEY UPDATE confirmed_at = VALUES(confirmed_at)";
+                try (PreparedStatement upsert = conn.prepareStatement(upsertSql)) {
+                    upsert.setInt(1, auctionId);
+                    upsert.setString(2, currentUser.getId());
+                    upsert.executeUpdate();
+                }
+            }
+            writer.println("MARK_AUCTION_PAID===OK");
+        } catch (Exception e) {
+            System.err.println("[ClientHandler] handleMarkAuctionPaid lỗi: " + e.getMessage());
+            writer.println("MARK_AUCTION_PAID===FAIL===SERVER_ERROR");
+        }
+    }
+
+    private void ensureSellerPaymentTable(Connection conn) throws Exception {
+        String sql = "CREATE TABLE IF NOT EXISTS seller_payment_confirmations (" +
+                "auction_id INT NOT NULL PRIMARY KEY, " +
+                "seller_id VARCHAR(36) NOT NULL, " +
+                "confirmed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
+                "CONSTRAINT fk_spc_auction FOREIGN KEY (auction_id) REFERENCES auctions(id) ON DELETE CASCADE, " +
+                "CONSTRAINT fk_spc_seller FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE" +
+                ")";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.executeUpdate();
+        }
+    }
+
     //CHUYỂN TỪ AUCTION SANG AUCTIONSUMMARY
     private List<AuctionSummary> toSummaryList(List<Auction> auctions) {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        Map<Integer, Integer> bidCounts = fetchBidCounts(auctions);
         List<AuctionSummary> summaries = new java.util.ArrayList<>();
         for (Auction a : auctions) {
             AuctionSummary s = new AuctionSummary();
@@ -546,9 +656,35 @@ public class ClientHandler implements Runnable, AuctionObserver {
             s.startTime = a.getStartTime().format(fmt);
             s.endTime = a.getEndTime().format(fmt);
             s.status = a.getStatus().name();
+            s.bidCount = bidCounts.getOrDefault(a.getId(), 0);
             summaries.add(s);
         }
         return summaries;
+    }
+
+    private Map<Integer, Integer> fetchBidCounts(List<Auction> auctions) {
+        Map<Integer, Integer> result = new HashMap<>();
+        if (auctions == null || auctions.isEmpty()) return result;
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < auctions.size(); i++) {
+            if (i > 0) placeholders.append(",");
+            placeholders.append("?");
+        }
+        String sql = "SELECT auction_id, COUNT(*) AS bid_count FROM bid_transactions " + "WHERE auction_id IN (" + placeholders + ") GROUP BY auction_id";
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            for (int i = 0; i < auctions.size(); i++) {
+                stmt.setInt(i + 1, auctions.get(i).getId());
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    result.put(rs.getInt("auction_id"), rs.getInt("bid_count"));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[ClientHandler] fetchBidCounts lỗi: " + e.getMessage());
+        }
+        return result;
     }
 
     //LẤY PHIÊN ĐẤU GIÁ
@@ -570,7 +706,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
                 if (a.getCurrentWinnerUsername() != null)
                     obj.addProperty("currentWinnerUsername", a.getCurrentWinnerUsername());
                 else
-                    obj.add("currentWinnerUsername", com.google.gson.JsonNull.INSTANCE);
+                    obj.add("currentWinnerUsername", JsonNull.INSTANCE);
                 obj.addProperty("status", a.getStatus().name());
                 obj.addProperty("endTime", a.getEndTime().format(fmt));
                 arr.add(obj);
@@ -623,69 +759,12 @@ public class ClientHandler implements Runnable, AuctionObserver {
     //THỐNG KÊ DỮ LIỆU CHO ADMIN
     private void handleGetAdminStats() {
         if (!(currentUser instanceof Admin)) {
-            writer.println("GET_ADMIN_STATS==={}"); return;
-        }
-        try (Connection conn = DatabaseManager.getInstance().getConnection()) {
-
-            // 1. Tổng doanh thu: tổng tất cả giao dịch PAYMENT trong wallet_transactions
-            double totalRevenue = 0;
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT COALESCE(SUM(amount), 0) AS total FROM wallet_transactions WHERE type = 'PAYMENT'");
-                 ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) totalRevenue = rs.getDouble("total");
-            }
-
-            // 2. Số phiên đã thanh toán (auction status = FINISHED) và chưa thanh toán (OPEN hoặc RUNNING)
-            int paidCount = 0, unpaidCount = 0;
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT status, COUNT(*) AS cnt FROM auctions GROUP BY status");
-                 ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String status = rs.getString("status");
-                    int    cnt    = rs.getInt("cnt");
-                    if ("FINISHED".equalsIgnoreCase(status)) paidCount   += cnt;
-                    else if ("OPEN".equalsIgnoreCase(status) || "RUNNING".equalsIgnoreCase(status)) unpaidCount += cnt;
-                }
-            }
-
-            // 3. Doanh thu từng tháng trong năm hiện tại
-            JsonArray monthlyArr = new JsonArray();
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT MONTH(created_at) AS m, COALESCE(SUM(amount), 0) AS rev " +
-                            "FROM wallet_transactions " +
-                            "WHERE type = 'PAYMENT' AND YEAR(created_at) = YEAR(CURDATE()) " +
-                            "GROUP BY MONTH(created_at) ORDER BY m")) {
-                ResultSet rs = ps.executeQuery();
-                // Chuẩn bị map tháng → doanh thu (mặc định 0)
-                java.util.Map<Integer, Double> map = new java.util.LinkedHashMap<>();
-                for (int i = 1; i <= 12; i++) map.put(i, 0.0);
-                while (rs.next()) {
-                    map.put(rs.getInt("m"), rs.getDouble("rev"));
-                }
-                // Chỉ xuất các tháng đã có dữ liệu (hoặc đến tháng hiện tại)
-                int currentMonth = java.time.LocalDate.now().getMonthValue();
-                for (int i = 1; i <= currentMonth; i++) {
-                    JsonObject mo = new JsonObject();
-                    mo.addProperty("month", "Th." + i);
-                    mo.addProperty("revenue", map.get(i));
-                    monthlyArr.add(mo);
-                }
-            }
-
-            JsonObject result = new JsonObject();
-            result.addProperty("totalRevenue", totalRevenue);
-            result.addProperty("paidCount",    paidCount);
-            result.addProperty("unpaidCount",  unpaidCount);
-            result.add("monthlyRevenue", monthlyArr);
-
-            writer.println("GET_ADMIN_STATS===" + result);
-            System.out.println("[Admin] Stats: revenue=" + totalRevenue
-                    + " paid=" + paidCount + " unpaid=" + unpaidCount);
-
-        } catch (Exception e) {
-            e.printStackTrace();
             writer.println("GET_ADMIN_STATS==={}");
+            return;
         }
+        JsonObject result = adminStatsRepo.getAdminStats();
+        writer.println("GET_ADMIN_STATS===" + result.toString());
+        System.out.println("[Admin] Trả dữ liệu thống kê từ DAO thành công.");
     }
 
     //LỊCH SỬ ĐẶT GIÁ
@@ -694,10 +773,10 @@ public class ClientHandler implements Runnable, AuctionObserver {
             writer.println("GET_ADMIN_BIDS===[]"); return;
         }
         try {
-            List<com.auction.server.model.BidTransaction> bids = bidRepo.getAllBids();
+            List<BidTransaction> bids = bidRepo.getAllBids();
             DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
             JsonArray arr = new JsonArray();
-            for (com.auction.server.model.BidTransaction b : bids) {
+            for (BidTransaction b : bids) {
                 JsonObject obj = new JsonObject();
                 obj.addProperty("transactionId", b.getTransactionId());
                 obj.addProperty("auctionId", b.getAuctionId());
@@ -776,6 +855,4 @@ public class ClientHandler implements Runnable, AuctionObserver {
             writer.println("SUBMIT_REPORT===FAIL===SERVER_ERROR");
         }
     }
-
-
 }
