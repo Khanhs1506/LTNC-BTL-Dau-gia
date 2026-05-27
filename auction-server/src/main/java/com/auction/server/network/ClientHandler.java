@@ -1,4 +1,3 @@
-
 package com.auction.server.network;
 
 import com.auction.server.exception.AuctionClosedException;
@@ -22,6 +21,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.auction.server.network.handler.WalletHandler;
+import com.auction.server.repository.DatabaseManager;
+import com.auction.server.repository.ReportDaoImpl;
+import com.auction.server.repository.IReportDAO;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 public class ClientHandler implements Runnable, AuctionObserver {
 
@@ -38,6 +44,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
     private IItemDAO itemRepo = new ItemDaoImpl();
     private IAuctionDAO auctionRepo = new AuctionDaoImpl();
     private IBidTransactionDAO bidRepo = new BidTransactionDaoImpl();
+    private IReportDAO reportRepo = new ReportDaoImpl();
     private final WalletHandler walletHandler = new WalletHandler();
 
     private User currentUser;
@@ -45,7 +52,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
     public ClientHandler(Socket socket) throws Exception {
         this.socket = socket;
         connectedClients.add(this);
-        // ✅ FIX: Đăng ký observer để nhận BID_UPDATE từ BiddingEngine
+        //Đăng ký observer để nhận BID_UPDATE từ BiddingEngine
         BiddingEngine.getInstance().addObserver(this);
     }
 
@@ -92,7 +99,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
             System.out.println("Khách hàng mất mạng hoặc ngắt kết nối đột ngột");
         } finally {
             connectedClients.remove(this);
-            // ✅ FIX: Huỷ đăng ký observer khi client ngắt kết nối tránh memory leak
+            //Huỷ đăng ký observer khi client ngắt kết nối tránh memory leak
             BiddingEngine.getInstance().removeObserver(this);
             NumberOfClient--;
             System.out.println("Có " + NumberOfClient + " khách đang kết nối");
@@ -170,6 +177,30 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     handleUnbanUser(json);
                     break;
 
+                case "GET_ADMIN_AUCTIONS":
+                    handleGetAdminAuctions();
+                    break;
+
+                case "CANCEL_AUCTION":
+                    handleCancelAuction(json);
+                    break;
+
+                case "GET_ADMIN_BIDS":
+                    handleGetAdminBids();
+                    break;
+
+                case "GET_REPORTS":
+                    handleGetReports();
+                    break;
+
+                case "RESOLVE_REPORT":
+                    handleResolveReport(json);
+                    break;
+
+                case "SUBMIT_REPORT":
+                    handleSubmitReport(json);
+                    break;
+
                 case "GET_BALANCE":
                 case "DEPOSIT":
                 case "PAYMENT":
@@ -195,13 +226,17 @@ public class ClientHandler implements Runnable, AuctionObserver {
         String username = object.get("username").getAsString();
         String password = object.get("password").getAsString();
         User dbUser = userRepo.getUserByUsername(username);
-        if (dbUser != null && dbUser.getPassword().equals(password)) {
-            currentUser = dbUser;
-            String role = dbUser.getRole();
-            writer.println("LOGIN SUCCESS===" + role);
-        } else {
+        if (dbUser == null || !dbUser.getPassword().equals(password)) {
             writer.println("LOGIN FAIL");
+            return;
         }
+        if ("banned".equalsIgnoreCase(dbUser.getStatus())) {
+            writer.println("LOGIN BANNED");
+            System.out.println("[Server] Tài khoản bị khóa cố đăng nhập: " + username);
+            return;
+        }
+        currentUser = dbUser;
+        writer.println("LOGIN SUCCESS===" + dbUser.getRole());
     }
 
     // ĐĂNG KÍ TÀI KHOẢN
@@ -235,10 +270,10 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     //GỬI TỚI CHO WALLETHANDLER XỬ LÍ
     private void handleWallet(String command, String json) {
-        if (currentUser == null) {
-            writer.println("ERROR===Chưa đăng nhập");
-            return;
-        }
+            if (currentUser == null) {
+                writer.println("ERROR===Chưa đăng nhập");
+                return;
+            }
         String userId = String.valueOf(currentUser.getId());
         String result = walletHandler.handle(command, userId, json);
         writer.println("WALLET_" + command + "===" + result);
@@ -292,14 +327,13 @@ public class ClientHandler implements Runnable, AuctionObserver {
                         ? LocalDateTime.parse(obj.get("endTime").getAsString(), fmt)
                         : LocalDateTime.now().plusDays(7);
 
-                //LƯU VÀO DB VÀ RAM
+                //LƯU VÀO DTB VÀ RAM
                 int auctionId = AuctionManager.getInstance().createAuction(itemId, startTime, endTime);
                 if (auctionId > 0) {
                     System.out.println("[Server] Tạo phiên đấu giá id=" + auctionId + " cho item id=" + itemId);
                     Auction newAuction = auctionRepo.getAuctionById(auctionId);
                     String auctionJson = (newAuction != null)
-                            ? gson.toJson(toSummaryList(List.of(newAuction)).get(0))
-                            : "{}";
+                            ? gson.toJson(toSummaryList(List.of(newAuction)).get(0)) : "{}";
                     writer.println("CREATE_ITEM_SUCCESS===" + auctionJson);
 
                     if (newAuction != null) {
@@ -430,10 +464,26 @@ public class ClientHandler implements Runnable, AuctionObserver {
         try {
             String username = JsonParser.parseString(json).getAsJsonObject().get("username").getAsString();
             boolean ok = userRepo.setUserStatus(username, "banned");
-            writer.println(ok ? "BAN_USER===OK" : "BAN_USER===FAIL");
-            System.out.println("[Admin] Khóa user: " + username + " → " + (ok ? "OK" : "FAIL"));
+            if (ok) {
+                writer.println(ok ? "BAN_USER===OK" : "BAN_USER===FAIL");
+                System.out.println("[Admin] Khóa user: " + username + " → " + (ok ? "OK" : "FAIL"));
+                forceLogoutOnlineUser(username);
+            } else {
+                writer.println("BAN_USER===FAIL");
+            }
         } catch (Exception e) {
             writer.println("BAN_USER===FAIL");
+        }
+    }
+
+    //GỬI LỆNH TỚI KHÁCH
+    private void forceLogoutOnlineUser(String username) {
+        for (ClientHandler client : connectedClients) {
+            if (client != this && client.currentUser != null && username.equals(client.currentUser.getUsername())) {
+                client.writer.println("FORCE_LOGOUT===Tài khoản của bạn đã bị khóa bởi quản trị viên.");
+                client.currentUser = null;
+                System.out.println("[Admin] Đã force-logout user đang online: " + username);
+            }
         }
     }
 
@@ -500,4 +550,232 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
         return summaries;
     }
+
+    //LẤY PHIÊN ĐẤU GIÁ
+    private void handleGetAdminAuctions() {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("GET_ADMIN_AUCTIONS===[]"); return;
+        }
+        try {
+            List<Auction> auctions = auctionRepo.getAllAuctions();
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            JsonArray arr = new JsonArray();
+            for (Auction a : auctions) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("auctionId", a.getId());
+                obj.addProperty("itemName", a.getItem().getName());
+                String sellerUsername = getSellerUsernameByItemId(a.getItem().getId());
+                obj.addProperty("sellerUsername", sellerUsername != null ? sellerUsername : "—");
+                obj.addProperty("currentHighestBid", a.getCurrentHighestBid());
+                if (a.getCurrentWinnerUsername() != null)
+                    obj.addProperty("currentWinnerUsername", a.getCurrentWinnerUsername());
+                else
+                    obj.add("currentWinnerUsername", com.google.gson.JsonNull.INSTANCE);
+                obj.addProperty("status", a.getStatus().name());
+                obj.addProperty("endTime", a.getEndTime().format(fmt));
+                arr.add(obj);
+            }
+            writer.println("GET_ADMIN_AUCTIONS===" + arr.toString());
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("GET_ADMIN_AUCTIONS===[]");
+        }
+    }
+
+    // Helper: lấy username của seller theo item_id
+    private String getSellerUsernameByItemId(String itemId) {
+        String sql = "SELECT u.username FROM users u JOIN Items i ON u.id = i.seller_id WHERE i.id = ?";
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, itemId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) return rs.getString("username");
+            }
+        } catch (Exception e) {
+            System.err.println("[ClientHandler] getSellerUsername error: " + e.getMessage());
+        }
+        return null;
+    }
+
+    //HỦY PHIÊN ĐẤU GIÁ
+    private void handleCancelAuction(String json) {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("CANCEL_AUCTION===FAIL"); return;
+        }
+        try {
+            int auctionId = JsonParser.parseString(json).getAsJsonObject().get("auctionId").getAsInt();
+            boolean ok = auctionRepo.updateStatus(auctionId, Auction.Status.CANCELED);
+            if (ok) {
+                // Đồng bộ trạng thái trong RAM (AuctionManager)
+                Auction inMem = AuctionManager.getInstance().getAuction(auctionId);
+                if (inMem != null) inMem.updateStatus(Auction.Status.CANCELED);
+                writer.println("CANCEL_AUCTION===OK");
+                System.out.println("[Admin] Hủy phiên #" + auctionId);
+            } else {
+                writer.println("CANCEL_AUCTION===FAIL");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("CANCEL_AUCTION===FAIL");
+        }
+    }
+
+    //THỐNG KÊ DỮ LIỆU CHO ADMIN
+    private void handleGetAdminStats() {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("GET_ADMIN_STATS==={}"); return;
+        }
+        try (Connection conn = DatabaseManager.getInstance().getConnection()) {
+
+            // 1. Tổng doanh thu: tổng tất cả giao dịch PAYMENT trong wallet_transactions
+            double totalRevenue = 0;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT COALESCE(SUM(amount), 0) AS total FROM wallet_transactions WHERE type = 'PAYMENT'");
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) totalRevenue = rs.getDouble("total");
+            }
+
+            // 2. Số phiên đã thanh toán (auction status = FINISHED) và chưa thanh toán (OPEN hoặc RUNNING)
+            int paidCount = 0, unpaidCount = 0;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT status, COUNT(*) AS cnt FROM auctions GROUP BY status");
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String status = rs.getString("status");
+                    int    cnt    = rs.getInt("cnt");
+                    if ("FINISHED".equalsIgnoreCase(status)) paidCount   += cnt;
+                    else if ("OPEN".equalsIgnoreCase(status) || "RUNNING".equalsIgnoreCase(status)) unpaidCount += cnt;
+                }
+            }
+
+            // 3. Doanh thu từng tháng trong năm hiện tại
+            JsonArray monthlyArr = new JsonArray();
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT MONTH(created_at) AS m, COALESCE(SUM(amount), 0) AS rev " +
+                            "FROM wallet_transactions " +
+                            "WHERE type = 'PAYMENT' AND YEAR(created_at) = YEAR(CURDATE()) " +
+                            "GROUP BY MONTH(created_at) ORDER BY m")) {
+                ResultSet rs = ps.executeQuery();
+                // Chuẩn bị map tháng → doanh thu (mặc định 0)
+                java.util.Map<Integer, Double> map = new java.util.LinkedHashMap<>();
+                for (int i = 1; i <= 12; i++) map.put(i, 0.0);
+                while (rs.next()) {
+                    map.put(rs.getInt("m"), rs.getDouble("rev"));
+                }
+                // Chỉ xuất các tháng đã có dữ liệu (hoặc đến tháng hiện tại)
+                int currentMonth = java.time.LocalDate.now().getMonthValue();
+                for (int i = 1; i <= currentMonth; i++) {
+                    JsonObject mo = new JsonObject();
+                    mo.addProperty("month", "Th." + i);
+                    mo.addProperty("revenue", map.get(i));
+                    monthlyArr.add(mo);
+                }
+            }
+
+            JsonObject result = new JsonObject();
+            result.addProperty("totalRevenue", totalRevenue);
+            result.addProperty("paidCount",    paidCount);
+            result.addProperty("unpaidCount",  unpaidCount);
+            result.add("monthlyRevenue", monthlyArr);
+
+            writer.println("GET_ADMIN_STATS===" + result);
+            System.out.println("[Admin] Stats: revenue=" + totalRevenue
+                    + " paid=" + paidCount + " unpaid=" + unpaidCount);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("GET_ADMIN_STATS==={}");
+        }
+    }
+
+    //LỊCH SỬ ĐẶT GIÁ
+    private void handleGetAdminBids() {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("GET_ADMIN_BIDS===[]"); return;
+        }
+        try {
+            List<com.auction.server.model.BidTransaction> bids = bidRepo.getAllBids();
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+            JsonArray arr = new JsonArray();
+            for (com.auction.server.model.BidTransaction b : bids) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("transactionId", b.getTransactionId());
+                obj.addProperty("auctionId", b.getAuctionId());
+                obj.addProperty("bidderUsername", b.getBidderUsername());
+                obj.addProperty("bidAmount", b.getBidAmount());
+                obj.addProperty("timestamp", b.getTimestamp().format(fmt));
+                arr.add(obj);
+            }
+            writer.println("GET_ADMIN_BIDS===" + arr.toString());
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("GET_ADMIN_BIDS===[]");
+        }
+    }
+
+    //BÁO CÁO VI PHẠM
+    private void handleGetReports() {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("GET_REPORTS===[]"); return;
+        }
+        try {
+            List<IReportDAO.ReportInfo> reports = reportRepo.getAllReports();
+            JsonArray arr = new JsonArray();
+            for (IReportDAO.ReportInfo r : reports) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("id", r.id);
+                obj.addProperty("reporterUsername", r.reporterUsername);
+                obj.addProperty("targetUsername", r.targetUsername);
+                obj.addProperty("reason", r.reason);
+                obj.addProperty("createdAt", r.createdAt);
+                obj.addProperty("status", r.status);
+                arr.add(obj);
+            }
+            writer.println("GET_REPORTS===" + arr.toString());
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("GET_REPORTS===[]");
+        }
+    }
+
+    //XỬ LÝ BÁO CÁO
+    private void handleResolveReport(String json) {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("RESOLVE_REPORT===FAIL"); return;
+        }
+        try {
+            int reportId = JsonParser.parseString(json).getAsJsonObject().get("reportId").getAsInt();
+            boolean ok = reportRepo.resolveReport(reportId);
+            writer.println(ok ? "RESOLVE_REPORT===OK" : "RESOLVE_REPORT===FAIL");
+            System.out.println("[Admin] Xử lý báo cáo #" + reportId + " → " + (ok ? "OK" : "FAIL"));
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("RESOLVE_REPORT===FAIL");
+        }
+    }
+
+    //GỬI BÁO CÁO
+    private void handleSubmitReport(String json) {
+        if (currentUser == null) {
+            writer.println("SUBMIT_REPORT===FAIL===Chưa đăng nhập"); return;
+        }
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            String targetUsername = obj.get("targetUsername").getAsString();
+            String reason         = obj.get("reason").getAsString();
+            int newId = reportRepo.insertReport(currentUser.getUsername(), targetUsername, reason);
+            if (newId > 0) {
+                writer.println("SUBMIT_REPORT===OK===" + newId);
+                System.out.println("[Report] " + currentUser.getUsername()
+                        + " báo cáo " + targetUsername + " → id=" + newId);
+            } else {
+                writer.println("SUBMIT_REPORT===FAIL===DB_ERROR");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("SUBMIT_REPORT===FAIL===SERVER_ERROR");
+        }
+    }
+
+
 }

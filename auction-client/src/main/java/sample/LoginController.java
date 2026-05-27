@@ -80,6 +80,11 @@ public class LoginController implements Initializable {
                 // Điều hướng theo role
                 navigateByRole(role);
 
+            } else if ("LOGIN BANNED".equals(response)) {
+                loginMessageLabel.setText("Tài khoản của bạn đã bị khóa. " +
+                        "\nVui lòng liên hệ quản trị viên.");
+                usernameTextField.clear();
+                enterPasswordField.clear();
             } else if ("LOGIN FAIL".equals(response)) {
                 loginMessageLabel.setText("❌ Sai tên đăng nhập hoặc mật khẩu!");
                 enterPasswordField.clear();

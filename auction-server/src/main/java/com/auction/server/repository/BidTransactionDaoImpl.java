@@ -73,6 +73,24 @@ public class BidTransactionDaoImpl implements IBidTransactionDAO {
         return null;
     }
 
+    //LẤY LỊCH SỬ ĐẶT GIÁ CHO ADMIN
+    @Override
+    public List<BidTransaction> getAllBids() {
+        String sql = "SELECT * FROM bid_transactions ORDER BY timestamp DESC";
+        List<BidTransaction> bids = new ArrayList<>();
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                BidTransaction bid = buildBidTransaction(rs);
+                if (bid != null) bids.add(bid);
+            }
+        } catch (Exception e) {
+            System.err.println("[BidTransactionDaoImpl] Lỗi getAllBids: \" + e.getMessage()");
+        }
+        return bids;
+    }
+
     // Dựng BidTransaction từ DB — cần constructor đặc biệt trong BidTransaction.java
     private BidTransaction buildBidTransaction(ResultSet rs) throws SQLException {
         String        transactionId   = rs.getString("transaction_id");
@@ -80,7 +98,6 @@ public class BidTransactionDaoImpl implements IBidTransactionDAO {
         String        bidderUsername  = rs.getString("bidder_username");
         double        bidAmount       = rs.getDouble("bid_amount");
         java.time.LocalDateTime timestamp = rs.getTimestamp("timestamp").toLocalDateTime();
-
         return new BidTransaction(transactionId, auctionId, bidderUsername, bidAmount, timestamp);
     }
 }

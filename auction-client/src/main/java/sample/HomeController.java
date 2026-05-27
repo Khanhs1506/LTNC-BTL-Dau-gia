@@ -13,7 +13,6 @@ import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
-import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -49,7 +48,6 @@ public class HomeController {
     @FXML private StackPane bellStackGuest;
     @FXML private StackPane bellStackUser;
     @FXML private Label     lblBalance;
-    @FXML private Button btnWallet;
 
     @FXML private Button btnNgheThuat;
     @FXML private Button btnPhuongTien;
@@ -270,6 +268,16 @@ public class HomeController {
                     if (countLabel != null) {
                         countLabel.setText(String.valueOf(item.thauThu));
                     }
+                    break;
+                }
+            }
+        });
+
+        // CẬP NHẬT THỜI GIAN CARD KHI ANTI-SNIPING GIA HẠN (TIME_EXTENDED)
+        NotificationManager.getInstance().addTimeExtendedListener(event -> {
+            for (AuctionItem item : allItems) {
+                if (item.auctionId == event.auctionId) {
+                    item.endTimeRaw = event.newEndTime; // Timeline trên card sẽ tự pick up tick tiếp theo
                     break;
                 }
             }

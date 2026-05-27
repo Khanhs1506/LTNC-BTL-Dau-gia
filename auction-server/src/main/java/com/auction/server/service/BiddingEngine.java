@@ -1,4 +1,5 @@
 
+
 package com.auction.server.service;
 
 import com.auction.server.model.Auction;
@@ -40,8 +41,8 @@ public class BiddingEngine {
     private final IBidTransactionDAO   bidDao;
     private final List<AuctionObserver> observers;
 
-    /** Số phút cuối phiên để áp dụng anti-sniping. */
-    private static final int ANTI_SNIPE_THRESHOLD_MINUTES = 5;
+    /** Số giây cuối phiên để áp dụng anti-sniping (5 phút = 300 giây). */
+    private static final long ANTI_SNIPE_THRESHOLD_SECONDS = 5 * 60;
     /** Số phút gia hạn khi anti-sniping kích hoạt. */
     private static final int ANTI_SNIPE_EXTENSION_MINUTES = 5;
 
@@ -115,19 +116,19 @@ public class BiddingEngine {
             auctionDao.updateHighestBid(auctionId, bidAmount, username);
 
             // 4. Anti-sniping: gia hạn nếu bid xuất hiện trong 5 phút cuối
-            long minutesLeft = ChronoUnit.MINUTES.between(LocalDateTime.now(), auction.getEndTime());
-            if (minutesLeft >= 0 && minutesLeft <= ANTI_SNIPE_THRESHOLD_MINUTES) {
-                auction.extendEndTime(ANTI_SNIPE_EXTENSION_MINUTES);
-                LocalDateTime newEndTime = auction.getEndTime();
+            synchronized (auction) {
+                long secondsLeft = ChronoUnit.SECONDS.between(LocalDateTime.now(), auction.getEndTime());
+                if (secondsLeft >= 0 && secondsLeft < ANTI_SNIPE_THRESHOLD_SECONDS) {
+                    auction.extendEndTime(ANTI_SNIPE_EXTENSION_MINUTES);
+                    LocalDateTime newEndTime = auction.getEndTime();
+                    auctionDao.updateEndTime(auctionId, newEndTime);
 
-                // Cập nhật end_time mới vào DB
-                auctionDao.updateEndTime(auctionId, newEndTime);
+                    System.out.printf("[Anti-Sniping] Phiên %d gia hạn thêm %d phút (còn %.0f giây). EndTime mới: %s%n",
+                            auctionId, ANTI_SNIPE_EXTENSION_MINUTES, (double) secondsLeft, newEndTime);
 
-                System.out.printf("[Anti-Sniping] Phiên %d gia hạn thêm %d phút (còn %d phút). EndTime mới: %s%n",
-                        auctionId, ANTI_SNIPE_EXTENSION_MINUTES, minutesLeft, newEndTime);
-
-                // Thông báo đến tất cả client về thời gian mới
-                notifyObserversTimeExtended(auctionId, newEndTime);
+                    // Thông báo đến tất cả client về thời gian mới
+                    notifyObserversTimeExtended(auctionId, newEndTime);
+                }
             }
 
             // 5. Notify observers (realtime update cho tất cả client)

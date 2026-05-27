@@ -13,4 +13,7 @@ public interface IBidTransactionDAO {
 
     // Lấy giá cao nhất hiện tại của 1 phiên
     BidTransaction getHighestBid(int auctionId);
+
+    //LẤY TẤT CẢ LỊCH SỬ ĐẶT GIÁ
+    List<BidTransaction> getAllBids();
 }

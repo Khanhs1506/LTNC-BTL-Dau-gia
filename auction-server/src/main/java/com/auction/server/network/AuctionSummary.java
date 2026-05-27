@@ -9,6 +9,7 @@ public class AuctionSummary {
     public double startingPrice;
     public double currentHighestBid;
     public String currentWinnerUsername;
+    public String sellerUsername;
     public String startTime;
     public String endTime;
     public String status;

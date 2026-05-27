@@ -1,3 +1,4 @@
+
 package com.auction.server.service;
 
 import com.auction.server.model.Auction;
@@ -154,7 +155,7 @@ public class AuctionManager {
         boolean auctionDeleted = auctionDao.deleteAuctionByItemId(itemId);
         boolean itemDeleted = itemDao.deleteItem(itemId);
         return auctionDeleted && itemDeleted;
-     }
+    }
 
     /**
      * Duyệt tất cả phiên trong RAM và tự động chuyển trạng thái theo thời gian thực.
@@ -163,19 +164,22 @@ public class AuctionManager {
     public void checkAndUpdateStatuses() {
         LocalDateTime now = LocalDateTime.now();
         for (Auction auction : activeAuctions.values()) {
-            if (auction.getStatus() == Auction.Status.OPEN
-                    && !now.isBefore(auction.getStartTime())
-                    && now.isBefore(auction.getEndTime())) {
-                auction.startAuction();
-                auctionDao.updateStatus(auction.getId(), Auction.Status.RUNNING);
-                System.out.println("[AuctionManager] Phiên " + auction.getId() + " chuyển sang RUNNING.");
-            } else if ((auction.getStatus() == Auction.Status.OPEN
-                    || auction.getStatus() == Auction.Status.RUNNING)
-                    && !now.isBefore(auction.getEndTime())) {
-                endAuction(auction.getId());
+            synchronized (auction) {
+                // Đọc lại endTime bên trong synchronized để lấy giá trị mới nhất sau khi anti-sniping gia hạn
+                LocalDateTime endTime = auction.getEndTime();
+                if (auction.getStatus() == Auction.Status.OPEN
+                        && !now.isBefore(auction.getStartTime())
+                        && now.isBefore(endTime)) {
+                    auction.startAuction();
+                    auctionDao.updateStatus(auction.getId(), Auction.Status.RUNNING);
+                    System.out.println("[AuctionManager] Phiên " + auction.getId() + " chuyển sang RUNNING.");
+                } else if ((auction.getStatus() == Auction.Status.OPEN
+                        || auction.getStatus() == Auction.Status.RUNNING)
+                        && !now.isBefore(endTime)) {
+                    endAuction(auction.getId());
+                }
             }
         }
     }
-
-
 }
+ 

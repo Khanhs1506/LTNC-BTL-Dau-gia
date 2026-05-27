@@ -32,8 +32,12 @@ public class UserDaoImpl implements IUserDAO{
                     String dbId = rs.getString("id");
                     String dbUser = rs.getString("username");
                     String dbPass = rs.getString("password");
-                    String dbRole = rs.getString("role"); // Đọc cột role để biết là ai
+                    String dbRole = rs.getString("role");
                     double dbBalance = rs.getDouble("balance");
+                    // Bug 3 fix: đọc status để kiểm tra ban
+                    String dbStatus = "active";
+                    try { dbStatus = rs.getString("status"); } catch (Exception ignored) {}
+                    if (dbStatus == null) dbStatus = "active";
 
                     switch (dbRole) {
                         case "ADMIN":
@@ -48,6 +52,7 @@ public class UserDaoImpl implements IUserDAO{
                         default:
                             System.err.println("Invalid Role");
                     }
+                    if (foundUser != null) foundUser.setStatus(dbStatus);
                 }
             }
         } catch (Exception e) {
@@ -142,6 +147,7 @@ public class UserDaoImpl implements IUserDAO{
 
         if (user != null) {
             user.setRole(dbRole != null ? dbRole : "");
+            user.setStatus(dbStatus);
         }
         return user;
     }
