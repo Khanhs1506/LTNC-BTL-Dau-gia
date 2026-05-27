@@ -175,6 +175,7 @@ public class HomeController {
 
     //TÍNH THỜI GIAN CÒN LẠI
     private String computeTimeLeft(LocalDateTime endTime) {
+        if (endTime == null) return "---";   // ← phải có dòng này
         Duration d = Duration.between(LocalDateTime.now(), endTime);
         if (d.isNegative()) return "Đã kết thúc";
         long hours   = d.toHours();
@@ -466,8 +467,6 @@ public class HomeController {
 
     // ===== Xử lý nút menu =====
     @FXML private void handleTienSanh()    { currentCategory = "Tất cả";        renderCards(currentCategory); }
-    @FXML private void handleBienSoXe()   { currentCategory = "Biển số xe";     renderCards(currentCategory); }
-    @FXML private void handleBatDongSan() { currentCategory = "Bất động sản";   renderCards(currentCategory); }
     @FXML private void handleNgheThuat()  { currentCategory = "Nghệ thuật";  renderCards(currentCategory); }
     @FXML private void handlePhuongTien() { currentCategory = "Phương tiện"; renderCards(currentCategory); }
     @FXML private void handleDienTu()     { currentCategory = "Điện tử";     renderCards(currentCategory); }
@@ -678,7 +677,9 @@ public class HomeController {
         Label lblTimeKey = new Label("Thời gian còn lại:");
         lblTimeKey.setStyle("-fx-text-fill: #555555; -fx-font-size: 13;");
 
-        Label lblTimeLeft = new Label(computeTimeLeft(item.endTimeRaw));
+        Label lblTimeLeft = new Label(
+                item.endTimeRaw != null ? computeTimeLeft(item.endTimeRaw) : "---"
+        );
         lblTimeLeft.setStyle("-fx-text-fill: #111111; -fx-font-weight: bold; -fx-font-size: 13;");
 
         grid.add(lblTimeKey, 0, 2);
