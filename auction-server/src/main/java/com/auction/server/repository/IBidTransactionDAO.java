@@ -4,6 +4,7 @@ import com.auction.server.model.BidTransaction;
 import java.util.List;
 
 public interface IBidTransactionDAO {
+    int DEFAULT_PAGE_SIZE = 100;
 
     // Lưu 1 lần đặt giá xuống DB
     boolean insertBid(BidTransaction transaction);
@@ -15,5 +16,8 @@ public interface IBidTransactionDAO {
     BidTransaction getHighestBid(int auctionId);
 
     //LẤY TẤT CẢ LỊCH SỬ ĐẶT GIÁ
-    List<BidTransaction> getAllBids();
+    default List<BidTransaction> getAllBids() {
+        return getAllBids(DEFAULT_PAGE_SIZE, 0);
+    }
+    List<BidTransaction> getAllBids(int limit, int offset);
 }

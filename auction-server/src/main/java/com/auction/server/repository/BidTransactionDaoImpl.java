@@ -7,6 +7,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BidTransactionDaoImpl implements IBidTransactionDAO {
+    private static final int MAX_PAGE_SIZE = 200;
+
+    private int sanitizeLimit(int limit) {
+        if (limit <= 0) {
+            return IBidTransactionDAO.DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(limit, MAX_PAGE_SIZE);
+    }
+
+    private int sanitizeOffset(int offset) {
+        return Math.max(offset, 0);
+    }
 
     @Override
     public boolean insertBid(BidTransaction transaction) {
@@ -75,18 +87,21 @@ public class BidTransactionDaoImpl implements IBidTransactionDAO {
 
     //LẤY LỊCH SỬ ĐẶT GIÁ CHO ADMIN
     @Override
-    public List<BidTransaction> getAllBids() {
-        String sql = "SELECT * FROM bid_transactions ORDER BY timestamp DESC";
+    public List<BidTransaction> getAllBids(int limit, int offset) {
+        String sql = "SELECT * FROM bid_transactions ORDER BY timestamp DESC LIMIT ? OFFSET ?";
         List<BidTransaction> bids = new ArrayList<>();
         try (Connection conn = DatabaseManager.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
-            while (rs.next()) {
-                BidTransaction bid = buildBidTransaction(rs);
-                if (bid != null) bids.add(bid);
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, sanitizeLimit(limit));
+            stmt.setInt(2, sanitizeOffset(offset));
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    BidTransaction bid = buildBidTransaction(rs);
+                    if (bid != null) bids.add(bid);
+                }
             }
         } catch (Exception e) {
-            System.err.println("[BidTransactionDaoImpl] Lỗi getAllBids: \" + e.getMessage()");
+            System.err.println("[BidTransactionDaoImpl] Lỗi getAllBids: " + e.getMessage());
         }
         return bids;
     }

@@ -10,6 +10,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ItemDaoImpl implements IItemDAO {
+    private static final int MAX_PAGE_SIZE = 200;
+
+    private int sanitizeLimit(int limit) {
+        if (limit <= 0) {
+            return IItemDAO.DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(limit, MAX_PAGE_SIZE);
+    }
+
+    private int sanitizeOffset(int offset) {
+        return Math.max(offset, 0);
+    }
 
     // Dựng object Item đúng loại từ ResultSet của bảng Items
     // Gọi sau khi đã JOIN với bảng con (Electronics_Items / Art_Items / Vehicle_Items)
@@ -70,21 +82,25 @@ public class ItemDaoImpl implements IItemDAO {
     }
 
     @Override
-    public List<Item> getAllItems() {
+    public List<Item> getAllItems(int limit, int offset) {
         String sql = "SELECT i.*, e.warranty_months, a.artist_name, v.brand, v.year " +
                 "FROM Items i " +
                 "LEFT JOIN Electronics_Items e ON i.id = e.item_id " +
                 "LEFT JOIN Art_Items         a ON i.id = a.item_id " +
-                "LEFT JOIN Vehicle_Items     v ON i.id = v.item_id";
+                "LEFT JOIN Vehicle_Items     v ON i.id = v.item_id " +
+                "ORDER BY i.id DESC LIMIT ? OFFSET ?";
 
         List<Item> items = new ArrayList<>();
         try (Connection conn = DatabaseManager.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            while (rs.next()) {
-                Item item = buildItem(rs);
-                if (item != null) items.add(item);
+            stmt.setInt(1, sanitizeLimit(limit));
+            stmt.setInt(2, sanitizeOffset(offset));
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Item item = buildItem(rs);
+                    if (item != null) items.add(item);
+                }
             }
         } catch (Exception e) {
             System.err.println("[ItemDaoImpl] Lỗi getAllItems: " + e.getMessage());

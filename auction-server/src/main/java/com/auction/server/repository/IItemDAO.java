@@ -4,9 +4,13 @@ import com.auction.server.model.Item;
 import java.util.List;
 
 public interface IItemDAO {
+    int DEFAULT_PAGE_SIZE = 100;
 
     // Lấy tất cả sản phẩm
-    List<Item> getAllItems();
+    default List<Item> getAllItems() {
+        return getAllItems(DEFAULT_PAGE_SIZE, 0);
+    }
+    List<Item> getAllItems(int limit, int offset);
 
     // Lấy danh sách sản phẩm của 1 seller
     List<Item> getItemsBySellerId(String sellerId);
