@@ -4,10 +4,10 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 
- // Lưu thông tin đăng ký đấu giá tự động của một bidder cho một phiên.
-  //Dùng trong PriorityQueue của AutoBiddingService:
- //  - maxBid càng cao  → ưu tiên cao hơn sẽ thắng cuối cùng
- //  - Nếu maxBid bằng nhau → ai đăng ký trước sẽ được đặt giá trước
+// Lưu thông tin đăng ký đấu giá tự động của một bidder cho một phiên.
+//Dùng trong PriorityQueue của AutoBiddingService:
+//  - maxBid càng cao  → ưu tiên cao hơn sẽ thắng cuối cùng
+//  - Nếu maxBid bằng nhau → ai đăng ký trước sẽ được đặt giá trước
 
 public class AutoBidEntry implements Comparable<AutoBidEntry>, Serializable {
 
