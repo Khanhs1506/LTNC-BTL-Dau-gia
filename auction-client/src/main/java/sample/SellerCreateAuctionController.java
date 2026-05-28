@@ -1,6 +1,7 @@
 package sample;
 
-import sample.AuctionItemDTO;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import javafx.animation.*;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -13,8 +14,6 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import sample.form.CategoryPanelManager;
 
-import javax.swing.plaf.TableHeaderUI;
-import java.awt.event.ActionEvent;
 import java.io.File;
 import java.net.URL;
 import java.time.LocalDate;
@@ -187,7 +186,7 @@ public class SellerCreateAuctionController implements Initializable {
 
     // Xử lý submenu "Khác"
     @FXML
-    private void selectOtherCategory(ActionEvent e) {
+    private void selectOtherCategory(javafx.event.ActionEvent e) {
         MenuItem item = (MenuItem) e.getSource();
         selectedCategory = "Other";
         btnOther.setText("📦 " + item.getText()); // hiển thị lựa chọn lên nút
@@ -524,7 +523,14 @@ public class SellerCreateAuctionController implements Initializable {
                 try {
                     String res = ServerConnection.getInstance().createItem(result);
                     javafx.application.Platform.runLater(() -> {
-                        if ("CREATE_ITEM_SUCCESS".equalsIgnoreCase(res)) {
+                        if (res.contains("CREATE_ITEM_SUCCESS")) {
+                            if (res.contains("===")) {
+                                try {
+                                    JsonObject obj = JsonParser.parseString(
+                                            res.split("===", 2)[1]).getAsJsonObject();
+                                    result.id = obj.get("auctionId").getAsInt();
+                                } catch (Exception ignored) {}
+                            }
                             lblSubmitError.setStyle("-fx-text-fill:#27ae60;");
                             lblSubmitError.setText("✅ Đăng bán thành công! Đang đóng...");
                             new Timeline(new KeyFrame(Duration.seconds(1.2), e -> getStage().close())).play();

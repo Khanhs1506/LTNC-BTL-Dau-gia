@@ -1,7 +1,7 @@
 package com.auction.server.model;
 
 public class ArtItem extends Item {
-    public String typeItem = "Art Item";
+    public String typeItem = "ArtItem";
     private String artist;
 
     public ArtItem(String id, String name, double startingPrice, String artist) {

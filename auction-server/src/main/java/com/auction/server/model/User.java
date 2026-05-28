@@ -1,4 +1,3 @@
-
 package com.auction.server.model;
 
 import java.io.Serializable;
@@ -11,6 +10,7 @@ public abstract class User implements Entity<String>, Serializable {
     private String username;
     private String password;
     private String role;
+    private String status = "active";
 
     public User(String id, String username, String password, String role) {
         this.id = id;
@@ -55,5 +55,12 @@ public abstract class User implements Entity<String>, Serializable {
         this.role = role;
     }
 
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status != null ? status : "active";
+    }
     public abstract void displayRoleInfo();
 }

@@ -6,11 +6,9 @@ import com.auction.server.model.*;
 import com.auction.server.repository.*;
 import com.auction.server.service.AuctionManager;
 import com.auction.server.service.AuctionObserver;
+import com.auction.server.service.AutoBiddingService;
 import com.auction.server.service.BiddingEngine;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -18,9 +16,18 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.auction.server.network.handler.WalletHandler;
+import com.auction.server.repository.DatabaseManager;
+import com.auction.server.repository.ReportDaoImpl;
+import com.auction.server.repository.IReportDAO;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 public class ClientHandler implements Runnable, AuctionObserver {
 
@@ -37,14 +44,16 @@ public class ClientHandler implements Runnable, AuctionObserver {
     private IItemDAO itemRepo = new ItemDaoImpl();
     private IAuctionDAO auctionRepo = new AuctionDaoImpl();
     private IBidTransactionDAO bidRepo = new BidTransactionDaoImpl();
+    private IReportDAO reportRepo = new ReportDaoImpl();
+    private AdminStatsDaoImpl adminStatsRepo = new AdminStatsDaoImpl();
     private final WalletHandler walletHandler = new WalletHandler();
-
+    private IFavoriteDAO favoriteRepo = new FavoriteDaoImpl();
     private User currentUser;
 
     public ClientHandler(Socket socket) throws Exception {
         this.socket = socket;
         connectedClients.add(this);
-        // ✅ FIX: Đăng ký observer để nhận BID_UPDATE từ BiddingEngine
+        //Đăng ký observer để nhận BID_UPDATE từ BiddingEngine
         BiddingEngine.getInstance().addObserver(this);
     }
 
@@ -58,6 +67,20 @@ public class ClientHandler implements Runnable, AuctionObserver {
         }
     }
 
+    /**
+     * Anti-sniping: gửi thông báo gia hạn thời gian đến client.
+     */
+    @Override
+    public void onTimeExtended(int auctionId, java.time.LocalDateTime newEndTime) {
+        if (writer != null) {
+            String formatted = newEndTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            String notification = String.format(
+                    "TIME_EXTENDED==={\"auctionId\":%d,\"newEndTime\":\"%s\",\"extensionMinutes\":5}",
+                    auctionId, formatted);
+            writer.println(notification);
+        }
+    }
+
     @Override
     public void run() {
         reader = null;
@@ -67,17 +90,22 @@ public class ClientHandler implements Runnable, AuctionObserver {
             writer = new PrintWriter(socket.getOutputStream(), true);
             String request;
             while ((request = reader.readLine()) != null) {
-                System.out.println("Khách gửi: " + request);
-
+                if (currentUser != null) {
+                    System.out.println(currentUser.getUsername() + " gửi: " + request);
+                } else {
+                    System.out.println("Khách gửi: " + request);
+                }
                 handlerRequest(request);
             }
 
             socket.close();
         } catch (Exception e) {
-            System.out.println("Khách hàng mất mạng hoặc ngắt kết nối đột ngột");
+            if (currentUser != null) {
+                System.out.println("[Server] Tài khoản [" + currentUser.getUsername() + "] tắt ứng dụng hoặc mất mạng đột ngột.");
+            }
         } finally {
             connectedClients.remove(this);
-            // ✅ FIX: Huỷ đăng ký observer khi client ngắt kết nối tránh memory leak
+            //Huỷ đăng ký observer khi client ngắt kết nối tránh memory leak
             BiddingEngine.getInstance().removeObserver(this);
             NumberOfClient--;
             System.out.println("Có " + NumberOfClient + " khách đang kết nối");
@@ -138,6 +166,13 @@ public class ClientHandler implements Runnable, AuctionObserver {
                     handleGetAuctionsBySeller();
                     break;
 
+                case "GET_SELLER_PAID_AUCTIONS":
+                    handleGetSellerPaidAuctions();
+                    break;
+                case "MARK_AUCTION_PAID":
+                    handleMarkAuctionPaid(json);
+                    break;
+
                 case "GET_BID_HISTORY":
                     handleGetBidHistory(json);
                     break;
@@ -153,6 +188,54 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
                 case "UNBAN_USER":
                     handleUnbanUser(json);
+                    break;
+
+                case "GET_ADMIN_AUCTIONS":
+                    handleGetAdminAuctions();
+                    break;
+
+                case "CANCEL_AUCTION":
+                    handleCancelAuction(json);
+                    break;
+
+                case "GET_ADMIN_BIDS":
+                    handleGetAdminBids();
+                    break;
+
+                case "GET_ADMIN_STATS":
+                    handleGetAdminStats();
+                    break;
+
+                case "GET_REPORTS":
+                    handleGetReports();
+                    break;
+
+                case "RESOLVE_REPORT":
+                    handleResolveReport(json);
+                    break;
+
+                case "SUBMIT_REPORT":
+                    handleSubmitReport(json);
+                    break;
+
+                case "ADD_FAVORITE":
+                    handleAddFavorite(json);
+                    break;
+                case "REMOVE_FAVORITE":
+                    handleRemoveFavorite(json);
+                    break;
+                case "GET_FAVORITES":
+                    handleGetFavorites();
+                    break;
+
+                case "REGISTER_AUTO_BID":
+                    handleRegisterAutoBid(json);
+                    break;
+                case "CANCEL_AUTO_BID":
+                    handleCancelAutoBid(json);
+                    break;
+                case "GET_AUTO_BID":
+                    handleGetAutoBid(json);
                     break;
 
                 case "GET_BALANCE":
@@ -180,13 +263,17 @@ public class ClientHandler implements Runnable, AuctionObserver {
         String username = object.get("username").getAsString();
         String password = object.get("password").getAsString();
         User dbUser = userRepo.getUserByUsername(username);
-        if (dbUser != null && dbUser.getPassword().equals(password)) {
-            currentUser = dbUser;
-            String role = dbUser.getRole();
-            writer.println("LOGIN SUCCESS===" + role);
-        } else {
+        if (dbUser == null || !dbUser.getPassword().equals(password)) {
             writer.println("LOGIN FAIL");
+            return;
         }
+        if ("banned".equalsIgnoreCase(dbUser.getStatus())) {
+            writer.println("LOGIN BANNED");
+            System.out.println("[Server] Tài khoản bị khóa cố đăng nhập: " + username);
+            return;
+        }
+        currentUser = dbUser;
+        writer.println("LOGIN SUCCESS===" + dbUser.getRole());
     }
 
     // ĐĂNG KÍ TÀI KHOẢN
@@ -277,11 +364,24 @@ public class ClientHandler implements Runnable, AuctionObserver {
                         ? LocalDateTime.parse(obj.get("endTime").getAsString(), fmt)
                         : LocalDateTime.now().plusDays(7);
 
-                //LƯU VÀO DB VÀ RAM
+                //LƯU VÀO DTB VÀ RAM
                 int auctionId = AuctionManager.getInstance().createAuction(itemId, startTime, endTime);
                 if (auctionId > 0) {
                     System.out.println("[Server] Tạo phiên đấu giá id=" + auctionId + " cho item id=" + itemId);
-                    writer.println("CREATE_ITEM_SUCCESS");
+                    Auction newAuction = auctionRepo.getAuctionById(auctionId);
+                    String auctionJson = (newAuction != null)
+                            ? gson.toJson(toSummaryList(List.of(newAuction)).get(0)) : "{}";
+                    writer.println("CREATE_ITEM_SUCCESS===" + auctionJson);
+
+                    if (newAuction != null) {
+                        List<AuctionSummary> single = toSummaryList(List.of(newAuction));
+                        String notify = "NEW_AUCTION_NOTIFY===" + gson.toJson(single.get(0));
+                        for (ClientHandler client : connectedClients) {
+                            if (client != this && client.writer != null) {
+                                client.writer.println(notify);
+                            }
+                        }
+                    }
                 } else {
                     writer.println("CREATE_ITEM_FAIL");
                 }
@@ -335,11 +435,16 @@ public class ClientHandler implements Runnable, AuctionObserver {
             writer.println("ONLY BIDDER CAN BID");
             return;
         }
-
         try {
             PlacedBidResquest res = gson.fromJson(json, PlacedBidResquest.class);
+            //Kiểm tra số dư ví trước khi đặt giá
+            String userId = String.valueOf(currentUser.getId());
+            double balance = walletHandler.getBalance(userId);
+            if (balance < res.amount) {
+                writer.println(String.format("BID_FAIL===INSUFFICIENT_BALANCE: Số dư không đủ (cần %.0f, hiện có %.0f)", res.amount, balance));
+                return;
+            }
             boolean success = BiddingEngine.getInstance().processBid(res.auctionId, currentUser.getUsername(), res.amount);
-
             if (success) {
                 writer.println("BID SUCCESS");
             } else {
@@ -356,6 +461,9 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     //ĐĂNG XUẤT
     private void handleLogout() {
+        if (currentUser != null) {
+            System.out.println("[Server] Tài khoản [" + currentUser.getUsername() + "] đã đăng xuất chủ động.");
+        }
         currentUser = null;
         writer.println("LOGOUT SUCCESS");
     }
@@ -401,10 +509,26 @@ public class ClientHandler implements Runnable, AuctionObserver {
         try {
             String username = JsonParser.parseString(json).getAsJsonObject().get("username").getAsString();
             boolean ok = userRepo.setUserStatus(username, "banned");
-            writer.println(ok ? "BAN_USER===OK" : "BAN_USER===FAIL");
-            System.out.println("[Admin] Khóa user: " + username + " → " + (ok ? "OK" : "FAIL"));
+            if (ok) {
+                writer.println(ok ? "BAN_USER===OK" : "BAN_USER===FAIL");
+                System.out.println("[Admin] Khóa user: " + username + " → " + (ok ? "OK" : "FAIL"));
+                forceLogoutOnlineUser(username);
+            } else {
+                writer.println("BAN_USER===FAIL");
+            }
         } catch (Exception e) {
             writer.println("BAN_USER===FAIL");
+        }
+    }
+
+    //GỬI LỆNH TỚI KHÁCH
+    private void forceLogoutOnlineUser(String username) {
+        for (ClientHandler client : connectedClients) {
+            if (client != this && client.currentUser != null && username.equals(client.currentUser.getUsername())) {
+                client.writer.println("FORCE_LOGOUT===Tài khoản của bạn đã bị khóa bởi quản trị viên.");
+                client.currentUser = null;
+                System.out.println("[Admin] Đã force-logout user đang online: " + username);
+            }
         }
     }
 
@@ -451,9 +575,35 @@ public class ClientHandler implements Runnable, AuctionObserver {
         writer.println("AUCTIONS===" + gson.toJson(toSummaryList(auctions)));
     }
 
+    private void handleGetSellerPaidAuctions() {
+        if (!(currentUser instanceof Seller)) {
+            writer.println("SELLER_PAID_AUCTIONS===[]");
+            return;
+        }
+        List<Integer> paidIds = auctionRepo.getSellerPaidAuctionIds(currentUser.getId());
+        JsonArray arr = new JsonArray();
+        for (Integer id : paidIds) arr.add(id);
+        writer.println("SELLER_PAID_AUCTIONS===" + arr);
+    }
+
+    private void handleMarkAuctionPaid(String json) {
+        if (!(currentUser instanceof Seller)) {
+            writer.println("MARK_AUCTION_PAID===FAIL===ONLY_SELLER");
+            return;
+        }
+        try {
+            int auctionId = JsonParser.parseString(json).getAsJsonObject().get("auctionId").getAsInt();
+            boolean ok = auctionRepo.markAuctionPaid(auctionId, currentUser.getId());
+            writer.println(ok ? "MARK_AUCTION_PAID===OK" : "MARK_AUCTION_PAID===FAIL===INVALID_AUCTION");
+        } catch (Exception e) {
+            writer.println("MARK_AUCTION_PAID===FAIL===SERVER_ERROR");
+        }
+    }
+
     //CHUYỂN TỪ AUCTION SANG AUCTIONSUMMARY
     private List<AuctionSummary> toSummaryList(List<Auction> auctions) {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        Map<Integer, Integer> bidCounts = fetchBidCounts(auctions);
         List<AuctionSummary> summaries = new java.util.ArrayList<>();
         for (Auction a : auctions) {
             AuctionSummary s = new AuctionSummary();
@@ -467,8 +617,280 @@ public class ClientHandler implements Runnable, AuctionObserver {
             s.startTime = a.getStartTime().format(fmt);
             s.endTime = a.getEndTime().format(fmt);
             s.status = a.getStatus().name();
+            s.bidCount = bidCounts.getOrDefault(a.getId(), 0);
             summaries.add(s);
         }
         return summaries;
+    }
+
+    private Map<Integer, Integer> fetchBidCounts(List<Auction> auctions) {
+        if (auctions == null || auctions.isEmpty()) return new HashMap<>();
+        List<Integer> ids = new java.util.ArrayList<>();
+        for (Auction a : auctions) ids.add(a.getId());
+        return bidRepo.getBidCounts(ids);
+    }
+
+    //LẤY PHIÊN ĐẤU GIÁ
+    private void handleGetAdminAuctions() {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("GET_ADMIN_AUCTIONS===[]"); return;
+        }
+        try {
+            List<Auction> auctions = auctionRepo.getAllAuctions();
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            JsonArray arr = new JsonArray();
+            for (Auction a : auctions) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("auctionId", a.getId());
+                obj.addProperty("itemName", a.getItem().getName());
+                String sellerUsername = getSellerUsernameByItemId(a.getItem().getId());
+                obj.addProperty("sellerUsername", sellerUsername != null ? sellerUsername : "—");
+                obj.addProperty("currentHighestBid", a.getCurrentHighestBid());
+                if (a.getCurrentWinnerUsername() != null)
+                    obj.addProperty("currentWinnerUsername", a.getCurrentWinnerUsername());
+                else
+                    obj.add("currentWinnerUsername", JsonNull.INSTANCE);
+                obj.addProperty("status", a.getStatus().name());
+                obj.addProperty("endTime", a.getEndTime().format(fmt));
+                arr.add(obj);
+            }
+            writer.println("GET_ADMIN_AUCTIONS===" + arr.toString());
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("GET_ADMIN_AUCTIONS===[]");
+        }
+    }
+
+    // Helper: lấy username của seller theo item_id
+    private String getSellerUsernameByItemId(String itemId) {
+        return itemRepo.getSellerUsernameByItemId(Integer.parseInt(itemId));
+    }
+
+    //HỦY PHIÊN ĐẤU GIÁ
+    private void handleCancelAuction(String json) {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("CANCEL_AUCTION===FAIL"); return;
+        }
+        try {
+            int auctionId = JsonParser.parseString(json).getAsJsonObject().get("auctionId").getAsInt();
+            boolean ok = auctionRepo.updateStatus(auctionId, Auction.Status.CANCELED);
+            if (ok) {
+                // Đồng bộ trạng thái trong RAM (AuctionManager)
+                Auction inMem = AuctionManager.getInstance().getAuction(auctionId);
+                if (inMem != null) inMem.updateStatus(Auction.Status.CANCELED);
+                writer.println("CANCEL_AUCTION===OK");
+                System.out.println("[Admin] Hủy phiên #" + auctionId);
+            } else {
+                writer.println("CANCEL_AUCTION===FAIL");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("CANCEL_AUCTION===FAIL");
+        }
+    }
+
+    //THỐNG KÊ DỮ LIỆU CHO ADMIN
+    private void handleGetAdminStats() {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("GET_ADMIN_STATS==={}");
+            return;
+        }
+        JsonObject result = adminStatsRepo.getAdminStats();
+        writer.println("GET_ADMIN_STATS===" + result.toString());
+        System.out.println("[Admin] Trả dữ liệu thống kê từ DAO thành công.");
+    }
+
+    //LỊCH SỬ ĐẶT GIÁ
+    private void handleGetAdminBids() {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("GET_ADMIN_BIDS===[]"); return;
+        }
+        try {
+            List<BidTransaction> bids = bidRepo.getAllBids();
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+            JsonArray arr = new JsonArray();
+            for (BidTransaction b : bids) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("transactionId", b.getTransactionId());
+                obj.addProperty("auctionId", b.getAuctionId());
+                obj.addProperty("bidderUsername", b.getBidderUsername());
+                obj.addProperty("bidAmount", b.getBidAmount());
+                obj.addProperty("timestamp", b.getTimestamp().format(fmt));
+                arr.add(obj);
+            }
+            writer.println("GET_ADMIN_BIDS===" + arr.toString());
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("GET_ADMIN_BIDS===[]");
+        }
+    }
+
+    //BÁO CÁO VI PHẠM
+    private void handleGetReports() {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("GET_REPORTS===[]"); return;
+        }
+        try {
+            List<IReportDAO.ReportInfo> reports = reportRepo.getAllReports();
+            JsonArray arr = new JsonArray();
+            for (IReportDAO.ReportInfo r : reports) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("id", r.id);
+                obj.addProperty("reporterUsername", r.reporterUsername);
+                obj.addProperty("targetUsername", r.targetUsername);
+                obj.addProperty("reason", r.reason);
+                obj.addProperty("createdAt", r.createdAt);
+                obj.addProperty("status", r.status);
+                arr.add(obj);
+            }
+            writer.println("GET_REPORTS===" + arr.toString());
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("GET_REPORTS===[]");
+        }
+    }
+
+    //XỬ LÝ BÁO CÁO
+    private void handleResolveReport(String json) {
+        if (!(currentUser instanceof Admin)) {
+            writer.println("RESOLVE_REPORT===FAIL"); return;
+        }
+        try {
+            int reportId = JsonParser.parseString(json).getAsJsonObject().get("reportId").getAsInt();
+            boolean ok = reportRepo.resolveReport(reportId);
+            writer.println(ok ? "RESOLVE_REPORT===OK" : "RESOLVE_REPORT===FAIL");
+            System.out.println("[Admin] Xử lý báo cáo #" + reportId + " → " + (ok ? "OK" : "FAIL"));
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("RESOLVE_REPORT===FAIL");
+        }
+    }
+
+    //GỬI BÁO CÁO
+    private void handleSubmitReport(String json) {
+        if (currentUser == null) {
+            writer.println("SUBMIT_REPORT===FAIL===Chưa đăng nhập"); return;
+        }
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            String targetUsername = obj.get("targetUsername").getAsString();
+            String reason         = obj.get("reason").getAsString();
+            int newId = reportRepo.insertReport(currentUser.getUsername(), targetUsername, reason);
+            if (newId > 0) {
+                writer.println("SUBMIT_REPORT===OK===" + newId);
+                System.out.println("[Report] " + currentUser.getUsername()
+                        + " báo cáo " + targetUsername + " → id=" + newId);
+            } else {
+                writer.println("SUBMIT_REPORT===FAIL===DB_ERROR");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("SUBMIT_REPORT===FAIL===SERVER_ERROR");
+        }
+    }
+
+    private void handleAddFavorite(String json) {
+        if (currentUser == null) { writer.println("ADD_FAVORITE===FAIL===Chưa đăng nhập"); return; }
+        try {
+            int auctionId = com.google.gson.JsonParser.parseString(json)
+                    .getAsJsonObject().get("auctionId").getAsInt();
+            boolean ok = favoriteRepo.addFavorite(currentUser.getUsername(), auctionId);
+            writer.println(ok ? "ADD_FAVORITE===OK" : "ADD_FAVORITE===FAIL");
+        } catch (Exception e) {
+            writer.println("ADD_FAVORITE===FAIL");
+        }
+    }
+
+    private void handleRemoveFavorite(String json) {
+        if (currentUser == null) { writer.println("REMOVE_FAVORITE===FAIL===Chưa đăng nhập"); return; }
+        try {
+            int auctionId = com.google.gson.JsonParser.parseString(json)
+                    .getAsJsonObject().get("auctionId").getAsInt();
+            boolean ok = favoriteRepo.removeFavorite(currentUser.getUsername(), auctionId);
+            writer.println(ok ? "REMOVE_FAVORITE===OK" : "REMOVE_FAVORITE===FAIL");
+        } catch (Exception e) {
+            writer.println("REMOVE_FAVORITE===FAIL");
+        }
+    }
+
+    private void handleGetFavorites() {
+        if (currentUser == null) { writer.println("GET_FAVORITES===[]"); return; }
+
+        // GHI LOGDEBUG
+        System.out.println("[Favorites] Getting favorites for: " + currentUser.getUsername());
+
+        try {
+            java.util.List<Integer> ids = favoriteRepo.getFavoriteAuctionIds(currentUser.getUsername());
+            writer.println("GET_FAVORITES===" + new com.google.gson.Gson().toJson(ids));
+        } catch (Exception e) {
+            writer.println("GET_FAVORITES===[]");
+        }
+    }
+
+    private void handleRegisterAutoBid(String json) {
+        if (!(currentUser instanceof Bidder)) {
+            writer.println("REGISTER_AUTO_BID===FAIL===Chỉ Bidder mới dùng được");
+            return;
+        }
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            int    auctionId  = obj.get("auctionId").getAsInt();
+            double maxBid     = obj.get("maxBid").getAsDouble();
+            double increment  = obj.get("increment").getAsDouble();
+            int    minutesTrigger = obj.has("minutesTrigger")
+                    ? obj.get("minutesTrigger").getAsInt() : 5;
+
+            AutoBidEntry entry = new AutoBidEntry(auctionId,
+                    currentUser.getUsername(), maxBid, increment);
+
+            boolean ok = AutoBiddingService.getInstance().registerAutoBid(entry);
+            if (ok) {
+                // Lưu thêm minutesTrigger vào DB
+                AutoBiddingService.getInstance()
+                        .setMinutesTrigger(auctionId, currentUser.getUsername(), minutesTrigger);
+                writer.println("REGISTER_AUTO_BID===OK");
+            } else {
+                writer.println("REGISTER_AUTO_BID===FAIL===Không thể đăng ký");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            writer.println("REGISTER_AUTO_BID===FAIL===SERVER_ERROR");
+        }
+    }
+
+    private void handleCancelAutoBid(String json) {
+        if (currentUser == null) {
+            writer.println("CANCEL_AUTO_BID===FAIL"); return;
+        }
+        try {
+            int auctionId = JsonParser.parseString(json).getAsJsonObject()
+                    .get("auctionId").getAsInt();
+            boolean ok = AutoBiddingService.getInstance()
+                    .cancelAutoBid(auctionId, currentUser.getUsername());
+            writer.println(ok ? "CANCEL_AUTO_BID===OK" : "CANCEL_AUTO_BID===FAIL");
+        } catch (Exception e) {
+            writer.println("CANCEL_AUTO_BID===FAIL");
+        }
+    }
+
+    private void handleGetAutoBid(String json) {
+        if (currentUser == null) {
+            writer.println("GET_AUTO_BID==={}"); return;
+        }
+        try {
+            int auctionId = JsonParser.parseString(json).getAsJsonObject()
+                    .get("auctionId").getAsInt();
+            boolean exists = AutoBiddingService.getInstance()
+                    .hasAutoBid(auctionId, currentUser.getUsername());
+            if (exists) {
+                AutoBidEntry entry = AutoBiddingService.getInstance()
+                        .getAutoBid(auctionId, currentUser.getUsername());
+                writer.println("GET_AUTO_BID===" + new Gson().toJson(entry));
+            } else {
+                writer.println("GET_AUTO_BID==={}");
+            }
+        } catch (Exception e) {
+            writer.println("GET_AUTO_BID==={}");
+        }
     }
 }

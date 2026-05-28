@@ -4,6 +4,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -36,17 +38,14 @@ public class HomeController {
     @FXML private HBox      guestBox;
     @FXML private HBox      userBox;
     @FXML private Label     lblUsername;
-    @FXML private Button    btnKhac;
+    @FXML private Button btnYeuThich;
     @FXML private Button    btnTienSanh;
-    @FXML private Button    btnBienSoXe;
-    @FXML private Button    btnBatDongSan;
     @FXML private BorderPane rootPane;
     @FXML private Button btnBellGuest;
     @FXML private Button btnBellUser;
     @FXML private StackPane bellStackGuest;
     @FXML private StackPane bellStackUser;
     @FXML private Label     lblBalance;
-    @FXML private Button btnWallet;
 
     @FXML private Button btnNgheThuat;
     @FXML private Button btnPhuongTien;
@@ -55,7 +54,6 @@ public class HomeController {
 
     private Label badgeGuest;
     private Label badgeUser;
-    private ContextMenu khacMenu;
 
     // ===== State =====
     private String currentCategory = "Tất cả"; // danh mục đang lọc
@@ -90,6 +88,7 @@ public class HomeController {
     private List<AuctionItem> allItems = new ArrayList<>();
     private final Map<Integer, Label> cardPriceLabels    = new HashMap<>();
     private final Map<Integer, Label> cardBidCountLabels = new HashMap<>();
+    private final List<Timeline> activeTimers = new ArrayList<>();
 
     // ===== Initialize =====
     @FXML
@@ -100,8 +99,6 @@ public class HomeController {
         guestBox.setManaged(true);
         userBox.setVisible(false);
         userBox.setManaged(false);
-
-        buildKhacMenu();
 
         //LẤY DỮ LIỆU TỪ SERVER
         loadFromServer();
@@ -122,6 +119,9 @@ public class HomeController {
                     for (JsonElement el : arr) {
                         JsonObject obj = el.getAsJsonObject();
 
+//                        // 🚨🚨🚨🚨🚨XÓA LOGBUG
+//                        System.out.println("DEBUG: " + obj);
+
                         String status = obj.get("status").getAsString();
                         if (!status.equals("RUNNING") && !status.equals("OPEN")) continue;
 
@@ -141,6 +141,7 @@ public class HomeController {
                                 timeLeft, 0, endDateFormatted, category
                         );
                         ai.auctionId = auctionId;
+                        ai.endTimeRaw = endTime; // ← thêm dòng này
                         loaded.add(ai);
                     }
 
@@ -148,6 +149,7 @@ public class HomeController {
                     Platform.runLater(() -> {
                         allItems = loaded.isEmpty() ? buildMockItems() : loaded;
                         renderCards(currentCategory);
+                        loadFavoritesFromServer();
                     });
 
                 } else {
@@ -172,6 +174,7 @@ public class HomeController {
 
     //TÍNH THỜI GIAN CÒN LẠI
     private String computeTimeLeft(LocalDateTime endTime) {
+        if (endTime == null) return "---";   // ← phải có dòng này
         Duration d = Duration.between(LocalDateTime.now(), endTime);
         if (d.isNegative()) return "Đã kết thúc";
         long hours   = d.toHours();
@@ -186,20 +189,18 @@ public class HomeController {
         return switch (itemType) {
             // Server trả về dạng viết hoa
             case "ART"              -> "Nghệ thuật";
-            case "ELECTRONICS"      -> "Điện tử";
             case "VEHICLE"          -> "Phương tiện";
+            case "ELECTRONICS"      -> "Điện tử";
             // Client gửi lên dạng key
-            case "ArtItem"          -> "Nghệ thuật";
-            case "ElectronicsItem"  -> "Điện tử";
-            case "VehicleItem"      -> "Phương tiện";
+//            case "ArtItem"          -> "Nghệ thuật";
+//            case "VehicleItem"      -> "Phương tiện";
+//            case "ElectronicsItem"  -> "Điện tử";
+
+            case "Art Item"          -> "Nghệ thuật";
+            case "Vehicle Item"      -> "Phương tiện";
+            case "Electronics Item"  -> "Điện tử";
             // Các danh mục từ menu Khác — giữ nguyên tiếng Việt
-            case "Nội thất",
-                 "Bất động sản",
-                 "Vé sự kiện",
-                 "Trò chơi điện tử",
-                 "Thể thao",
-                 "Sách",
-                 "Thời trang"       -> itemType;
+            case "Không hiển thị !"       -> itemType;
             default                 -> "Khác";
         };
     }
@@ -265,6 +266,16 @@ public class HomeController {
                     if (countLabel != null) {
                         countLabel.setText(String.valueOf(item.thauThu));
                     }
+                    break;
+                }
+            }
+        });
+
+        // CẬP NHẬT THỜI GIAN CARD KHI ANTI-SNIPING GIA HẠN (TIME_EXTENDED)
+        NotificationManager.getInstance().addTimeExtendedListener(event -> {
+            for (AuctionItem item : allItems) {
+                if (item.auctionId == event.auctionId) {
+                    item.endTimeRaw = event.newEndTime; // Timeline trên card sẽ tự pick up tick tiếp theo
                     break;
                 }
             }
@@ -408,6 +419,8 @@ public class HomeController {
 
     // ===== Render cards theo danh mục =====
     private void renderCards(String category) {
+        activeTimers.forEach(Timeline::stop);  // ← thêm dòng này
+        activeTimers.clear();
         flowPane.getChildren().clear();
         allBidButtons.clear();
 
@@ -438,58 +451,28 @@ public class HomeController {
             btnPhuongTien.setStyle(category.equals("Phương tiện") ? selected : normal);
         if (btnDienTu     != null)
             btnDienTu.setStyle(category.equals("Điện tử")        ? selected : normal);
-        if (btnKhac       != null)
-            btnKhac.setStyle(
-                    (!category.equals("Tất cả") && !category.equals("Nghệ thuật")
-                            && !category.equals("Phương tiện") && !category.equals("Điện tử"))
-                            ? selected : normal);
-        if (btnBienSoXe   != null)
-            btnBienSoXe.setStyle(category.equals("Biển số xe")     ? selected : normal);
-        if (btnBatDongSan != null)
-            btnBatDongSan.setStyle(category.equals("Bất động sản") ? selected : normal);
+        if (btnYeuThich != null)
+            btnYeuThich.setStyle(category.equals("Yêu thích") ? selected : normal);
     }
 
     // ===== Xử lý nút menu =====
     @FXML private void handleTienSanh()    { currentCategory = "Tất cả";        renderCards(currentCategory); }
-    @FXML private void handleBienSoXe()   { currentCategory = "Biển số xe";     renderCards(currentCategory); }
-    @FXML private void handleBatDongSan() { currentCategory = "Bất động sản";   renderCards(currentCategory); }
     @FXML private void handleNgheThuat()  { currentCategory = "Nghệ thuật";  renderCards(currentCategory); }
     @FXML private void handlePhuongTien() { currentCategory = "Phương tiện"; renderCards(currentCategory); }
     @FXML private void handleDienTu()     { currentCategory = "Điện tử";     renderCards(currentCategory); }
-
-    // ===== Menu Khác =====
-    private void buildKhacMenu() {
-        khacMenu = new ContextMenu();
-
-        // Danh mục có trong dữ liệu sẽ lọc được
-        String[] categories = {
-                "Nội thất", "Bất động sản", "Vé sự kiện",
-                "Trò chơi điện tử", "Thể thao", "Sách", "Thời trang"
-        };
-
-        for (String cat : categories) {
-            MenuItem menuItem = new MenuItem(cat);
-            menuItem.setStyle("-fx-font-size: 13px; -fx-padding: 6 16;");
-            menuItem.setOnAction(e -> {
-                currentCategory = cat;
-                renderCards(cat);
-            });
-            khacMenu.getItems().add(menuItem);
-        }
-
-        khacMenu.setStyle(
-                "-fx-background-color: white;" +
-                        "-fx-border-color: #e8e0d0;" +
-                        "-fx-border-width: 1;" +
-                        "-fx-border-radius: 8;" +
-                        "-fx-background-radius: 8;" +
-                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.12), 12, 0, 0, 4);"
-        );
-    }
-
     @FXML
-    private void handleKhacMenu(ActionEvent event) {
-        khacMenu.show(btnKhac, Side.BOTTOM, 0, 6);
+    private void handleYeuThich() {
+        currentCategory = "Yêu thích";
+        activeTimers.forEach(Timeline::stop);
+        activeTimers.clear();
+        flowPane.getChildren().clear();
+        allBidButtons.clear();
+        for (AuctionItem item : allItems) {
+            if (item.favorited) {
+                flowPane.getChildren().add(createCard(item));
+            }
+        }
+        highlightCategoryButton("Yêu thích");
     }
 
     // ===== Login / Logout =====
@@ -506,6 +489,13 @@ public class HomeController {
         for (Button btn : allBidButtons) {
             btn.setText("Đấu giá");
         }
+
+        // Reset toàn bộ favorited trước khi load của user mới
+        for (AuctionItem item : allItems) {
+            item.favorited = false;
+        }
+
+        loadFavoritesFromServer(); // load favorites của user mới
     }
 
     @FXML
@@ -520,6 +510,17 @@ public class HomeController {
 
         for (Button btn : allBidButtons) {
             btn.setText("Đăng kí đấu giá");
+        }
+
+        // Reset favorites khi logout
+        for (AuctionItem item : allItems) {
+            item.favorited = false;
+        }
+
+        // Nếu đang ở tab Yêu thích thì về Tất cả
+        if (currentCategory.equals("Yêu thích")) {
+            currentCategory = "Tất cả";
+            renderCards(currentCategory);
         }
     }
 
@@ -631,9 +632,23 @@ public class HomeController {
         Button btnHeart = new Button(item.favorited ? "♥" : "♡");
         btnHeart.setStyle(heartStyle(item.favorited));
         btnHeart.setOnAction(e -> {
-            item.favorited = !item.favorited;          // toggle trạng thái
+            if (!UserSession.getInstance().isLoggedIn()) {
+                handleDangNhap();
+                return;
+            }
+            item.favorited = !item.favorited;
             btnHeart.setText(item.favorited ? "♥" : "♡");
             btnHeart.setStyle(heartStyle(item.favorited));
+            int aid = item.auctionId;
+            boolean fav = item.favorited;
+            new Thread(() -> {
+                try {
+                    if (fav) ServerConnection.getInstance().addFavorite(aid);
+                    else     ServerConnection.getInstance().removeFavorite(aid);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }).start();
         });
 
         titleRow.getChildren().addAll(lblTitle, btnHeart);
@@ -660,7 +675,35 @@ public class HomeController {
         grid.add(lblHighVal, 1, 1);
         if (item.auctionId > 0) cardPriceLabels.put(item.auctionId, lblHighVal);
 
-        addRow(grid, 2, "Thời gian:", item.thoiGian, false);
+        Label lblTimeKey = new Label("Thời gian còn lại:");
+        lblTimeKey.setStyle("-fx-text-fill: #555555; -fx-font-size: 13;");
+
+        Label lblTimeLeft = new Label(
+                item.endTimeRaw != null ? computeTimeLeft(item.endTimeRaw) : "---"
+        );
+        lblTimeLeft.setStyle("-fx-text-fill: #111111; -fx-font-weight: bold; -fx-font-size: 13;");
+
+        grid.add(lblTimeKey, 0, 2);
+        grid.add(lblTimeLeft, 1, 2);
+
+        if (item.endTimeRaw != null) {
+            Timeline clock = new Timeline(
+                    new KeyFrame(javafx.util.Duration.seconds(1), e -> {
+                        String t = computeTimeLeft(item.endTimeRaw);
+                        lblTimeLeft.setText(t);
+                        if (t.equals("Đã kết thúc")) {
+                            lblTimeLeft.setStyle("-fx-text-fill: #999; -fx-font-size: 13;");
+                        }
+                    })
+            );
+            clock.setCycleCount(Timeline.INDEFINITE);
+            clock.play();
+            activeTimers.add(clock);
+
+            card.sceneProperty().addListener((obs, oldScene, newScene) -> {
+                if (newScene == null) clock.stop();
+            });
+        }
 
         //THẦU THỨ (CẬP NHẬT)
         Label lblCountKey = new Label("Thầu thứ:");
@@ -701,7 +744,7 @@ public class HomeController {
 
         VBox linkBox = new VBox(lblLink);
         linkBox.setAlignment(Pos.CENTER);
-
+        card.setUserData(item.auctionId);
         card.getChildren().addAll(titleRow, new Separator(), grid, btnBid, linkBox);
         return card;
     }
@@ -813,6 +856,91 @@ public class HomeController {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    public void addNewAuctionCard(String json) {
+        try {
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            String status = obj.get("status").getAsString();
+            if (!status.equals("RUNNING") && !status.equals("OPEN")) return;
+
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            String name       = obj.get("itemName").getAsString();
+            double startPrice = obj.get("startingPrice").getAsDouble();
+            double highBid    = obj.get("currentHighestBid").getAsDouble();
+            String itemType   = obj.get("itemType").getAsString();
+            String endTimeStr = obj.get("endTime").getAsString();
+            int    auctionId  = obj.get("auctionId").getAsInt();
+
+            LocalDateTime endTime = LocalDateTime.parse(endTimeStr, fmt);
+
+            AuctionItem ai = new AuctionItem(
+                    name, formatVND(startPrice), formatVND(highBid),
+                    computeTimeLeft(endTime), 0,
+                    endTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    mapItemTypeToCategory(itemType)
+            );
+            ai.auctionId  = auctionId;
+            ai.endTimeRaw = endTime;
+
+            allItems.add(ai);
+
+            // Chỉ thêm card nếu đang ở đúng category
+            boolean match = currentCategory.equals("Tất cả")
+                    || ai.category.equals(currentCategory);
+            if (match) {
+                flowPane.getChildren().add(0, createCard(ai)); // thêm lên đầu danh sách
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void removeAuctionCard(int itemId) {
+        // Tìm AuctionItem tương ứng trong allItems
+        AuctionItem toRemove = allItems.stream()
+                .filter(ai -> ai.auctionId == itemId)
+                .findFirst()
+                .orElse(null);
+        if (toRemove == null) return;
+
+        // Xóa khỏi danh sách dữ liệu
+        allItems.remove(toRemove);
+        cardPriceLabels.remove(toRemove.auctionId);
+        cardBidCountLabels.remove(toRemove.auctionId);
+
+        // Xóa card trên FlowPane (tìm card có userData == auctionId)
+        flowPane.getChildren().removeIf(node ->
+                Integer.valueOf(itemId).equals(node.getUserData())
+        );
+    }
+
+    private void loadFavoritesFromServer() {
+        if (!UserSession.getInstance().isLoggedIn()) return;
+        new Thread(() -> {
+            try {
+                String res = ServerConnection.getInstance().getFavorites();
+                if (res != null && res.startsWith("GET_FAVORITES===")) {
+                    String json = res.substring("GET_FAVORITES===".length());
+                    com.google.gson.JsonArray arr = com.google.gson.JsonParser
+                            .parseString(json).getAsJsonArray();
+                    Set<Integer> favIds = new HashSet<>();
+                    for (com.google.gson.JsonElement el : arr) {
+                        favIds.add(el.getAsInt());
+                    }
+                    Platform.runLater(() -> {
+                        for (AuctionItem item : allItems) {
+                            if (favIds.contains(item.auctionId)) {
+                                item.favorited = true;
+                            }
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, "FavLoader").start();
     }
 
 }

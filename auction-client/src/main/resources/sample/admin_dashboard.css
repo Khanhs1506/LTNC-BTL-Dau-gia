@@ -29,7 +29,7 @@
 .admin-table .table-row-cell { -fx-background-color: #1A1D21; -fx-text-fill: #CCC; }
 .admin-table .table-row-cell:hover { -fx-background-color: #2D3138; }
 .admin-table .table-row-cell:selected { -fx-background-color: #3D1F1F; }
-
+.admin-table .table-cell {-fx-text-fill: #F0F0F0; }
 /* ── Input ───────────────────────────────────────────── */
 .admin-input {
     -fx-background-color: #22262B; -fx-text-fill: #F0F0F0;

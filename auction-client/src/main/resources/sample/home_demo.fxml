@@ -167,13 +167,13 @@
                -fx-padding: 7 20; -fx-cursor: hand;
                -fx-background-radius: 20;"/>
 
-            <Button fx:id="btnKhac"
-                    text="✦  Khác"
-                    onAction="#handleKhacMenu"
+            <Button fx:id="btnYeuThich"
+                    text="❤️Yêu thích"
+                    onAction="#handleYeuThich"
                     style="-fx-background-color: transparent; -fx-text-fill: #444;
-                   -fx-font-size: 13; -fx-font-weight: bold;
-                   -fx-padding: 7 20; -fx-cursor: hand;
-                   -fx-background-radius: 20;"/>
+               -fx-font-size: 13; -fx-font-weight: bold;
+               -fx-padding: 7 20; -fx-cursor: hand;
+               -fx-background-radius: 20;"/>
 
          </HBox>
       </VBox>

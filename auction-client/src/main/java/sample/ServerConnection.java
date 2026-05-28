@@ -1,6 +1,10 @@
 package sample;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
 import sample.model.PlacedBidRequest;
 
 import java.io.BufferedReader;
@@ -104,6 +108,16 @@ public class ServerConnection {
         return sendRequest("GET_AUCTIONS_BY_SELLER", "{}");
     }
 
+    //LẤY CÁC PHIÊN ĐÃ THANH TOÁN CỦA SELLER
+    public String getSellerPaidAuctions() throws Exception {
+        return sendRequest("GET_SELLER_PAID_AUCTIONS", "{}");
+    }
+
+    public String markAuctionPaid(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("MARK_AUCTION_PAID", json);
+    }
+
     //LẤY LỊCH SỬ ĐẶT GIÁ
     public String getBidHistory(int auctionId) throws Exception {
         String json = String.format("{\"auctionId\":%d}", auctionId);
@@ -131,6 +145,45 @@ public class ServerConnection {
         return sendRequest("UNBAN_USER", json);
     }
 
+    //ADMIN: lấy phiên đấu giá
+    public String getAdminAuctions() throws Exception {
+        return sendRequest("GET_ADMIN_AUCTIONS", "{}");
+    }
+
+    //hủy phiên
+    public String cancelAuction(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("CANCEL_AUCTION", json);
+    }
+
+    //thống kê cho admin
+    public String getAdminStats() throws Exception {
+        return sendRequest("GET_ADMIN_STATS", "{}");
+    }
+
+    //lịch sử đặt giá
+    public String getAdminBids() throws Exception {
+        return sendRequest("GET_ADMIN_BIDS", "{}");
+    }
+
+    //báo cáo vi phạm
+    public String getReports() throws Exception {
+        return sendRequest("GET_REPORTS", "{}");
+    }
+
+    //báo cáo đã xử lí
+    public String resolveReport(String reportId) throws Exception {
+        String json = String.format("{\"reportId\":%s}", reportId);
+        return sendRequest("RESOLVE_REPORT", json);
+    }
+
+    //người dùng báo cáo
+    public String submitReport(String targetUsername, String reason) throws Exception {
+        String json = String.format("{\"targetUsername\":\"%s\",\"reason\":\"%s\"}",
+                escape(targetUsername), escape(reason));
+        return sendRequest("SUBMIT_REPORT", json);
+    }
+
     public void disconnect() {
         try {
             if (socket != null && !socket.isClosed()) socket.close();
@@ -155,27 +208,83 @@ public class ServerConnection {
                         String json = line.split("===")[1];
                         PlacedBidRequest res = gson.fromJson(json, PlacedBidRequest.class);
                         String msg = "🔔 " + res.bidder + " vừa đặt giá " + formatVND(res.amount);
-
-                        // Thêm vào NotificationManager (nó sẽ gọi callback của HomeController)
                         javafx.application.Platform.runLater(() -> {
-                                NotificationManager.getInstance().addNotification(msg);
-                                NotificationManager.getInstance().notifyBidUpdate(res);});
+                            NotificationManager.getInstance().addNotification(msg);
+                            NotificationManager.getInstance().notifyBidUpdate(res);
+                        });
 
                     } else if (line.startsWith("DELETE_ITEM_NOTIFY===")) {
-                        // Sản phẩm bị xóa bởi seller khác → thông báo để UI cập nhật
-                        javafx.application.Platform.runLater(() ->
-                                NotificationManager.getInstance().addNotification("Một sản phẩm vừa bị xóa khỏi danh sách"));
+                        String json = line.split("===", 2)[1];
+                        int deletedItemId = gson.fromJson(json, JsonObject.class).get("itemId").getAsInt();
+                        javafx.application.Platform.runLater(() -> {
+                            HomeController home = HomeController.getInstance();
+                            if (home != null) {
+                                home.removeAuctionCard(deletedItemId); // xóa card khỏi UI
+                            }
+                            NotificationManager.getInstance().addNotification("🗑️ Một sản phẩm vừa bị xóa khỏi danh sách");
+                        });
+                    } else if (line.startsWith("TIME_EXTENDED===")) {
+                        // Anti-sniping: server đã gia hạn thời gian phiên đấu giá
+                        String json = line.split("===", 2)[1];
+                        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+                        int auctionId = obj.get("auctionId").getAsInt();
+                        String newEndTimeStr = obj.get("newEndTime").getAsString();
+                        int extensionMinutes = obj.has("extensionMinutes") ? obj.get("extensionMinutes").getAsInt() : 5;
 
-//                    } else if (line.startsWith("NOTIFY===")) {
-//                        String[] parts = line.split("===");
-//                        javafx.application.Platform.runLater(() -> {
-//                            switch (parts[1]) {
-//                                case "BID_REFUND"  -> WalletController.notifyAuctionLost(
-//                                        parts[2], Double.parseDouble(parts[3]));
-//                                case "AUCTION_WON" -> WalletController.notifyAuctionWon(parts[2], 0);
-//                            }
-//                        });
+                        java.time.LocalDateTime newEndTime = java.time.LocalDateTime.parse(
+                                newEndTimeStr,
+                                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
+                        NotificationManager.TimeExtendedEvent event =
+                                new NotificationManager.TimeExtendedEvent(auctionId, newEndTime, extensionMinutes);
+
+                        javafx.application.Platform.runLater(() -> {
+                            NotificationManager.getInstance().notifyTimeExtended(event);
+                            NotificationManager.getInstance().addNotification(
+                                    "⏰ Phiên đấu giá #" + auctionId + " được gia hạn thêm " + extensionMinutes + " phút!");
+                        });
+
+                    } else if (line.startsWith("NEW_AUCTION_NOTIFY===")) {
+                        String json = line.split("===", 2)[1];
+                        javafx.application.Platform.runLater(() -> {
+                            HomeController home = HomeController.getInstance();
+                            if (home != null) {
+                                home.addNewAuctionCard(json); // thêm card trực tiếp, không reload
+                            }
+                            NotificationManager.getInstance().addNotification(
+                                    "🆕 Phiên đấu giá mới vừa được mở!"
+                            );
+                        });
+                    } else if (line.startsWith("FORCE_LOGOUT===")) {
+                        String reason = line.split("===",2)[1];
+                        Platform.runLater(() -> {
+                            UserSession.getInstance().logout();
+                            Alert alert = new Alert(Alert.AlertType.WARNING);
+                            alert.setTitle("Tài khoản bị khóa");
+                            alert.setHeaderText("Bạn đã bị đăng xuất");
+                            alert.setContentText(reason);
+                            alert.showAndWait();
+                            try {
+                                java.net.URL fxmlUrl = HomeController.class.getResource("/sample/home_demo.fxml");
+                                if (fxmlUrl == null) fxmlUrl = HomeController.class.getResource("home.fxml");
+                                if (fxmlUrl != null) {
+                                    javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(fxmlUrl);
+                                    javafx.scene.Parent root = loader.load();
+                                    HomeController homeCtrl = loader.getController();
+                                    homeCtrl.resetToGuest();
+                                    // Tìm stage hiện tại từ bất kỳ node nào
+                                    javafx.stage.Stage stage = (javafx.stage.Stage)
+                                            javafx.stage.Stage.getWindows().stream()
+                                                    .filter(w -> w instanceof javafx.stage.Stage && w.isShowing())
+                                                    .findFirst().orElse(null);
+                                    if (stage != null) {
+                                        stage.setScene(new javafx.scene.Scene(root, 1200, 800));
+                                        stage.setTitle("TINY HOARDER'S KEY MARKET");
+                                        stage.centerOnScreen();
+                                    }
+                                }
+                            } catch (Exception ex) { ex.printStackTrace(); }
+                        });
                     } else {
                         // Response thông thường — sendRequest() đang chờ
                         responseQueue.put(line);
@@ -185,7 +294,7 @@ public class ServerConnection {
                 System.out.println("Mất kết nối server: " + e.getMessage());
             }
         }, "ServerListener");
-        t.setDaemon(true); // tự tắt khi app đóng
+        t.setDaemon(true);
         t.start();
     }
 
@@ -243,19 +352,35 @@ public class ServerConnection {
     public String getTransactionHistory(int limit) throws Exception {
         String json = String.format("{\"limit\":%d}", limit);
         return sendRequest("GET_TX_HISTORY", json);
+    }
 
-//    public String getTransactions(String type, String status,
-//                                  String dateFrom, String dateTo,
-//                                  int page, int pageSize) throws Exception {
-//        String json = String.format(
-//                "{\"type\":\"%s\",\"status\":\"%s\",\"dateFrom\":\"%s\"," +
-//                        "\"dateTo\":\"%s\",\"page\":%d,\"pageSize\":%d}",
-//                type     != null ? type     : "ALL",
-//                status   != null ? status   : "ALL",
-//                dateFrom != null ? dateFrom : "",
-//                dateTo   != null ? dateTo   : "",
-//                page, pageSize);
-//        return sendRequest("GET_TRANSACTIONS", json);
-//    }
+    public String addFavorite(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("ADD_FAVORITE", json);
+    }
+
+    public String removeFavorite(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("REMOVE_FAVORITE", json);
+    }
+
+    public String getFavorites() throws Exception {
+        return sendRequest("GET_FAVORITES", "{}");
+    }
+
+    public String registerAutoBid(int auctionId, double maxBid, double increment, int minutesTrigger) throws Exception {
+        String json = String.format("{\"auctionId\":%d,\"maxBid\":%.2f,\"increment\":%.2f,\"minutesTrigger\":%d}",
+                auctionId, maxBid, increment, minutesTrigger);
+        return sendRequest("REGISTER_AUTO_BID", json);
+    }
+
+    public String cancelAutoBid(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("CANCEL_AUTO_BID", json);
+    }
+
+    public String getAutoBid(int auctionId) throws Exception {
+        String json = String.format("{\"auctionId\":%d}", auctionId);
+        return sendRequest("GET_AUTO_BID", json);
     }
 }

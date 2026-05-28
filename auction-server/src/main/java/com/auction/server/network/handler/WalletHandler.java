@@ -38,13 +38,16 @@ public class WalletHandler {
         }
     }
 
+    public double getBalance(String userId) {
+        return walletDAO.getBalance(userId);
+    }
+
     // ── Handlers ──────────────────────────────────────────────────────────
 
     /** Trả về số dư ví hiện tại */
     private String handleGetBalance(String userId) {
         double balance = walletDAO.getBalance(userId);
         if (balance < 0) return error("Không tìm thấy user");
-
         JsonObject result = new JsonObject();
         result.addProperty("balance", balance);
         return ok(result);
@@ -56,13 +59,10 @@ public class WalletHandler {
         if (!req.has("amount")) return error("Thiếu trường 'amount'");
         double amount = req.get("amount").getAsDouble();
         if (amount <= 0) return error("Số tiền nạp phải lớn hơn 0");
-
         String note = req.has("note") ? req.get("note").getAsString()
                 : "Nạp tiền vào ví";
-
         WalletTransaction tx = walletDAO.deposit(userId, amount, note);
         if (tx == null) return error("Nạp tiền thất bại");
-
         return ok(gson.toJsonTree(tx));
     }
 
@@ -70,17 +70,13 @@ public class WalletHandler {
     private String handlePayment(String userId, JsonObject req) {
         if (!req.has("amount"))    return error("Thiếu trường 'amount'");
         if (!req.has("auctionId")) return error("Thiếu trường 'auctionId'");
-
         double amount    = req.get("amount").getAsDouble();
         int    auctionId = req.get("auctionId").getAsInt();
         if (amount <= 0) return error("Số tiền thanh toán phải lớn hơn 0");
-
         String note = req.has("note") ? req.get("note").getAsString()
                 : String.format("Thanh toán đấu giá #%d", auctionId);
-
         WalletTransaction tx = walletDAO.payment(userId, amount, auctionId, note);
         if (tx == null) return error("Thanh toán thất bại — có thể số dư không đủ");
-
         return ok(gson.toJsonTree(tx));
     }
 
@@ -89,15 +85,11 @@ public class WalletHandler {
         if (!req.has("amount")) return error("Thiếu trường 'amount'");
         double amount = req.get("amount").getAsDouble();
         if (amount <= 0) return error("Số tiền hoàn phải lớn hơn 0");
-
         Integer auctionId = req.has("auctionId") && !req.get("auctionId").isJsonNull()
                 ? req.get("auctionId").getAsInt() : null;
-
         String note = req.has("note") ? req.get("note").getAsString() : "Hoàn tiền";
-
         WalletTransaction tx = walletDAO.refund(userId, amount, auctionId, note);
         if (tx == null) return error("Hoàn tiền thất bại");
-
         return ok(gson.toJsonTree(tx));
     }
 
@@ -105,17 +97,13 @@ public class WalletHandler {
     private String handleBidHold(String userId, JsonObject req) {
         if (!req.has("amount"))    return error("Thiếu trường 'amount'");
         if (!req.has("auctionId")) return error("Thiếu trường 'auctionId'");
-
         double amount    = req.get("amount").getAsDouble();
         int    auctionId = req.get("auctionId").getAsInt();
         if (amount <= 0) return error("Số tiền đặt cọc phải lớn hơn 0");
-
         String note = req.has("note") ? req.get("note").getAsString()
                 : String.format("Đặt cọc đấu giá #%d", auctionId);
-
         WalletTransaction tx = walletDAO.bidHold(userId, amount, auctionId, note);
         if (tx == null) return error("Đặt cọc thất bại — có thể số dư không đủ");
-
         return ok(gson.toJsonTree(tx));
     }
 
@@ -123,14 +111,11 @@ public class WalletHandler {
     private String handleBidRelease(String userId, JsonObject req) {
         if (!req.has("amount"))    return error("Thiếu trường 'amount'");
         if (!req.has("auctionId")) return error("Thiếu trường 'auctionId'");
-
         double amount    = req.get("amount").getAsDouble();
         int    auctionId = req.get("auctionId").getAsInt();
         if (amount <= 0) return error("Số tiền giải phóng phải lớn hơn 0");
-
         String note = req.has("note") ? req.get("note").getAsString()
                 : String.format("Hoàn cọc đấu giá #%d", auctionId);
-
         WalletTransaction tx = walletDAO.bidRelease(userId, amount, auctionId, note);
         if (tx == null) return error("Giải phóng tiền cọc thất bại");
 
@@ -141,14 +126,11 @@ public class WalletHandler {
     private String handleGetTxHistory(String userId, JsonObject req) {
         int limit = req.has("limit") ? req.get("limit").getAsInt() : 20;
         if (limit < 0) limit = 0; // 0 = không giới hạn
-
         List<WalletTransaction> history = walletDAO.getTransactionHistory(userId, limit);
-
         JsonArray arr = new JsonArray();
         for (WalletTransaction tx : history) {
             arr.add(gson.toJsonTree(tx));
         }
-
         JsonObject result = new JsonObject();
         result.addProperty("count", history.size());
         result.add("transactions", arr);
@@ -156,7 +138,6 @@ public class WalletHandler {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
-
     private String ok(JsonElement data) {
         return "OK===" + data;
     }
@@ -179,12 +160,12 @@ public class WalletHandler {
                                      java.lang.reflect.Type typeOfSrc,
                                      JsonSerializationContext ctx) {
             JsonObject obj = new JsonObject();
-            obj.addProperty("id",            tx.getId());
-            obj.addProperty("type",          tx.getType().name());
-            obj.addProperty("amount",        tx.getAmount());
+            obj.addProperty("id", tx.getId());
+            obj.addProperty("type", tx.getType().name());
+            obj.addProperty("amount", tx.getAmount());
             obj.addProperty("balanceBefore", tx.getBalanceBefore());
-            obj.addProperty("balanceAfter",  tx.getBalanceAfter());
-            obj.addProperty("note",          tx.getNote());
+            obj.addProperty("balanceAfter", tx.getBalanceAfter());
+            obj.addProperty("note", tx.getNote());
 
             if (tx.getRelatedAuctionId() != null)
                 obj.addProperty("relatedAuctionId", tx.getRelatedAuctionId());

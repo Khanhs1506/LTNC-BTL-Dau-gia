@@ -66,12 +66,16 @@ public class LoginController implements Initializable {
             String response = ServerConnection.getInstance().login(username, password);
 
             if (response != null && response.startsWith("LOGIN SUCCESS")) {
-
                 String role = response.split("===", 2)[1];
-
-
                 UserSession.getInstance().login(username, role);
 
+                try {
+                    double balance = new WalletService().fetchBalance();
+                    UserSession.getInstance().setBalance(balance);
+                    System.out.println("✅ Số dư ví: " + balance);
+                } catch (Exception e) {
+                    System.err.println("⚠ Không lấy được số dư ví: " + e.getMessage());
+                }
                 // Cập nhật Home nếu đang mở
                 if (HomeController.getInstance() != null) {
                     HomeController.getInstance().onLoginSuccess(username);
@@ -80,6 +84,11 @@ public class LoginController implements Initializable {
                 // Điều hướng theo role
                 navigateByRole(role);
 
+            } else if ("LOGIN BANNED".equals(response)) {
+                loginMessageLabel.setText("Tài khoản của bạn đã bị khóa. " +
+                        "\nVui lòng liên hệ quản trị viên.");
+                usernameTextField.clear();
+                enterPasswordField.clear();
             } else if ("LOGIN FAIL".equals(response)) {
                 loginMessageLabel.setText("❌ Sai tên đăng nhập hoặc mật khẩu!");
                 enterPasswordField.clear();

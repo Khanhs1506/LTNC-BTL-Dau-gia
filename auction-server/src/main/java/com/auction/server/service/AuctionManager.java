@@ -1,14 +1,19 @@
 package com.auction.server.service;
 
 import com.auction.server.model.Auction;
+import com.auction.server.model.AutoBidEntry;
 import com.auction.server.repository.AuctionDaoImpl;
 import com.auction.server.repository.IAuctionDAO;
 import com.auction.server.repository.IItemDAO;
+import com.auction.server.model.User;
+import com.auction.server.model.WalletTransaction;
+import com.auction.server.repository.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -68,6 +73,15 @@ public class AuctionManager {
         Auction auction = auctionDao.getAuctionById(auctionId);
         if (auction != null) {
             activeAuctions.put(auctionId, auction);
+            LocalDateTime now = LocalDateTime.now();
+            if (auction.getStatus() == Auction.Status.OPEN
+                    && !now.isBefore(auction.getStartTime())
+                    && now.isBefore(auction.getEndTime())) {
+                auction.startAuction();
+                auctionDao.updateStatus(auctionId, Auction.Status.RUNNING);
+                System.out.println("[AuctionManager] Phiên " + auctionId
+                        + " tạo xong → tự động RUNNING ngay.");
+            }
             System.out.println("[AuctionManager] Tạo phiên đấu giá id=" + auctionId);
         }
         return auctionId;
@@ -92,14 +106,37 @@ public class AuctionManager {
         return new ArrayList<>(activeAuctions.values());
     }
 
-    /**
-     * Kết thúc phiên đấu giá: cập nhật DB → xóa khỏi cache RAM.
-     */
+    //Kết thúc phiên đấu giá: cập nhật DB → tự động trừ tiền người thắng → xóa khỏi cache RAM.
     public synchronized void endAuction(int auctionId) {
         Auction auction = activeAuctions.get(auctionId);
         if (auction != null) {
             auction.closeAuction();
             auctionDao.updateStatus(auctionId, Auction.Status.FINISHED);
+            //Tự động thanh toán cho người thắng
+            String winner   = auction.getCurrentWinnerUsername();
+            double winBid   = auction.getCurrentHighestBid();
+            double startPrice = auction.getItem().getStartingPrice();
+            if (winner != null && winBid > startPrice) {
+                try {
+                    // Lấy userId từ username
+                    IUserDAO userDao = new UserDaoImpl();
+                    User winnerUser = userDao.getUserByUsername(winner);
+                    if (winnerUser != null) {
+                        String winnerId = String.valueOf(winnerUser.getId());
+                        IWalletDAO walletDao = new WalletDaoImpl();
+                        WalletTransaction tx = walletDao.payment(winnerId, winBid, auctionId,
+                                        String.format("Thanh toán đấu giá #%d - %s",
+                                                auctionId, auction.getItem().getName()));
+                        if (tx != null) {
+                            System.out.printf("[AuctionManager] AUTO_PAYMENT phiên %d: user=%s | -%.0f | thành công%n", auctionId, winner, winBid);
+                        } else {
+                            System.err.printf("[AuctionManager] AUTO_PAYMENT phiên %d: THẤT BẠI (số dư không đủ?) user=%s%n", auctionId, winner);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("[AuctionManager] AUTO_PAYMENT lỗi phiên " + auctionId + ": " + e.getMessage());
+                }
+            }
             activeAuctions.remove(auctionId);
             System.out.println("[AuctionManager] Phiên " + auctionId + " đã kết thúc.");
         }
@@ -145,7 +182,7 @@ public class AuctionManager {
         boolean auctionDeleted = auctionDao.deleteAuctionByItemId(itemId);
         boolean itemDeleted = itemDao.deleteItem(itemId);
         return auctionDeleted && itemDeleted;
-     }
+    }
 
     /**
      * Duyệt tất cả phiên trong RAM và tự động chuyển trạng thái theo thời gian thực.
@@ -154,19 +191,46 @@ public class AuctionManager {
     public void checkAndUpdateStatuses() {
         LocalDateTime now = LocalDateTime.now();
         for (Auction auction : activeAuctions.values()) {
-            if (auction.getStatus() == Auction.Status.OPEN
-                    && !now.isBefore(auction.getStartTime())
-                    && now.isBefore(auction.getEndTime())) {
-                auction.startAuction();
-                auctionDao.updateStatus(auction.getId(), Auction.Status.RUNNING);
-                System.out.println("[AuctionManager] Phiên " + auction.getId() + " chuyển sang RUNNING.");
-            } else if ((auction.getStatus() == Auction.Status.OPEN
-                    || auction.getStatus() == Auction.Status.RUNNING)
-                    && !now.isBefore(auction.getEndTime())) {
-                endAuction(auction.getId());
+            synchronized (auction) {
+                // Đọc lại endTime bên trong synchronized để lấy giá trị mới nhất sau khi anti-sniping gia hạn
+                LocalDateTime endTime = auction.getEndTime();
+                if (auction.getStatus() == Auction.Status.OPEN
+                        && !now.isBefore(auction.getStartTime())
+                        && now.isBefore(endTime)) {
+                    auction.startAuction();
+                    auctionDao.updateStatus(auction.getId(), Auction.Status.RUNNING);
+                    System.out.println("[AuctionManager] Phiên " + auction.getId() + " chuyển sang RUNNING.");
+                } else if ((auction.getStatus() == Auction.Status.OPEN
+                        || auction.getStatus() == Auction.Status.RUNNING)
+                        && !now.isBefore(endTime)) {
+                    endAuction(auction.getId());
+                }
+            }
+        }
+
+        for (Auction auction : activeAuctions.values()) {
+            if (auction.getStatus() != Auction.Status.RUNNING) continue;
+            long secsLeft = java.time.temporal.ChronoUnit.SECONDS
+                    .between(java.time.LocalDateTime.now(), auction.getEndTime());
+
+            PriorityQueue<AutoBidEntry> pq =
+                    AutoBiddingService.getInstance().getQueue(auction.getId());
+            if (pq == null || pq.isEmpty()) continue;
+
+            for (com.auction.server.model.AutoBidEntry entry : pq) {
+                int triggerMins = AutoBiddingService.getInstance()
+                        .getMinutesTrigger(auction.getId(), entry.getUsername());
+                long triggerSecs = triggerMins * 60L;
+
+                // Trigger khi còn đúng trong khoảng triggerSecs (±5 giây để không bỏ lỡ)
+                if (secsLeft <= triggerSecs && secsLeft > triggerSecs - 5) {
+                    System.out.println("[AutoBid] Trigger theo giờ cho "
+                            + entry.getUsername() + " phiên " + auction.getId());
+                    AutoBiddingService.getInstance().triggerAutoBids(
+                            auction.getId(), "", BiddingEngine.getInstance());
+                    break;
+                }
             }
         }
     }
-
-
 }

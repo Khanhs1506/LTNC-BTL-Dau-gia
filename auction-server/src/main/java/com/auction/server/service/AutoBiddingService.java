@@ -199,4 +199,31 @@ public class AutoBiddingService {
         queueMap.remove(auctionId);
         System.out.println("[AutoBid] Đã xóa queue của phiên " + auctionId);
     }
+
+    // Map lưu minutesTrigger của từng user/auction
+    private final Map<String, Integer> triggerMinutesMap = new ConcurrentHashMap<>();
+
+    private String triggerKey(int auctionId, String username) {
+        return auctionId + ":" + username;
+    }
+
+    public void setMinutesTrigger(int auctionId, String username, int minutes) {
+        triggerMinutesMap.put(triggerKey(auctionId, username), minutes);
+    }
+
+    public int getMinutesTrigger(int auctionId, String username) {
+        return triggerMinutesMap.getOrDefault(triggerKey(auctionId, username), 5);
+    }
+
+    public AutoBidEntry getAutoBid(int auctionId, String username) {
+        PriorityQueue<AutoBidEntry> pq = queueMap.get(auctionId);
+        if (pq == null) return null;
+        return pq.stream()
+                .filter(e -> e.getUsername().equals(username))
+                .findFirst().orElse(null);
+    }
+
+    public PriorityQueue<AutoBidEntry> getQueue(int auctionId) {
+        return queueMap.get(auctionId);
+    }
 }
