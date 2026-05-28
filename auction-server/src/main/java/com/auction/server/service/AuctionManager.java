@@ -1,4 +1,3 @@
-
 package com.auction.server.service;
 
 import com.auction.server.model.Auction;
@@ -6,6 +5,9 @@ import com.auction.server.model.AutoBidEntry;
 import com.auction.server.repository.AuctionDaoImpl;
 import com.auction.server.repository.IAuctionDAO;
 import com.auction.server.repository.IItemDAO;
+import com.auction.server.model.User;
+import com.auction.server.model.WalletTransaction;
+import com.auction.server.repository.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -104,14 +106,37 @@ public class AuctionManager {
         return new ArrayList<>(activeAuctions.values());
     }
 
-    /**
-     * Kết thúc phiên đấu giá: cập nhật DB → xóa khỏi cache RAM.
-     */
+    //Kết thúc phiên đấu giá: cập nhật DB → tự động trừ tiền người thắng → xóa khỏi cache RAM.
     public synchronized void endAuction(int auctionId) {
         Auction auction = activeAuctions.get(auctionId);
         if (auction != null) {
             auction.closeAuction();
             auctionDao.updateStatus(auctionId, Auction.Status.FINISHED);
+            //Tự động thanh toán cho người thắng
+            String winner   = auction.getCurrentWinnerUsername();
+            double winBid   = auction.getCurrentHighestBid();
+            double startPrice = auction.getItem().getStartingPrice();
+            if (winner != null && winBid > startPrice) {
+                try {
+                    // Lấy userId từ username
+                    IUserDAO userDao = new UserDaoImpl();
+                    User winnerUser = userDao.getUserByUsername(winner);
+                    if (winnerUser != null) {
+                        String winnerId = String.valueOf(winnerUser.getId());
+                        IWalletDAO walletDao = new WalletDaoImpl();
+                        WalletTransaction tx = walletDao.payment(winnerId, winBid, auctionId,
+                                        String.format("Thanh toán đấu giá #%d - %s",
+                                                auctionId, auction.getItem().getName()));
+                        if (tx != null) {
+                            System.out.printf("[AuctionManager] AUTO_PAYMENT phiên %d: user=%s | -%.0f | thành công%n", auctionId, winner, winBid);
+                        } else {
+                            System.err.printf("[AuctionManager] AUTO_PAYMENT phiên %d: THẤT BẠI (số dư không đủ?) user=%s%n", auctionId, winner);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("[AuctionManager] AUTO_PAYMENT lỗi phiên " + auctionId + ": " + e.getMessage());
+                }
+            }
             activeAuctions.remove(auctionId);
             System.out.println("[AuctionManager] Phiên " + auctionId + " đã kết thúc.");
         }
@@ -209,4 +234,3 @@ public class AuctionManager {
         }
     }
 }
- 

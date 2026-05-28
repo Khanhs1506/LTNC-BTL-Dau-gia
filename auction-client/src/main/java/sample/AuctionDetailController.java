@@ -1,5 +1,9 @@
 package sample;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
@@ -598,18 +602,14 @@ public class AuctionDetailController {
         new Thread(() -> {
             try {
                 String raw = ServerConnection.getInstance().getBidHistory(auctionId);
-                // raw = "BID_HISTORY===[ {time, bidder, amount}, ... ]"
                 String jsonPart = raw.contains("===") ? raw.split("===", 2)[1] : "[]";
-
-                com.google.gson.JsonArray arr =
-                        com.google.gson.JsonParser.parseString(jsonPart).getAsJsonArray();
-
+                JsonArray arr = JsonParser.parseString(jsonPart).getAsJsonArray();
                 Platform.runLater(() -> {
                     series.getData().clear();
                     series.getData().add(new XYChart.Data<>("Bat dau", auction.startingPrice));
 
-                    for (com.google.gson.JsonElement el : arr) {
-                        com.google.gson.JsonObject obj = el.getAsJsonObject();
+                    for (JsonElement el : arr) {
+                        JsonObject obj = el.getAsJsonObject();
                         String time   = obj.get("time").getAsString();
                         double amount = obj.get("amount").getAsDouble();
                         series.getData().add(new XYChart.Data<>(time, amount));
@@ -729,12 +729,15 @@ public class AuctionDetailController {
                 Platform.runLater(() -> {
                     if (response != null && response.equalsIgnoreCase("BID SUCCESS")) {
                         System.out.println("[BID] auctionId=" + auctionId + " amount=" + finalAmt);
-                        // Chart / giá / nút sẽ được cập nhật bởi bidUpdateListener
-                        // khi BID_UPDATE broadcast về — không cập nhật lại ở đây
-                        // để tránh duplicate data point trên chart.
                         bidAmountField.clear();
                         messageLabel.setStyle("-fx-text-fill: #16A34A; -fx-font-size: 13;");
                         messageLabel.setText("Dat gia thanh cong!");
+                    } else if (response != null && response.contains("INSUFFICIENT_BALANCE")) {
+                        String detail = response.contains(":")
+                                ? response.substring(response.indexOf(':') + 1).trim()
+                                : "So du khong du de dat gia nay.";
+                        messageLabel.setStyle("-fx-text-fill: #e05252; -fx-font-size: 13;");
+                        messageLabel.setText("\u26a0 " + detail);
                     } else {
                         messageLabel.setText("Dat gia that bai: " + response);
                     }

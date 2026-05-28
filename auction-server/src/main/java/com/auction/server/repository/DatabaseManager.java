@@ -2,41 +2,50 @@ package com.auction.server.repository;
 
 import java.io.InputStream;
 import java.sql.Connection;
-import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Properties;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 public class DatabaseManager {
 
     private static class Holder {
         private static final DatabaseManager INSTANCE = new DatabaseManager();
     }
-
-    private String url;
-    private String user;
-    private String password;
+    private HikariDataSource dataSource;
 
     private DatabaseManager() {
         Properties properties = new Properties();
-        try (InputStream input = getClass().getClassLoader()
-                .getResourceAsStream("database.properties")) {
+        try (InputStream input = getClass().getClassLoader().getResourceAsStream("database.properties")) {
 
             if (input == null) {
-                System.err.println("[DatabaseManager] Không tìm thấy file database.properties!");
-                return;
+                throw new IllegalStateException("[DatabaseManager] Không tìm thấy file database.properties!");
             }
 
             properties.load(input);
-            this.url      = properties.getProperty("db.url");
-            this.user     = properties.getProperty("db.user");
-            this.password = properties.getProperty("db.password");
+            String url = properties.getProperty("db.url");
+            String user = properties.getProperty("db.user");
+            String password = properties.getProperty("db.password");
 
-            // Kiểm tra kết nối thử 1 lần khi khởi động server
-            try (Connection testConn = DriverManager.getConnection(url, user, password)) {
+            HikariConfig config = new HikariConfig();
+            config.setJdbcUrl(url);
+            config.setUsername(user);
+            config.setPassword(password);
+            config.setMaximumPoolSize(10);
+            config.setMinimumIdle(2);
+            config.setConnectionTimeout(10_000);
+            config.setIdleTimeout(120_000);
+            config.setMaxLifetime(600_000);
+            config.setPoolName("AuctionHikariPool");
+            this.dataSource = new HikariDataSource(config);
+
+            // Kiểm tra mượn connection từ pool ngay khi khởi động
+            try (Connection testConn = this.dataSource.getConnection()) {
                 System.out.println("[DatabaseManager] Kết nối database thành công!");
             }
 
         } catch (Exception e) {
-            System.err.println("[DatabaseManager] Lỗi kết nối: " + e.getMessage());
+            throw new IllegalStateException("[DatabaseManager] Lỗi khởi tạo connection pool: " + e.getMessage(), e);
         }
     }
 
@@ -44,12 +53,10 @@ public class DatabaseManager {
         return Holder.INSTANCE;
     }
 
-    // Mỗi lần gọi trả về 1 Connection MỚI
-    // Caller phải tự đóng bằng try-with-resources: try (Connection conn = getConnection())
-    public Connection getConnection() throws Exception {
-        if (url == null) {
-            throw new Exception("[DatabaseManager] Chưa load được cấu hình database!");
+    public Connection getConnection() throws SQLException {
+        if (dataSource == null) {
+            throw new SQLException("[DatabaseManager] Connection pool chưa được khởi tạo!");
         }
-        return DriverManager.getConnection(url, user, password);
+        return dataSource.getConnection();
     }
 }

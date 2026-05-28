@@ -26,6 +26,7 @@ public class Auction implements Serializable {
     private Status status;
 
     private String itemName;
+    private int bidCount;
 
     // Lưu lịch sử đặt giá.
     private final List<BidTransaction> bidHistory;
@@ -96,6 +97,8 @@ public class Auction implements Serializable {
 
     public String getItemName() { return itemName; }
     public void setItemName(String itemName) { this.itemName = itemName; }
+    public int getBidCount() { return bidCount; }
+    public void setBidCount(int bidCount) { this.bidCount = Math.max(0, bidCount); }
 
     // Dùng khi load dữ liệu từ DB — đồng bộ giá và người thắng vào RAM
     public void updateHighestBid(double highestBid, String winnerUsername) {
