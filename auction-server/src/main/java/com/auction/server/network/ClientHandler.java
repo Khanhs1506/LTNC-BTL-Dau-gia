@@ -580,31 +580,10 @@ public class ClientHandler implements Runnable, AuctionObserver {
             writer.println("SELLER_PAID_AUCTIONS===[]");
             return;
         }
-        String sql = "SELECT DISTINCT auction_id FROM (" +
-                " SELECT spc.auction_id AS auction_id " +
-                " FROM seller_payment_confirmations spc " +
-                " WHERE spc.seller_id = ? " +
-                " UNION " +
-                " SELECT wt.related_auction_id AS auction_id " +
-                " FROM wallet_transactions wt " +
-                " JOIN auctions a ON a.id = wt.related_auction_id " +
-                " JOIN Items i ON i.id = a.item_id " +
-                " WHERE wt.type = 'PAYMENT' AND wt.related_auction_id IS NOT NULL AND i.seller_id = ? " + ") t";
-        JsonArray paidAuctionIds = new JsonArray();
-        try (Connection conn = DatabaseManager.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            ensureSellerPaymentTable(conn);
-            stmt.setString(1, currentUser.getId());
-            stmt.setString(2, currentUser.getId());
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    paidAuctionIds.add(rs.getInt("auction_id"));
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("[ClientHandler] handleGetSellerPaidAuctions lỗi: " + e.getMessage());
-        }
-        writer.println("SELLER_PAID_AUCTIONS===" + paidAuctionIds);
+        List<Integer> paidIds = auctionRepo.getSellerPaidAuctionIds(currentUser.getId());
+        JsonArray arr = new JsonArray();
+        for (Integer id : paidIds) arr.add(id);
+        writer.println("SELLER_PAID_AUCTIONS===" + arr);
     }
 
     private void handleMarkAuctionPaid(String json) {
@@ -613,50 +592,11 @@ public class ClientHandler implements Runnable, AuctionObserver {
             return;
         }
         try {
-            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-            int auctionId = obj.get("auctionId").getAsInt();
-            try (Connection conn = DatabaseManager.getInstance().getConnection()) {
-                ensureSellerPaymentTable(conn);
-                String validateSql = "SELECT a.id FROM auctions a " +
-                        "JOIN Items i ON i.id = a.item_id " +
-                        "WHERE a.id = ? AND i.seller_id = ? AND a.status = 'FINISHED' " +
-                        "AND a.current_winner_username IS NOT NULL";
-                try (PreparedStatement validate = conn.prepareStatement(validateSql)) {
-                    validate.setInt(1, auctionId);
-                    validate.setString(2, currentUser.getId());
-                    try (ResultSet rs = validate.executeQuery()) {
-                        if (!rs.next()) {
-                            writer.println("MARK_AUCTION_PAID===FAIL===INVALID_AUCTION");
-                            return;
-                        }
-                    }
-                }
-                String upsertSql = "INSERT INTO seller_payment_confirmations (auction_id, seller_id, confirmed_at) " +
-                        "VALUES (?, ?, NOW()) " +
-                        "ON DUPLICATE KEY UPDATE confirmed_at = VALUES(confirmed_at)";
-                try (PreparedStatement upsert = conn.prepareStatement(upsertSql)) {
-                    upsert.setInt(1, auctionId);
-                    upsert.setString(2, currentUser.getId());
-                    upsert.executeUpdate();
-                }
-            }
-            writer.println("MARK_AUCTION_PAID===OK");
+            int auctionId = JsonParser.parseString(json).getAsJsonObject().get("auctionId").getAsInt();
+            boolean ok = auctionRepo.markAuctionPaid(auctionId, currentUser.getId());
+            writer.println(ok ? "MARK_AUCTION_PAID===OK" : "MARK_AUCTION_PAID===FAIL===INVALID_AUCTION");
         } catch (Exception e) {
-            System.err.println("[ClientHandler] handleMarkAuctionPaid lỗi: " + e.getMessage());
             writer.println("MARK_AUCTION_PAID===FAIL===SERVER_ERROR");
-        }
-    }
-
-    private void ensureSellerPaymentTable(Connection conn) throws Exception {
-        String sql = "CREATE TABLE IF NOT EXISTS seller_payment_confirmations (" +
-                "auction_id INT NOT NULL PRIMARY KEY, " +
-                "seller_id VARCHAR(36) NOT NULL, " +
-                "confirmed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, " +
-                "CONSTRAINT fk_spc_auction FOREIGN KEY (auction_id) REFERENCES auctions(id) ON DELETE CASCADE, " +
-                "CONSTRAINT fk_spc_seller FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE" +
-                ")";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.executeUpdate();
         }
     }
 
@@ -684,28 +624,10 @@ public class ClientHandler implements Runnable, AuctionObserver {
     }
 
     private Map<Integer, Integer> fetchBidCounts(List<Auction> auctions) {
-        Map<Integer, Integer> result = new HashMap<>();
-        if (auctions == null || auctions.isEmpty()) return result;
-        StringBuilder placeholders = new StringBuilder();
-        for (int i = 0; i < auctions.size(); i++) {
-            if (i > 0) placeholders.append(",");
-            placeholders.append("?");
-        }
-        String sql = "SELECT auction_id, COUNT(*) AS bid_count FROM bid_transactions " + "WHERE auction_id IN (" + placeholders + ") GROUP BY auction_id";
-        try (Connection conn = DatabaseManager.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            for (int i = 0; i < auctions.size(); i++) {
-                stmt.setInt(i + 1, auctions.get(i).getId());
-            }
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    result.put(rs.getInt("auction_id"), rs.getInt("bid_count"));
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("[ClientHandler] fetchBidCounts lỗi: " + e.getMessage());
-        }
-        return result;
+        if (auctions == null || auctions.isEmpty()) return new HashMap<>();
+        List<Integer> ids = new java.util.ArrayList<>();
+        for (Auction a : auctions) ids.add(a.getId());
+        return bidRepo.getBidCounts(ids);
     }
 
     //LẤY PHIÊN ĐẤU GIÁ
@@ -741,17 +663,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
     // Helper: lấy username của seller theo item_id
     private String getSellerUsernameByItemId(String itemId) {
-        String sql = "SELECT u.username FROM users u JOIN Items i ON u.id = i.seller_id WHERE i.id = ?";
-        try (Connection conn = DatabaseManager.getInstance().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, itemId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) return rs.getString("username");
-            }
-        } catch (Exception e) {
-            System.err.println("[ClientHandler] getSellerUsername error: " + e.getMessage());
-        }
-        return null;
+        return itemRepo.getSellerUsernameByItemId(Integer.parseInt(itemId));
     }
 
     //HỦY PHIÊN ĐẤU GIÁ

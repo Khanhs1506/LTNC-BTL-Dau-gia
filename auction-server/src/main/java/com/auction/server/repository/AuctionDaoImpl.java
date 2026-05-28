@@ -277,4 +277,53 @@ public class AuctionDaoImpl implements IAuctionDAO {
             return false;
         }
     }
+
+    @Override
+    public List<Integer> getSellerPaidAuctionIds(String sellerId) {
+        List<Integer> paidAuctionIds = new ArrayList<>();
+        String sql = "SELECT DISTINCT auction_id FROM (" +
+                " SELECT spc.auction_id AS auction_id FROM seller_payment_confirmations spc WHERE spc.seller_id = ? " +
+                " UNION " +
+                " SELECT wt.related_auction_id AS auction_id FROM wallet_transactions wt " +
+                " JOIN auctions a ON a.id = wt.related_auction_id " +
+                " JOIN Items i ON i.id = a.item_id " +
+                " WHERE wt.type = 'PAYMENT' AND wt.related_auction_id IS NOT NULL AND i.seller_id = ? ) t";
+        try (Connection conn = DatabaseManager.getInstance().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, sellerId);
+            stmt.setString(2, sellerId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) paidAuctionIds.add(rs.getInt("auction_id"));
+            }
+        } catch (Exception e) {
+            System.err.println("[AuctionDaoImpl] getSellerPaidAuctionIds: " + e.getMessage());
+        }
+        return paidAuctionIds;
+    }
+
+    @Override
+    public boolean markAuctionPaid(int auctionId, String sellerId) {
+        try (Connection conn = DatabaseManager.getInstance().getConnection()) {
+            String validateSql = "SELECT a.id FROM auctions a JOIN Items i ON i.id = a.item_id " +
+                    "WHERE a.id = ? AND i.seller_id = ? AND a.status = 'FINISHED' AND a.current_winner_username IS NOT NULL";
+            try (PreparedStatement validate = conn.prepareStatement(validateSql)) {
+                validate.setInt(1, auctionId);
+                validate.setString(2, sellerId);
+                try (ResultSet rs = validate.executeQuery()) {
+                    if (!rs.next()) return false;
+                }
+            }
+            String upsertSql = "INSERT INTO seller_payment_confirmations (auction_id, seller_id, confirmed_at) " +
+                    "VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE confirmed_at = VALUES(confirmed_at)";
+            try (PreparedStatement upsert = conn.prepareStatement(upsertSql)) {
+                upsert.setInt(1, auctionId);
+                upsert.setString(2, sellerId);
+                upsert.executeUpdate();
+                return true;
+            }
+        } catch (Exception e) {
+            System.err.println("[AuctionDaoImpl] markAuctionPaid: " + e.getMessage());
+        }
+        return false;
+    }
 }

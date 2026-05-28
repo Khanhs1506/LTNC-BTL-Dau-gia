@@ -26,6 +26,6 @@ public interface IItemDAO {
 
     // Lấy danh sách item theo danh mục
     List<Item> getItemsByCategory(String category);
-
+    String getSellerUsernameByItemId(int itemId);
     Item getItemById(int itemId);
 }

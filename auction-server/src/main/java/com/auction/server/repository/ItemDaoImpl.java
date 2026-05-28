@@ -278,4 +278,19 @@ public class ItemDaoImpl implements IItemDAO {
         }
         return list;
     }
+
+    @Override
+    public String getSellerUsernameByItemId(int itemId) {
+        String sql = "SELECT u.username FROM users u JOIN Items i ON u.id = i.seller_id WHERE i.id = ?";
+        try (java.sql.Connection conn = DatabaseManager.getInstance().getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, itemId);
+            try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) return rs.getString("username");
+            }
+        } catch (Exception e) {
+            System.err.println("[ItemDaoImpl] Lỗi getSellerUsernameByItemId: " + e.getMessage());
+        }
+        return null;
+    }
 }

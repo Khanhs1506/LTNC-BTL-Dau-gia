@@ -2,6 +2,7 @@ package com.auction.server.repository;
 
 import com.auction.server.model.BidTransaction;
 import java.util.List;
+import java.util.Map;
 
 public interface IBidTransactionDAO {
     int DEFAULT_PAGE_SIZE = 100;
@@ -20,4 +21,5 @@ public interface IBidTransactionDAO {
         return getAllBids(DEFAULT_PAGE_SIZE, 0);
     }
     List<BidTransaction> getAllBids(int limit, int offset);
+    Map<Integer, Integer> getBidCounts(List<Integer> auctionIds);
 }

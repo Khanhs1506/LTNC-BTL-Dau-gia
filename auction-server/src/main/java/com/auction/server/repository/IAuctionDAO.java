@@ -42,4 +42,7 @@ public interface IAuctionDAO {
 
     //xóa phiên đấu giá theo item_id (dùng khi seller xóa)
     boolean deleteAuctionByItemId(int itemId);
+
+    List<Integer> getSellerPaidAuctionIds(String sellerId);
+    boolean markAuctionPaid(int auctionId, String sellerId);
 }

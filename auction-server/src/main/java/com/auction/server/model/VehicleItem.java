@@ -1,7 +1,7 @@
 package com.auction.server.model;
 
 public class VehicleItem extends Item {
-    public String typeItem = "Vehicle Item";
+    public String typeItem = "VehicleItem";
     private String brand; // Hãng xe
     private int year;     // Năm sản xuất
 

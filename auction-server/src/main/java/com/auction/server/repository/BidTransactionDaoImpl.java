@@ -4,7 +4,9 @@ import com.auction.server.model.BidTransaction;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class BidTransactionDaoImpl implements IBidTransactionDAO {
     private static final int MAX_PAGE_SIZE = 200;
@@ -114,5 +116,29 @@ public class BidTransactionDaoImpl implements IBidTransactionDAO {
         double        bidAmount       = rs.getDouble("bid_amount");
         java.time.LocalDateTime timestamp = rs.getTimestamp("timestamp").toLocalDateTime();
         return new BidTransaction(transactionId, auctionId, bidderUsername, bidAmount, timestamp);
+    }
+
+    @Override
+    public Map<Integer, Integer> getBidCounts(List<Integer> auctionIds) {
+        Map<Integer, Integer> result = new HashMap<>();
+        if (auctionIds == null || auctionIds.isEmpty()) return result;
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < auctionIds.size(); i++) {
+            placeholders.append(i > 0 ? ",?" : "?");
+        }
+        String sql = "SELECT auction_id, COUNT(*) AS bid_count FROM bid_transactions " +
+                "WHERE auction_id IN (" + placeholders + ") GROUP BY auction_id";
+        try (java.sql.Connection conn = DatabaseManager.getInstance().getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+            for (int i = 0; i < auctionIds.size(); i++) {
+                stmt.setInt(i + 1, auctionIds.get(i));
+            }
+            try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) result.put(rs.getInt("auction_id"), rs.getInt("bid_count"));
+            }
+        } catch (Exception e) {
+            System.err.println("[BidTransactionDaoImpl] Lỗi getBidCounts: " + e.getMessage());
+        }
+        return result;
     }
 }
