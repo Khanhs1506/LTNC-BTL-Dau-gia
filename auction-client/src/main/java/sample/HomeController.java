@@ -196,9 +196,9 @@ public class HomeController {
 //            case "VehicleItem"      -> "Phương tiện";
 //            case "ElectronicsItem"  -> "Điện tử";
 
-            case "Art Item"          -> "Nghệ thuật";
-            case "Vehicle Item"      -> "Phương tiện";
-            case "Electronics Item"  -> "Điện tử";
+            case "ArtItem"          -> "Nghệ thuật";
+            case "VehicleItem"      -> "Phương tiện";
+            case "ElectronicsItem"  -> "Điện tử";
             // Các danh mục từ menu Khác — giữ nguyên tiếng Việt
             case "Không hiển thị !"       -> itemType;
             default                 -> "Khác";
