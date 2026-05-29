@@ -14,4 +14,6 @@ public class AuctionSummary {
     public String endTime;
     public String status;
     public int bidCount;
+    public String imageUrl;
+    public double stepPrice;
 }

@@ -71,6 +71,7 @@ public class HomeController {
         String category;    // dùng để lọc
         boolean favorited = false;
         java.time.LocalDateTime endTimeRaw;
+        String imageUrl;
 
         AuctionItem(String title, String giaKhoiDiem, String giaCaoNhat,
                     String thoiGian, int thauThu, String hanDangKi, String category) {
@@ -118,10 +119,6 @@ public class HomeController {
 
                     for (JsonElement el : arr) {
                         JsonObject obj = el.getAsJsonObject();
-
-//                        // 🚨🚨🚨🚨🚨XÓA LOGBUG
-//                        System.out.println("DEBUG: " + obj);
-
                         String status = obj.get("status").getAsString();
                         if (!status.equals("RUNNING") && !status.equals("OPEN")) continue;
 
@@ -142,6 +139,11 @@ public class HomeController {
                         );
                         ai.auctionId = auctionId;
                         ai.endTimeRaw = endTime; // ← thêm dòng này
+                        // Lấy URL ảnh sản phẩm
+                        if (obj.has("imageUrl") && !obj.get("imageUrl").isJsonNull()) {
+                            String imgUrl = obj.get("imageUrl").getAsString();
+                            if (!imgUrl.isBlank()) ai.imageUrl = imgUrl;
+                        }
                         loaded.add(ai);
                     }
 
@@ -191,10 +193,6 @@ public class HomeController {
             case "ART"              -> "Nghệ thuật";
             case "VEHICLE"          -> "Phương tiện";
             case "ELECTRONICS"      -> "Điện tử";
-            // Client gửi lên dạng key
-//            case "ArtItem"          -> "Nghệ thuật";
-//            case "VehicleItem"      -> "Phương tiện";
-//            case "ElectronicsItem"  -> "Điện tử";
 
             case "ArtItem"          -> "Nghệ thuật";
             case "VehicleItem"      -> "Phương tiện";
@@ -205,10 +203,7 @@ public class HomeController {
         };
     }
 
-    /**
-     * Dữ liệu mẫu – chỉ dùng khi server chưa khởi động (chạy offline).
-     * Có thể xóa khi ứng dụng hoàn thiện.
-     */
+    //Dữ liệu mẫu – chỉ dùng khi server chưa khởi động (chạy offline)
     private List<AuctionItem> buildMockItems() {
         return Arrays.asList(
                 new AuctionItem("G.5 - BKS 30K - 888.88",
@@ -590,6 +585,7 @@ public class HomeController {
             }
 
             AuctionDetailController ctrl = loader.getController();
+            dto.imageUrl = item.imageUrl;   // ← truyền ảnh sang màn hình đấu giá
             ctrl.setAuction(dto);
 
             Stage stage = new Stage();

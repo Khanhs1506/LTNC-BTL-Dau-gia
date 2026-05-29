@@ -21,13 +21,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.auction.server.network.handler.WalletHandler;
-import com.auction.server.repository.DatabaseManager;
 import com.auction.server.repository.ReportDaoImpl;
 import com.auction.server.repository.IReportDAO;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 
 public class ClientHandler implements Runnable, AuctionObserver {
 
@@ -352,8 +348,12 @@ public class ClientHandler implements Runnable, AuctionObserver {
                 }
             }
 
+            // Đọc và gắn URL ảnh
+            if (obj.has("imageUrl") && !obj.get("imageUrl").getAsString().isBlank()) {
+                item.setImageUrl(obj.get("imageUrl").getAsString());
+            }
             int itemId = itemRepo.insertItem(item, currentUser.getId());
-
+            // Gắn imageUrl trước khi lưu
             if (itemId > 0) {
                 DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                 LocalDateTime startTime = obj.has("startTime") && !obj.get("startTime").getAsString().isBlank()
@@ -365,7 +365,8 @@ public class ClientHandler implements Runnable, AuctionObserver {
                         : LocalDateTime.now().plusDays(7);
 
                 //LƯU VÀO DTB VÀ RAM
-                int auctionId = AuctionManager.getInstance().createAuction(itemId, startTime, endTime);
+                double stepPrice = obj.has("stepPrice") ? obj.get("stepPrice").getAsDouble() : 0;
+                int auctionId = AuctionManager.getInstance().createAuction(itemId, startTime, endTime, stepPrice);
                 if (auctionId > 0) {
                     System.out.println("[Server] Tạo phiên đấu giá id=" + auctionId + " cho item id=" + itemId);
                     Auction newAuction = auctionRepo.getAuctionById(auctionId);
@@ -617,7 +618,9 @@ public class ClientHandler implements Runnable, AuctionObserver {
             s.startTime = a.getStartTime().format(fmt);
             s.endTime = a.getEndTime().format(fmt);
             s.status = a.getStatus().name();
-            s.bidCount = bidCounts.getOrDefault(a.getId(), 0);
+            s.bidCount  = bidCounts.getOrDefault(a.getId(), 0);
+            s.imageUrl  = a.getItem().getImageUrl();
+            s.stepPrice = a.getBidStep();
             summaries.add(s);
         }
         return summaries;

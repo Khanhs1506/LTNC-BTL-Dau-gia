@@ -4,6 +4,8 @@ import com.auction.server.model.WalletTransaction;
 import com.auction.server.repository.IWalletDAO;
 import com.auction.server.repository.WalletDaoImpl;
 import com.google.gson.*;
+
+import java.lang.reflect.Type;
 import java.util.List;
 
 public class WalletHandler {
@@ -59,8 +61,7 @@ public class WalletHandler {
         if (!req.has("amount")) return error("Thiếu trường 'amount'");
         double amount = req.get("amount").getAsDouble();
         if (amount <= 0) return error("Số tiền nạp phải lớn hơn 0");
-        String note = req.has("note") ? req.get("note").getAsString()
-                : "Nạp tiền vào ví";
+        String note = req.has("note") ? req.get("note").getAsString() : "Nạp tiền vào ví";
         WalletTransaction tx = walletDAO.deposit(userId, amount, note);
         if (tx == null) return error("Nạp tiền thất bại");
         return ok(gson.toJsonTree(tx));
@@ -157,7 +158,7 @@ public class WalletHandler {
 
         @Override
         public JsonElement serialize(WalletTransaction tx,
-                                     java.lang.reflect.Type typeOfSrc,
+                                     Type typeOfSrc,
                                      JsonSerializationContext ctx) {
             JsonObject obj = new JsonObject();
             obj.addProperty("id", tx.getId());

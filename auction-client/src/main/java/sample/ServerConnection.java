@@ -75,21 +75,20 @@ public class ServerConnection {
         LocalDateTime endTime = dto.endTime != null ? dto.endTime : LocalDateTime.now().plusDays(7);
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-        String json = String.format("{\"name\":\"%s\",\"itemType\":\"%s\",\"startingPrice\":%.2f," +
-                        "\"description\":\"%s\",\"warrantyMonths\":%d," +
-                        "\"artist\":\"%s\",\"brand\":\"%s\",\"year\":%d," +
-                        "\"startTime\":\"%s\",\"endTime\":\"%s\"}",
-                escape(dto.title),
-                mapCategoryToItemType(dto.category),
-                dto.startingPrice,
-                escape(dto.description),
-                dto.warrantyMonths,
-                escape(dto.artist),
-                escape(dto.brand),
-                dto.year,
-                startTime.format(fmt),
-                endTime.format(fmt));
-        return sendRequest("CREATE_ITEM", json);
+        JsonObject json = new com.google.gson.JsonObject();
+        json.addProperty("name",           dto.title != null ? dto.title : "");
+        json.addProperty("itemType",       mapCategoryToItemType(dto.category));
+        json.addProperty("startingPrice",  dto.startingPrice);
+        json.addProperty("description",    dto.description != null ? dto.description : "");
+        json.addProperty("warrantyMonths", dto.warrantyMonths);
+        json.addProperty("artist",         dto.artist  != null ? dto.artist  : "");
+        json.addProperty("brand",          dto.brand   != null ? dto.brand   : "");
+        json.addProperty("year",           dto.year);
+        json.addProperty("startTime",      startTime.format(fmt));
+        json.addProperty("endTime",        endTime.format(fmt));
+        json.addProperty("imageUrl",       dto.imageUrl != null ? dto.imageUrl : "");
+
+        return sendRequest("CREATE_ITEM", json.toString());
     }
 
     // XÓA SẢN PHẨM

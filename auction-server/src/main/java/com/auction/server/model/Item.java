@@ -1,12 +1,13 @@
 package com.auction.server.model;
 
-abstract public class Item {   // ← bỏ <String>
+abstract public class Item {
 
     protected String id;
     protected String name;
     protected double startingPrice;
     protected double currentHighestBid;
     protected String typeItem;
+    protected String imageUrl;
 
     public abstract String getType_item();
 
@@ -17,7 +18,6 @@ abstract public class Item {   // ← bỏ <String>
         this.currentHighestBid = startingPrice;
     }
 
-    // Bỏ @Override vì không implements gì nữa
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
 
@@ -28,6 +28,9 @@ abstract public class Item {   // ← bỏ <String>
     public void setCurrentHighestBid(double currentHighestBid) {
         this.currentHighestBid = currentHighestBid;
     }
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 
     public abstract void printInfo();
 }

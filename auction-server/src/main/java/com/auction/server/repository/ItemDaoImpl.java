@@ -53,6 +53,13 @@ public class ItemDaoImpl implements IItemDAO {
         }
 
         item.setCurrentHighestBid(currentHighestBid);
+        // Đọc ảnh
+        try {
+            String imageUrl = rs.getString("image_url");
+            item.setImageUrl(imageUrl);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         return item;
     }
 
@@ -136,8 +143,8 @@ public class ItemDaoImpl implements IItemDAO {
 
     @Override
     public int insertItem(Item item, String sellerId) {
-        String sqlItem = "INSERT INTO Items (name, item_type, startingPrice, currentHighestBid, seller_id) " +
-                "VALUES (?, ?, ?, ?, ?)";
+        String sqlItem = "INSERT INTO Items (name, item_type, startingPrice, currentHighestBid, seller_id, image_url) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseManager.getInstance().getConnection()) {
             conn.setAutoCommit(false); // Bắt đầu transaction
@@ -155,6 +162,7 @@ public class ItemDaoImpl implements IItemDAO {
                 stmt.setDouble(3, item.getStartingPrice());
                 stmt.setDouble(4, item.getStartingPrice()); // currentHighestBid ban đầu = startingPrice
                 stmt.setString(5, sellerId);
+                stmt.setString(6, item.getImageUrl()); //ảnh sản phẩm Url
                 stmt.executeUpdate();
 
                 // Lấy id được DB sinh ra

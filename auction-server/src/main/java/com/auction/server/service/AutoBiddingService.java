@@ -150,8 +150,10 @@ public class AutoBiddingService {
             // Dừng nếu người đầu queue là người vừa đặt (tránh vòng lặp vô hạn)
             if (top.getUsername().equals(triggerUser)) break;
 
-            double currentHighest = auction.getCurrentHighestBid();
-            double nextBid        = currentHighest + top.getIncrement();
+            double currentHighest    = auction.getCurrentHighestBid();
+            // Đảm bảo auto-bid cũng tuân thủ bước giá của phiên
+            double effectiveIncrement = Math.max(top.getIncrement(), auction.getBidStep());
+            double nextBid            = currentHighest + effectiveIncrement;
 
             if (top.getMaxBid() < nextBid) {
                 // Hết ngân sách → loại khỏi queue và DB

@@ -26,6 +26,9 @@ public class Auction implements Serializable {
     private LocalDateTime endTime;
     private Status status;
 
+    // Bước giá tối thiểu mỗi lần đặt
+    private double bidStep = 0;
+
     // Lưu lịch sử đặt giá.
     private final List<BidTransaction> bidHistory;
 
@@ -52,8 +55,17 @@ public class Auction implements Serializable {
             throw new Exception ("Lỗi: Phiên đấu giá đã kết thúc thời gian!");
         }
 
-        if (bidAmount <= currentHighestBid) {
-            throw new Exception ("Lỗi: Giá đặt (" + bidAmount + ") phải lớn hơn giá hiện tại (" + currentHighestBid + ")!");
+        // Kiểm tra bước giá
+        if (bidStep > 0) {
+            double minBid = currentHighestBid + bidStep;
+            if (bidAmount < minBid) {
+                throw new Exception("Lỗi: Giá đặt (" + bidAmount + ") phải tối thiểu " + minBid + " (bước giá: " + bidStep + ")!");
+            }
+        } else {
+            if (bidAmount <= currentHighestBid) {
+                throw new Exception("Lỗi: Giá đặt (" + bidAmount + ") phải lớn hơn giá hiện tại ("
+                        + currentHighestBid + ")!");
+            }
         }
 
         //  Cập nhật thông tin người thắng hiện tại
@@ -92,6 +104,9 @@ public class Auction implements Serializable {
     public LocalDateTime getEndTime() { return endTime; }
     public Status getStatus() { return status; }
     public List<BidTransaction> getBidHistory() { return new ArrayList<>(bidHistory); }
+
+    public double getBidStep() { return bidStep; }
+    public void setBidStep(double bidStep) { this.bidStep = bidStep; }
 
     // Dùng khi load dữ liệu từ DB — đồng bộ giá và người thắng vào RAM
     public void updateHighestBid(double highestBid, String winnerUsername) {
