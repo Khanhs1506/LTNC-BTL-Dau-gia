@@ -72,6 +72,12 @@ public class HomeController {
         boolean favorited = false;
         java.time.LocalDateTime endTimeRaw;
         String imageUrl;
+        String artist;
+        int warrantyMonths;
+        String brand;
+        int year;
+        String description;
+        double stepPrice;
 
         AuctionItem(String title, String giaKhoiDiem, String giaCaoNhat,
                     String thoiGian, int thauThu, String hanDangKi, String category) {
@@ -133,12 +139,30 @@ public class HomeController {
                         String endDateFormatted = endTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
                         String category         = mapItemTypeToCategory(itemType);
                         int auctionId = obj.has("auctionId") ? obj.get("auctionId").getAsInt() : 0;
+                        double stepPrice = obj.has("stepPrice") ? obj.get("stepPrice").getAsDouble() : 0;
                         AuctionItem ai = new AuctionItem(
                                 name, formatVND(startPrice), formatVND(highBid),
                                 timeLeft, 0, endDateFormatted, category
                         );
                         ai.auctionId = auctionId;
-                        ai.endTimeRaw = endTime; // ← thêm dòng này
+                        ai.endTimeRaw = endTime;
+                        ai.stepPrice = stepPrice;
+
+                        if (obj.has("artist") && !obj.get("artist").isJsonNull()) {
+                            ai.artist = obj.get("artist").getAsString();
+                        }
+                        if (obj.has("warrantyMonths") && !obj.get("warrantyMonths").isJsonNull()) {
+                            ai.warrantyMonths = obj.get("warrantyMonths").getAsInt();
+                        }
+                        if (obj.has("brand") && !obj.get("brand").isJsonNull()) {
+                            ai.brand = obj.get("brand").getAsString();
+                        }
+                        if (obj.has("year") && !obj.get("year").isJsonNull()) {
+                            ai.year = obj.get("year").getAsInt();
+                        }
+                        if (obj.has("description") && !obj.get("description").isJsonNull()) {
+                            ai.description = obj.get("description").getAsString();
+                        }
                         // Lấy URL ảnh sản phẩm
                         if (obj.has("imageUrl") && !obj.get("imageUrl").isJsonNull()) {
                             String imgUrl = obj.get("imageUrl").getAsString();
@@ -567,8 +591,14 @@ public class HomeController {
             dto.sellerUsername = "";
             dto.startingPrice  = parseAmount(item.giaKhoiDiem);
             dto.currentHighest = parseAmount(item.giaCaoNhat);
-            dto.stepPrice      = 500_000;
+            dto.stepPrice      = item.stepPrice;
             dto.totalBids      = item.thauThu;
+            dto.artist         = item.artist;
+            dto.warrantyMonths = item.warrantyMonths;
+            dto.brand          = item.brand;
+            dto.year           = item.year;
+            dto.description    = item.description;
+            dto.category       = item.category;
 
             // Parse endTime từ hanDangKi (dd/MM/yyyy)
             if (item.endTimeRaw != null) {
@@ -867,6 +897,7 @@ public class HomeController {
             String itemType   = obj.get("itemType").getAsString();
             String endTimeStr = obj.get("endTime").getAsString();
             int    auctionId  = obj.get("auctionId").getAsInt();
+            double stepPrice = obj.has("stepPrice") ? obj.get("stepPrice").getAsDouble() : 0;
 
             LocalDateTime endTime = LocalDateTime.parse(endTimeStr, fmt);
 

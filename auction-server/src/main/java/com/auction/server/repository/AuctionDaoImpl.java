@@ -14,7 +14,7 @@ public class AuctionDaoImpl implements IAuctionDAO {
     private static final String BASE_JOIN_QUERY =
             "SELECT a.id AS a_id, a.item_id, a.current_highest_bid AS a_high_bid, " +
                     "a.current_winner_username, a.start_time, a.end_time, a.status, a.bid_step, a.created_at, " +
-                    "i.name, i.item_type, i.startingPrice, i.currentHighestBid AS i_high_bid, i.seller_id, i.image_url, " +
+                    "i.name, i.item_type, i.startingPrice, i.currentHighestBid AS i_high_bid, i.seller_id, i.image_url, i.information, " +
                     "e.warranty_months, art.artist_name, v.brand, v.year " +
                     "FROM auctions a " +
                     "JOIN Items i ON a.item_id = i.id " +
@@ -58,6 +58,7 @@ public class AuctionDaoImpl implements IAuctionDAO {
             item.setCurrentHighestBid(itemHighBid);
             try {
                 item.setImageUrl(rs.getString("image_url"));
+                item.setDescription(rs.getString("information"));
             } catch (SQLException ignored) {}
         }
 

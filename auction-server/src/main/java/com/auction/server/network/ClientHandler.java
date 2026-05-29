@@ -350,7 +350,10 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
             // Đọc và gắn URL ảnh
             if (obj.has("imageUrl") && !obj.get("imageUrl").getAsString().isBlank()) {
-                item.setImageUrl(obj.get("imageUrl").getAsString());
+                String rawImageUrl = obj.get("imageUrl").getAsString();
+                // Dùng ImageStorageUtil (đã tạo ở bước 2) để lưu file và lấy đường dẫn
+                String savedPath = com.auction.server.util.ImageStorageUtil.saveBase64Image(rawImageUrl);
+                item.setImageUrl(savedPath); // Lưu đường dẫn (vd: uploads/items/...) vào Item
             }
             int itemId = itemRepo.insertItem(item, currentUser.getId());
             // Gắn imageUrl trước khi lưu
@@ -619,8 +622,19 @@ public class ClientHandler implements Runnable, AuctionObserver {
             s.endTime = a.getEndTime().format(fmt);
             s.status = a.getStatus().name();
             s.bidCount  = bidCounts.getOrDefault(a.getId(), 0);
-            s.imageUrl  = a.getItem().getImageUrl();
+            s.imageUrl  = a.getItem().getImageUrl();;
             s.stepPrice = a.getBidStep();
+            s.description = a.getItem().getDescription();
+
+            Item item = a.getItem();
+            if (item instanceof ArtItem) {
+                s.artist = ((ArtItem) item).getArtist();
+            } else if (item instanceof ElectronicsItem) {
+                s.warrantyMonths = ((ElectronicsItem) item).getWarrantyMonths();
+            } else if (item instanceof VehicleItem) {
+                s.brand = ((VehicleItem) item).getBrand();
+                s.year = ((VehicleItem) item).getYear();
+            }
             summaries.add(s);
         }
         return summaries;

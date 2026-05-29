@@ -16,4 +16,9 @@ public class AuctionSummary {
     public int bidCount;
     public String imageUrl;
     public double stepPrice;
+    public String artist;
+    public int warrantyMonths;
+    public String brand;
+    public int year;
+    public String description;
 }

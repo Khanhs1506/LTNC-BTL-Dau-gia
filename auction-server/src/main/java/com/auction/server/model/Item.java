@@ -8,6 +8,7 @@ abstract public class Item {
     protected double currentHighestBid;
     protected String typeItem;
     protected String imageUrl;
+    protected String description;
 
     public abstract String getType_item();
 
@@ -31,6 +32,9 @@ abstract public class Item {
 
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
     public abstract void printInfo();
 }

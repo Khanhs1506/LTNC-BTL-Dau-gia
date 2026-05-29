@@ -411,105 +411,81 @@ public class AuctionDetailController {
             showImagePlaceholder("Chưa có\nảnh sản phẩm");
             return;
         }
-
         // Hiện trạng thái đang tải
         imgPlaceholder.setVisible(true);
         imgPlaceholder.setManaged(true);
         imgPlaceholder.setText("Đang tải ảnh...");
         mainImageView.setImage(null);
-
         String[] urls = auction.imageUrl.split("\\|");
-
-        // Tải ảnh trên background thread (tránh block UI với ảnh base64 lớn)
+        // Tải ảnh trên background thread (tránh block UI)
         new Thread(() -> {
-            java.util.List<Image> images = new java.util.ArrayList<>();
-
+            final java.util.List<Image> images = new java.util.ArrayList<>();
             for (String rawUrl : urls) {
-                String url = rawUrl.trim();
+                final String url = rawUrl.trim();
                 if (url.isEmpty()) continue;
-
                 try {
-                    Image img;
+                    final Image img;
                     if (url.startsWith("data:")) {
-                        // ── Base64 data URL ─────────────────────────────
-                        int commaIdx = url.indexOf(',');
+                        final int commaIdx = url.indexOf(',');
                         if (commaIdx < 0) {
                             System.err.println("[loadImage] data URL thiếu dấu phẩy: " + url.substring(0, Math.min(50, url.length())));
                             continue;
                         }
-                        String base64Data = url.substring(commaIdx + 1);
-
-                        // Kiểm tra base64 hợp lệ trước khi decode
+                        final String base64Data = url.substring(commaIdx + 1);
                         if (base64Data.isEmpty()) {
                             System.err.println("[loadImage] base64 rỗng");
                             continue;
                         }
-
-                        byte[] imageBytes;
+                        final byte[] imageBytes;
                         try {
                             imageBytes = java.util.Base64.getDecoder().decode(base64Data);
                         } catch (IllegalArgumentException ex) {
-                            System.err.println("[loadImage] Base64 không hợp lệ (có thể bị cắt ngắn trong DB): " + ex.getMessage());
-                            System.err.println("  → Kiểm tra kiểu cột image_url trong DB: phải là MEDIUMTEXT, không phải TEXT hay VARCHAR");
+                            System.err.println("[loadImage] Base64 không hợp lệ: " + ex.getMessage());
                             continue;
                         }
-
                         img = new Image(new java.io.ByteArrayInputStream(imageBytes));
-
                         if (img.isError()) {
                             System.err.println("[loadImage] Không thể decode ảnh từ byte[]: " + img.getException());
                             continue;
                         }
-
                     } else {
-                        // ── URL thông thường ────────────────────────────
-                        img = new Image(url, true); // background loading
+                        // ── ĐỌC ẢNH TỪ ĐƯỜNG DẪN FILE VẬT LÝ (CODE MỚI TÍCH HỢP) ──
+                        final java.io.File file = new java.io.File(url);
+                        if (file.exists()) {
+                            // Chuyển đường dẫn file cứng thành định dạng URL hợp lệ của JavaFX (file:/...)
+                            img = new Image(file.toURI().toString(), true);
+                        } else {
+                            // Fallback tải qua mạng/đường dẫn web nếu không tìm thấy file cục bộ
+                            img = new Image(url, true);
+                        }
                     }
-
                     images.add(img);
-
                 } catch (Exception e) {
                     System.err.println("[loadImage] Lỗi tải ảnh: " + e.getMessage());
                 }
             }
-
-            // Cập nhật UI trên FX thread
+            // Cập nhật UI trên JavaFX Application Thread
             Platform.runLater(() -> {
                 if (images.isEmpty()) {
                     showImagePlaceholder("Không tải\nđược ảnh");
                     return;
                 }
-
                 // Ảnh tải thành công — ẩn placeholder
                 imgPlaceholder.setVisible(false);
                 imgPlaceholder.setManaged(false);
                 mainImageView.setImage(images.get(0));
-
                 // Tạo thumbnail cho từng ảnh
-                String activeStyle = "-fx-border-color: " + RED + ";"
-                        + "-fx-border-width: 1.5;"
-                        + "-fx-border-radius: 5;"
-                        + "-fx-background-radius: 5;"
-                        + "-fx-cursor: hand;";
-                String normalStyle = "-fx-border-color: #E5E7EB;"
-                        + "-fx-border-width: 0.5;"
-                        + "-fx-border-radius: 5;"
-                        + "-fx-background-radius: 5;"
-                        + "-fx-cursor: hand;"
-                        + "-fx-opacity: 0.7;";
-
+                final String activeStyle = "-fx-border-color: #B91C1C;-fx-border-width: 1.5;-fx-border-radius: 5;-fx-background-radius: 5;-fx-cursor: hand;";
+                final String normalStyle = "-fx-border-color: #E5E7EB;-fx-border-width: 0.5;-fx-border-radius: 5;-fx-background-radius: 5;-fx-cursor: hand;-fx-opacity: 0.7;";
                 for (int i = 0; i < images.size(); i++) {
-                    Image img = images.get(i);
-
-                    ImageView iv = new ImageView(img);
+                    final Image img = images.get(i);
+                    final ImageView iv = new ImageView(img);
                     iv.setFitWidth(42);
                     iv.setFitHeight(38);
                     iv.setPreserveRatio(false);
-
-                    StackPane wrap = new StackPane(iv);
+                    final StackPane wrap = new StackPane(iv);
                     wrap.setPrefSize(44, 40);
                     wrap.setStyle(i == 0 ? activeStyle : normalStyle);
-
                     final Image finalImg = img;
                     final StackPane finalWrap = wrap;
                     wrap.setOnMouseClicked(e -> {
@@ -518,14 +494,13 @@ public class AuctionDetailController {
                         finalWrap.setStyle(activeStyle);
                     });
                     wrap.setOnMouseEntered(e -> {
-                        if (!finalWrap.getStyle().contains(RED))
+                        if (!finalWrap.getStyle().contains("#B91C1C"))
                             finalWrap.setStyle(finalWrap.getStyle().replace("-fx-opacity: 0.7;", "-fx-opacity: 1.0;"));
                     });
                     wrap.setOnMouseExited(e -> {
-                        if (!finalWrap.getStyle().contains(RED))
+                        if (!finalWrap.getStyle().contains("#B91C1C"))
                             finalWrap.setStyle(finalWrap.getStyle().replace("-fx-opacity: 1.0;", "-fx-opacity: 0.7;"));
                     });
-
                     thumbList.getChildren().add(wrap);
                 }
             });
@@ -741,8 +716,32 @@ public class AuctionDetailController {
 
     @FXML
     private void handleViewDetail() {
-        String desc = auction.description != null ? auction.description : "Khong co mo ta.";
-        showInfo("Chi tiet san pham", desc);
+        StringBuilder details = new StringBuilder();
+
+        String title = (auction.title != null) ? auction.title : "Chưa cập nhật";
+        String category = (auction.category != null) ? auction.category : "Khác";
+
+        details.append("Tên sản phẩm: ").append(title).append("\n");
+        details.append("Danh mục: ").append(category).append("\n\n");
+
+        if ("Nghệ thuật".equalsIgnoreCase(category)) {
+            String artist = (auction.artist != null && !auction.artist.isEmpty()) ? auction.artist : "Không rõ";
+            details.append("Tác giả/Nghệ sĩ: ").append(artist).append("\n");
+
+        } else if ("Điện tử".equalsIgnoreCase(category)) {
+            details.append("Bảo hành: ").append(auction.warrantyMonths).append(" tháng\n");
+
+        } else if ("Phương tiện".equalsIgnoreCase(category)) {
+            String brand = (auction.brand != null && !auction.brand.isEmpty()) ? auction.brand : "Không rõ";
+            String yearStr = (auction.year > 0) ? String.valueOf(auction.year) : "Không rõ";
+            details.append("Thương hiệu: ").append(brand).append("\n");
+            details.append("Năm sản xuất: ").append(yearStr).append("\n");
+        }
+
+        details.append("\nMô tả thêm: ").append((auction.description != null && !auction.description.isEmpty())
+                ? auction.description : "Chưa có mô tả chi tiết.");
+
+        showInfo("Chi tiết sản phẩm", details.toString());
     }
 
     @FXML

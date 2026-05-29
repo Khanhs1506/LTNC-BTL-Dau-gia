@@ -57,6 +57,7 @@ public class ItemDaoImpl implements IItemDAO {
         try {
             String imageUrl = rs.getString("image_url");
             item.setImageUrl(imageUrl);
+            item.setDescription(rs.getString("information"));
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -143,13 +144,13 @@ public class ItemDaoImpl implements IItemDAO {
 
     @Override
     public int insertItem(Item item, String sellerId) {
-        String sqlItem = "INSERT INTO Items (name, item_type, startingPrice, currentHighestBid, seller_id, image_url) " +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO Items (name, item_type, startingPrice, currentHighestBid, seller_id, image_url, information) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseManager.getInstance().getConnection()) {
             conn.setAutoCommit(false); // Bắt đầu transaction
 
-            try (PreparedStatement stmt = conn.prepareStatement(sqlItem, Statement.RETURN_GENERATED_KEYS)) {
+            try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 stmt.setString(1, item.getName());
                 String typeStr;
                 switch (item.getType_item()) {
