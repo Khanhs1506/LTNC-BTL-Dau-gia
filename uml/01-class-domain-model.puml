@@ -1,0 +1,158 @@
+@startuml LTNC_Auction_Domain_Model
+' ============================================================
+' Sơ đồ lớp MIỀN (Domain) — auction-server
+' Dự án: LTNC-BTL-Dau-gia (Đấu giá trực tuyến)
+' Nguồn: com.auction.server.model + factory
+' ============================================================
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam packageStyle rectangle
+
+title Class Diagram — Domain Model (Server)
+
+interface "Entity<T>" as Entity <<interface>> {
+  +getId() : T
+  +setId(id : T) : void
+}
+
+abstract class User {
+  -id : String
+  -username : String
+  -password : String
+  -role : String
+  -status : String
+  +getUsername() : String
+  +getRole() : String
+  +displayRoleInfo() : void <<abstract>>
+}
+
+class Admin {
+  +displayRoleInfo() : void
+}
+
+class Seller {
+  +displayRoleInfo() : void
+}
+
+class Bidder {
+  -balance : double
+  -participatedItemIds : List~String~
+  -favoriteItemIds : List~String~
+  +getBalance() : double
+  +joinAuction(itemId) : void
+  +addToFavorites(itemId) : void
+  +removeFromFavorites(itemId) : void
+}
+
+abstract class Item {
+  #id : String
+  #name : String
+  #startingPrice : double
+  #currentHighestBid : double
+  #typeItem : String
+  #imageUrl : String
+  #description : String
+  +getType_item() : String <<abstract>>
+  +printInfo() : void <<abstract>>
+  +setCurrentHighestBid(amount) : void
+}
+
+class ElectronicsItem {
+  -warrantyMonths : int
+  +getWarrantyMonths() : int
+}
+
+class ArtItem {
+  -artistName : String
+}
+
+class VehicleItem {
+  -brand : String
+  -year : int
+}
+
+class Auction {
+  +enum Status { OPEN, RUNNING, FINISHED, CANCELED }
+  -id : int
+  -item : Item
+  -currentHighestBid : double
+  -currentWinnerUsername : String
+  -startTime : LocalDateTime
+  -endTime : LocalDateTime
+  -status : Status
+  -bidStep : double
+  -bidHistory : List~BidTransaction~
+  +placeBid(username, amount) : boolean
+  +startAuction() : void
+  +closeAuction() : void
+  +extendEndTime(minutes) : void
+}
+
+class BidTransaction {
+  -transactionId : String
+  -auctionId : int
+  -bidderUsername : String
+  -bidAmount : double
+  -timestamp : LocalDateTime
+}
+
+class AutoBidEntry {
+  -auctionId : int
+  -username : String
+  -maxBid : double
+  -increment : double
+  -registeredAt : LocalDateTime
+  +compareTo(other) : int
+}
+
+class WalletTransaction {
+  +enum Type { DEPOSIT, PAYMENT, REFUND, BID_HOLD, BID_RELEASE }
+  -id : String
+  -userId : String
+  -type : Type
+  -amount : double
+  -balanceBefore : double
+  -balanceAfter : double
+  -relatedAuctionId : Integer
+  -note : String
+  -createdAt : LocalDateTime
+}
+
+interface ItemFactory <<interface>> {
+  +createItem(type, id, name, price, extraDetail) : Item
+}
+
+class ItemFactoryImpl {
+  +createItem(type, id, name, price, extraDetail) : Item
+}
+
+Entity <|.. User
+User <|-- Admin
+User <|-- Seller
+User <|-- Bidder
+
+Item <|-- ElectronicsItem
+Item <|-- ArtItem
+Item <|-- VehicleItem
+
+Auction "1" *-- "1" Item : contains
+Auction "1" o-- "*" BidTransaction : bidHistory
+
+ItemFactory <|.. ItemFactoryImpl
+ItemFactoryImpl ..> Item : creates
+
+AutoBidEntry ..> Auction : auctionId
+
+note right of Auction
+  **Design patterns:**
+  - placeBid() synchronized (thread-safe)
+  - Anti-sniping: extendEndTime()
+  - bidStep validation
+end note
+
+note bottom of ItemFactory
+  **Factory Method**
+  type: ELECTRONICS | ART | VEHICLE
+end note
+
+@enduml

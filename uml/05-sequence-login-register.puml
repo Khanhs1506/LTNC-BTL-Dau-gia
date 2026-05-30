@@ -1,0 +1,48 @@
+@startuml LTNC_Sequence_Login
+' ============================================================
+' Sequence: Đăng nhập / Đăng ký
+' ============================================================
+title Sequence Diagram — Login & Register
+
+actor User as user
+participant "LoginController\n(JavaFX)" as ui
+participant ServerConnection as conn
+participant ClientHandler as handler
+participant UserDaoImpl as userDao
+database "MySQL\nusers" as db
+
+== Đăng nhập ==
+
+user -> ui : nhập username, password
+ui -> conn : login(username, password)
+conn -> handler : LOGIN==={"username":"...","password":"..."}
+handler -> userDao : getUserByUsername(username)
+userDao -> db : SELECT * FROM users WHERE username=?
+db --> userDao : row
+userDao --> handler : User (Admin|Seller|Bidder)
+handler -> handler : verify password
+alt hợp lệ
+  handler --> conn : LOGIN_SUCCESS===...role...
+  conn --> ui : response
+  ui -> ui : UserSession.setCurrentUser()
+  ui --> user : chuyển màn hình theo role
+else sai mật khẩu / không tồn tại
+  handler --> conn : LOGIN_FAILED===...
+  conn --> ui : lỗi
+  ui --> user : hiển thị Alert
+end
+
+== Đăng ký ==
+
+user -> ui : username, password, role
+ui -> conn : register(...)
+conn -> handler : REGISTER===JSON
+handler -> userDao : registerUser(newUser)
+userDao -> db : INSERT INTO users
+db --> userDao : ok / duplicate
+userDao --> handler : boolean
+handler --> conn : REGISTER_SUCCESS | REGISTER_FAILED
+conn --> ui : response
+ui --> user : thông báo
+
+@enduml

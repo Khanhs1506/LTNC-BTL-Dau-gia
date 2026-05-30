@@ -1,0 +1,59 @@
+@startuml LTNC_Deployment
+' ============================================================
+' Component & Deployment
+' ============================================================
+title Component & Deployment Diagram
+
+node "Máy Client (Windows)" as clientNode {
+  component [JavaFX Application] as javafx {
+    [Controllers]
+    [FXML Views]
+    [ServerConnection]
+  }
+}
+
+node "Máy Server" as serverNode {
+  component [auction-server.jar] as server {
+    [ServerApp :9999]
+    [ClientHandler Pool]
+    [AuctionManager]
+    [BiddingEngine]
+    [AutoBiddingService]
+    [DAO Layer]
+  }
+}
+
+database "MySQL 8\nauction_system" as mysql {
+  folder tables {
+    [users]
+    [Items]
+    [auctions]
+    [bid_transactions]
+    [wallet_transactions]
+    [auto_bids]
+    [favorites]
+    [reports]
+  }
+}
+
+cloud "LAN / TCP" as lan
+
+javafx --> lan : Socket TCP\nACTION===JSON\nPort 9999
+lan --> server
+server --> mysql : JDBC\n(DatabaseManager)
+
+note right of server
+  **Khởi động:**
+  1. loadFromDatabase()
+  2. schedule status check 5s
+  3. ServerSocket.accept()
+  4. Thread per ClientHandler
+end note
+
+note left of javafx
+  **Module:** sample
+  **Gson** serialize JSON
+  Listener thread nhận push
+end note
+
+@enduml
