@@ -80,7 +80,7 @@ public class WalletController {
     private void setupComboBoxes() {
         cmbPaymentMethod.getItems().addAll(
                 "💳 VNPay", "📱 MoMo", "🏦 Internet Banking",
-                "💸 ZaloPay", "Thẻ ATM"
+                "💸 ZaloPay", "🏧 Thẻ ATM"
         );
         cmbPaymentMethod.getSelectionModel().selectFirst();
 
@@ -231,14 +231,23 @@ public class WalletController {
         }
 
         String method = cmbPaymentMethod.getValue();
+        if (method != null) {
+            method = method.replace("💳 ", "")
+                    .replace("📱 ", "")
+                    .replace("🏦 ", "")
+                    .replace("💸 ", "")
+                    .replace("🏧 ", "")
+                    .trim();
+            }
 
         // UI: đang xử lý
         btnDeposit.setDisable(true);
         depositSpinner.setVisible(true);
         showDepositStatus("⏳ Đang xử lý...", "#f39c12");
 
+        String finalMethod = method;
         new Thread(() -> {
-            Transaction tx = WalletService.getInstance().deposit(amount, method);
+            Transaction tx = WalletService.getInstance().deposit(amount, finalMethod);
             Platform.runLater(() -> {
                 btnDeposit.setDisable(false);
                 depositSpinner.setVisible(false);

@@ -15,7 +15,7 @@ public class ServerApp {
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(() -> AuctionManager.getInstance().checkAndUpdateStatuses(), 0, 5, TimeUnit.SECONDS);
         ServerSocket server = new ServerSocket(9999);
-        System.out.println("Server dang chay...");
+        System.out.println("Server dang chay ...");
         while (true) {
             Socket socket = server.accept();
             ClientHandler.NumberOfClient++;
