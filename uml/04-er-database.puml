@@ -1,0 +1,149 @@
+@startuml LTNC_Auction_ER_Database
+' ============================================================
+' ER Diagram — MySQL auction_system
+' Nguồn: auction-server/src/main/resources/schema.sql
+' ============================================================
+skinparam linetype ortho
+title ER Diagram — Database (auction_system)
+
+entity "users" as users {
+  * id : VARCHAR(36) <<PK>>
+  --
+  username : VARCHAR(50) <<UK>>
+  password : VARCHAR(255)
+  role : ENUM(ADMIN, SELLER, BIDDER)
+  balance : DOUBLE
+  rating : DOUBLE
+  created_at : DATETIME
+}
+
+entity "Items" as items {
+  * id : INT <<PK>>
+  --
+  name : VARCHAR(255)
+  item_type : ENUM(ELECTRONICS, ART, VEHICLE)
+  startingPrice : DOUBLE
+  currentHighestBid : DOUBLE
+  status : ENUM(AVAILABLE, IN_AUCTION, SOLD, CANCELED)
+  seller_id : VARCHAR(36) <<FK>>
+  information : TEXT
+  image_url : MEDIUMTEXT
+  created_at : DATETIME
+}
+
+entity "Electronics_Items" as elec {
+  * item_id : INT <<PK, FK>>
+  --
+  warranty_months : INT
+}
+
+entity "Art_Items" as art {
+  * item_id : INT <<PK, FK>>
+  --
+  artist_name : VARCHAR(255)
+}
+
+entity "Vehicle_Items" as vehicle {
+  * item_id : INT <<PK, FK>>
+  --
+  brand : VARCHAR(100)
+  year : INT
+}
+
+entity "auctions" as auctions {
+  * id : INT <<PK>>
+  --
+  item_id : INT <<FK, UK>>
+  current_highest_bid : DOUBLE
+  current_winner_username : VARCHAR(50) <<FK>>
+  start_time : DATETIME
+  end_time : DATETIME
+  status : ENUM(OPEN, RUNNING, FINISHED, CANCELED)
+  bid_step : DOUBLE
+  created_at : DATETIME
+}
+
+entity "bid_transactions" as bids {
+  * transaction_id : VARCHAR(36) <<PK>>
+  --
+  auction_id : INT <<FK>>
+  bidder_username : VARCHAR(50) <<FK>>
+  bid_amount : DOUBLE
+  timestamp : DATETIME
+}
+
+entity "favorites" as favorites {
+  * id : INT <<PK>>
+  --
+  user_id : VARCHAR(36) <<FK>>
+  auction_id : INT <<FK>>
+  created_at : DATETIME
+}
+
+entity "auto_bids" as autobids {
+  * id : INT <<PK>>
+  --
+  auction_id : INT <<FK>>
+  bidder_username : VARCHAR(50) <<FK>>
+  max_bid : DOUBLE
+  increment : DOUBLE
+  trigger_minutes : INT
+  active : TINYINT
+  created_at : DATETIME
+}
+
+entity "wallet_transactions" as wallet_tx {
+  * id : INT <<PK>>
+  --
+  user_id : VARCHAR(36) <<FK>>
+  type : ENUM(DEPOSIT, WITHDRAW, BID_HOLD, BID_RELEASE, BID_WIN)
+  amount : DOUBLE
+  description : VARCHAR(500)
+  created_at : DATETIME
+}
+
+entity "reports" as reports {
+  * id : INT <<PK>>
+  --
+  reporter_id : VARCHAR(36) <<FK>>
+  auction_id : INT <<FK>>
+  reason : TEXT
+  status : ENUM(PENDING, RESOLVED, DISMISSED)
+  created_at : DATETIME
+}
+
+entity "seller_payments" as seller_pay {
+  * id : INT <<PK>>
+  --
+  auction_id : INT <<FK, UK>>
+  seller_id : VARCHAR(36) <<FK>>
+  amount : DOUBLE
+  paid_at : DATETIME
+}
+
+entity "system_settings" as settings {
+  * setting_key : VARCHAR(100) <<PK>>
+  --
+  setting_value : TEXT
+  updated_at : DATETIME
+}
+
+users ||--o{ items : "seller_id"
+items ||--o| elec : "item_id"
+items ||--o| art : "item_id"
+items ||--o| vehicle : "item_id"
+items ||--o| auctions : "item_id"
+users ||--o{ auctions : "winner username"
+auctions ||--o{ bids : "auction_id"
+users ||--o{ bids : "bidder_username"
+users ||--o{ favorites : "user_id"
+auctions ||--o{ favorites : "auction_id"
+auctions ||--o{ autobids : "auction_id"
+users ||--o{ autobids : "bidder_username"
+users ||--o{ wallet_tx : "user_id"
+users ||--o{ reports : "reporter_id"
+auctions ||--o{ reports : "auction_id"
+auctions ||--o| seller_pay : "auction_id"
+users ||--o{ seller_pay : "seller_id"
+
+@enduml

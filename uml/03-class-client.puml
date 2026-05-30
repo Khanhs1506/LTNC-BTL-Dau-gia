@@ -1,0 +1,106 @@
+@startuml LTNC_Auction_Client
+' ============================================================
+' JavaFX Client — sample.*
+' ============================================================
+skinparam shadowing false
+title Class Diagram — Client (JavaFX)
+
+package "sample (controllers)" {
+  class Main
+  class MainHome
+  class LoginController
+  class RegisterController
+  class HomeController
+  class AuctionDetailController
+  class SellerDashboardController
+  class SellerCreateAuctionController
+  class AdminDashboardController
+  class WalletController
+}
+
+package "sample (infrastructure)" {
+  class ServerConnection <<singleton>> {
+    -HOST : String
+    -PORT : int = 9999
+    +getInstance() : ServerConnection
+    +sendRequest(action, json) : String
+    +login(username, password) : String
+    +placeBid(auctionId, user, amount) : String
+    +createItem(dto) : String
+  }
+  class UserSession
+  class NotificationManager
+  class ToastNotification
+  class WalletService
+  class AuctionDataFactory
+  class AuctionItemDTO
+}
+
+package "sample.model" {
+  class User
+  class Auction
+  class Item
+  class BidTransaction
+  class Wallet
+  class Transaction
+  class PlacedBidRequest
+  class Report
+  class AdminReport
+  class BidDeposit
+}
+
+package "sample.form" {
+  class CategoryPanelManager
+  interface CategoryFormPanel <<interface>>
+  class ArtFormPanel
+  class BookFormPanel
+  class ElectronicsFormPanel
+  class VehicleFormPanel
+  class FashionFormPanel
+  class FurnitureFormPanel
+  class GameFormPanel
+  class RealEstateFormPanel
+  class SportFormPanel
+  class EventTicketFormPanel
+}
+
+LoginController --> ServerConnection
+RegisterController --> ServerConnection
+HomeController --> ServerConnection
+AuctionDetailController --> ServerConnection
+SellerDashboardController --> ServerConnection
+SellerCreateAuctionController --> ServerConnection
+AdminDashboardController --> ServerConnection
+WalletController --> ServerConnection
+
+HomeController --> UserSession
+AuctionDetailController --> NotificationManager
+SellerCreateAuctionController --> CategoryPanelManager
+SellerCreateAuctionController --> AuctionItemDTO
+
+CategoryPanelManager --> CategoryFormPanel
+CategoryFormPanel <|.. ArtFormPanel
+CategoryFormPanel <|.. ElectronicsFormPanel
+CategoryFormPanel <|.. VehicleFormPanel
+CategoryFormPanel <|.. BookFormPanel
+CategoryFormPanel <|.. FashionFormPanel
+CategoryFormPanel <|.. FurnitureFormPanel
+CategoryFormPanel <|.. GameFormPanel
+CategoryFormPanel <|.. RealEstateFormPanel
+CategoryFormPanel <|.. SportFormPanel
+CategoryFormPanel <|.. EventTicketFormPanel
+
+ServerConnection ..> ClientHandler : TCP Socket\nACTION===JSON
+
+note right of ServerConnection
+  Singleton + listener thread
+  Nhận push: BID_UPDATE, TIME_EXTENDED
+end note
+
+note bottom of CategoryFormPanel
+  UI form theo danh mục;
+  map sang itemType server:
+  ELECTRONICS | ART | VEHICLE
+end note
+
+@enduml

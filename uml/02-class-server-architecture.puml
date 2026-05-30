@@ -1,0 +1,148 @@
+@startuml LTNC_Auction_Server_Architecture
+' ============================================================
+' Kiến trúc phân lớp Server — Network / Service / Repository
+' ============================================================
+skinparam shadowing false
+title Class Diagram — Server Architecture (3-Tier)
+
+package "network" {
+  class ServerApp {
+    +main(args) : void
+  }
+  class ClientHandler {
+    -socket : Socket
+    -reader : BufferedReader
+    -writer : PrintWriter
+    -currentUser : User
+    -userRepo : IUserDAO
+    -itemRepo : IItemDAO
+    -auctionRepo : IAuctionDAO
+    -bidRepo : IBidTransactionDAO
+    -walletHandler : WalletHandler
+    +run() : void
+    -handlerRequest(request) : void
+    +onNewBidPlaced(auctionId, bidder, amount) : void
+    +onTimeExtended(auctionId, newEndTime) : void
+  }
+  class WalletHandler {
+    +handle(action, json, user, writer) : void
+  }
+  class AuctionSummary
+  class PlacedBidResquest
+}
+
+package "service" {
+  class AuctionManager <<singleton>> {
+    -activeAuctions : Map~Integer, Auction~
+    +getInstance() : AuctionManager
+    +loadFromDatabase() : void
+    +createAuction(itemId, start, end, bidStep) : int
+    +getAuction(id) : Auction
+    +checkAndUpdateStatuses() : void
+    +finishAuction(id) : void
+  }
+  class BiddingEngine <<singleton>> {
+    -observers : List~AuctionObserver~
+    +getInstance() : BiddingEngine
+    +placeBid(auctionId, username, amount) : void
+    +addObserver(obs) : void
+    +removeObserver(obs) : void
+  }
+  class AutoBiddingService <<singleton>> {
+    -queueMap : Map~Integer, PriorityQueue~AutoBidEntry~~
+    +getInstance() : AutoBiddingService
+    +registerAutoBid(auctionId, user, maxBid, increment) : void
+    +processAfterBid(auctionId) : void
+  }
+  interface AuctionObserver <<interface>> {
+    +onNewBidPlaced(auctionId, bidder, amount) : void
+    +onTimeExtended(auctionId, newEndTime) : void
+  }
+  class UserManager
+}
+
+package "repository" {
+  class DatabaseManager {
+    +getConnection() : Connection
+  }
+  interface IUserDAO
+  interface IItemDAO
+  interface IAuctionDAO
+  interface IBidTransactionDAO
+  interface IWalletDAO
+  interface IFavoriteDAO
+  interface IAutoBidDAO
+  interface IReportDAO
+  interface IAdminStatsDAO
+  class UserDaoImpl
+  class ItemDaoImpl
+  class AuctionDaoImpl
+  class BidTransactionDaoImpl
+  class WalletDaoImpl
+  class FavoriteDaoImpl
+  class AutoBidDaoImpl
+  class ReportDaoImpl
+  class AdminStatsDaoImpl
+}
+
+package "exception" {
+  class InvalidBidException
+  class AuctionClosedException
+  class UserNotFoundException
+}
+
+package "util" {
+  class ImageStorageUtil
+}
+
+ServerApp --> AuctionManager : load + schedule
+ServerApp ..> ClientHandler : new Thread per socket
+
+ClientHandler ..|> AuctionObserver
+ClientHandler --> BiddingEngine : observer
+ClientHandler --> AuctionManager
+ClientHandler --> WalletHandler
+ClientHandler --> IUserDAO
+ClientHandler --> IItemDAO
+ClientHandler --> IAuctionDAO
+
+BiddingEngine --> AuctionManager
+BiddingEngine --> AutoBiddingService
+BiddingEngine --> IAuctionDAO
+BiddingEngine --> IBidTransactionDAO
+BiddingEngine o--> AuctionObserver : notifies
+
+AuctionManager --> IAuctionDAO
+
+AutoBiddingService --> IAutoBidDAO
+AutoBiddingService --> AuctionManager
+
+IUserDAO <|.. UserDaoImpl
+IItemDAO <|.. ItemDaoImpl
+IAuctionDAO <|.. AuctionDaoImpl
+IBidTransactionDAO <|.. BidTransactionDaoImpl
+IWalletDAO <|.. WalletDaoImpl
+IFavoriteDAO <|.. FavoriteDaoImpl
+IAutoBidDAO <|.. AutoBidDaoImpl
+IReportDAO <|.. ReportDaoImpl
+IAdminStatsDAO <|.. AdminStatsDaoImpl
+
+UserDaoImpl --> DatabaseManager
+ItemDaoImpl --> DatabaseManager
+AuctionDaoImpl --> DatabaseManager
+
+note right of ClientHandler
+  **Protocol:** ACTION===JSON
+  LOGIN, REGISTER, PLACE_BID,
+  CREATE_ITEM, GET_AUCTIONS,
+  DEPOSIT, AUTO_BID, ...
+  **Push:** BID_UPDATE, TIME_EXTENDED
+end note
+
+note bottom of BiddingEngine
+  **Observer pattern**
+  Realtime broadcast to clients
+  **Anti-sniping:** 5 phút cuối
+end note
+
+@enduml
