@@ -164,6 +164,7 @@ public class ItemDaoImpl implements IItemDAO {
                 stmt.setDouble(4, item.getStartingPrice()); // currentHighestBid ban đầu = startingPrice
                 stmt.setString(5, sellerId);
                 stmt.setString(6, item.getImageUrl()); //ảnh sản phẩm Url
+                stmt.setString(7, item.getDescription());
                 stmt.executeUpdate();
 
                 // Lấy id được DB sinh ra

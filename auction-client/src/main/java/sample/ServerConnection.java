@@ -16,7 +16,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.concurrent.LinkedBlockingDeque;
 
 public class ServerConnection {
-    private static final String HOST = "localhost";
+    private static final String HOST = "10.11.0.143";
     private static final int PORT = 9999;
     private static ServerConnection instance;
 
