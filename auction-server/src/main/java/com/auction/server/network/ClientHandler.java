@@ -355,6 +355,9 @@ public class ClientHandler implements Runnable, AuctionObserver {
                 String savedPath = com.auction.server.util.ImageStorageUtil.saveBase64Image(rawImageUrl);
                 item.setImageUrl(savedPath); // Lưu đường dẫn (vd: uploads/items/...) vào Item
             }
+            if (obj.has("description")) {
+                item.setDescription(obj.get("description").getAsString());
+            }
             int itemId = itemRepo.insertItem(item, currentUser.getId());
             // Gắn imageUrl trước khi lưu
             if (itemId > 0) {
