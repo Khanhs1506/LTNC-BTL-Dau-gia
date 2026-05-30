@@ -203,7 +203,8 @@ public class AuctionDetailController {
                     finalMaxBid = maxBid;
                     finalIncrement = increment;
                     lblAutoBidStatus.setText("Đã có người đấu giá tự động lơn hơn");
-                    lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11;");
+                    lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 18;");
+                    return;
                 }
                 new Thread(() -> {
                     try {
