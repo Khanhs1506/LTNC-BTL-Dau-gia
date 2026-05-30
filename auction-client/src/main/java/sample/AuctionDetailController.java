@@ -198,18 +198,16 @@ public class AuctionDetailController {
                     lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11;");
                     return;
                 }
-                if (finalMaxBid > maxBid) return;
-                if (finalMaxBid < maxBid){
-                    finalMaxBid = maxBid;
-                    finalIncrement = increment;
+                if (finalMaxBid > maxBid) {
                     lblAutoBidStatus.setText("Đã có người đấu giá tự động lơn hơn");
                     lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 18;");
                     return;
                 }
+                finalMaxBid = maxBid;
+                finalIncrement = increment;
                 new Thread(() -> {
                     try {
-                        String res = ServerConnection.getInstance()
-                                .registerAutoBid(auction.id, finalMaxBid, finalIncrement, minutes);
+                        String res = ServerConnection.getInstance().registerAutoBid(auction.id, finalMaxBid, finalIncrement, minutes);
                         Platform.runLater(() -> {
                             if (res != null && res.contains("OK")) {
                                 autoBidActive = true;
