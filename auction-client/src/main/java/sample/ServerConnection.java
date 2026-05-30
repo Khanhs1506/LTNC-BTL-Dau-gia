@@ -87,7 +87,7 @@ public class ServerConnection {
         json.addProperty("startTime",      startTime.format(fmt));
         json.addProperty("endTime",        endTime.format(fmt));
         json.addProperty("imageUrl",       dto.imageUrl != null ? dto.imageUrl : "");
-
+        json.addProperty("stepPrice",      dto.stepPrice);
         return sendRequest("CREATE_ITEM", json.toString());
     }
 
