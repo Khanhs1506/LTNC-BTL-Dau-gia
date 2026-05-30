@@ -71,6 +71,13 @@ public class HomeController {
         String category;    // dùng để lọc
         boolean favorited = false;
         java.time.LocalDateTime endTimeRaw;
+        String imageUrl;
+        String artist;
+        int warrantyMonths;
+        String brand;
+        int year;
+        String description;
+        double stepPrice;
 
         AuctionItem(String title, String giaKhoiDiem, String giaCaoNhat,
                     String thoiGian, int thauThu, String hanDangKi, String category) {
@@ -118,10 +125,6 @@ public class HomeController {
 
                     for (JsonElement el : arr) {
                         JsonObject obj = el.getAsJsonObject();
-
-//                        // 🚨🚨🚨🚨🚨XÓA LOGBUG
-//                        System.out.println("DEBUG: " + obj);
-
                         String status = obj.get("status").getAsString();
                         if (!status.equals("RUNNING") && !status.equals("OPEN")) continue;
 
@@ -136,12 +139,35 @@ public class HomeController {
                         String endDateFormatted = endTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
                         String category         = mapItemTypeToCategory(itemType);
                         int auctionId = obj.has("auctionId") ? obj.get("auctionId").getAsInt() : 0;
+                        double stepPrice = obj.has("stepPrice") ? obj.get("stepPrice").getAsDouble() : 0;
                         AuctionItem ai = new AuctionItem(
                                 name, formatVND(startPrice), formatVND(highBid),
                                 timeLeft, 0, endDateFormatted, category
                         );
                         ai.auctionId = auctionId;
-                        ai.endTimeRaw = endTime; // ← thêm dòng này
+                        ai.endTimeRaw = endTime;
+                        ai.stepPrice = stepPrice;
+
+                        if (obj.has("artist") && !obj.get("artist").isJsonNull()) {
+                            ai.artist = obj.get("artist").getAsString();
+                        }
+                        if (obj.has("warrantyMonths") && !obj.get("warrantyMonths").isJsonNull()) {
+                            ai.warrantyMonths = obj.get("warrantyMonths").getAsInt();
+                        }
+                        if (obj.has("brand") && !obj.get("brand").isJsonNull()) {
+                            ai.brand = obj.get("brand").getAsString();
+                        }
+                        if (obj.has("year") && !obj.get("year").isJsonNull()) {
+                            ai.year = obj.get("year").getAsInt();
+                        }
+                        if (obj.has("description") && !obj.get("description").isJsonNull()) {
+                            ai.description = obj.get("description").getAsString();
+                        }
+                        // Lấy URL ảnh sản phẩm
+                        if (obj.has("imageUrl") && !obj.get("imageUrl").isJsonNull()) {
+                            String imgUrl = obj.get("imageUrl").getAsString();
+                            if (!imgUrl.isBlank()) ai.imageUrl = imgUrl;
+                        }
                         loaded.add(ai);
                     }
 
@@ -191,24 +217,17 @@ public class HomeController {
             case "ART"              -> "Nghệ thuật";
             case "VEHICLE"          -> "Phương tiện";
             case "ELECTRONICS"      -> "Điện tử";
-            // Client gửi lên dạng key
-//            case "ArtItem"          -> "Nghệ thuật";
-//            case "VehicleItem"      -> "Phương tiện";
-//            case "ElectronicsItem"  -> "Điện tử";
 
-            case "Art Item"          -> "Nghệ thuật";
-            case "Vehicle Item"      -> "Phương tiện";
-            case "Electronics Item"  -> "Điện tử";
+            case "ArtItem"          -> "Nghệ thuật";
+            case "VehicleItem"      -> "Phương tiện";
+            case "ElectronicsItem"  -> "Điện tử";
             // Các danh mục từ menu Khác — giữ nguyên tiếng Việt
             case "Không hiển thị !"       -> itemType;
             default                 -> "Khác";
         };
     }
 
-    /**
-     * Dữ liệu mẫu – chỉ dùng khi server chưa khởi động (chạy offline).
-     * Có thể xóa khi ứng dụng hoàn thiện.
-     */
+    //Dữ liệu mẫu – chỉ dùng khi server chưa khởi động (chạy offline)
     private List<AuctionItem> buildMockItems() {
         return Arrays.asList(
                 new AuctionItem("G.5 - BKS 30K - 888.88",
@@ -572,8 +591,14 @@ public class HomeController {
             dto.sellerUsername = "";
             dto.startingPrice  = parseAmount(item.giaKhoiDiem);
             dto.currentHighest = parseAmount(item.giaCaoNhat);
-            dto.stepPrice      = 500_000;
+            dto.stepPrice      = item.stepPrice;
             dto.totalBids      = item.thauThu;
+            dto.artist         = item.artist;
+            dto.warrantyMonths = item.warrantyMonths;
+            dto.brand          = item.brand;
+            dto.year           = item.year;
+            dto.description    = item.description;
+            dto.category       = item.category;
 
             // Parse endTime từ hanDangKi (dd/MM/yyyy)
             if (item.endTimeRaw != null) {
@@ -590,6 +615,7 @@ public class HomeController {
             }
 
             AuctionDetailController ctrl = loader.getController();
+            dto.imageUrl = item.imageUrl;   // ← truyền ảnh sang màn hình đấu giá
             ctrl.setAuction(dto);
 
             Stage stage = new Stage();
@@ -871,6 +897,7 @@ public class HomeController {
             String itemType   = obj.get("itemType").getAsString();
             String endTimeStr = obj.get("endTime").getAsString();
             int    auctionId  = obj.get("auctionId").getAsInt();
+            double stepPrice = obj.has("stepPrice") ? obj.get("stepPrice").getAsDouble() : 0;
 
             LocalDateTime endTime = LocalDateTime.parse(endTimeStr, fmt);
 

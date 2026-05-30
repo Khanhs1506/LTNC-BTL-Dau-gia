@@ -13,8 +13,8 @@ public class AuctionDaoImpl implements IAuctionDAO {
 
     private static final String BASE_JOIN_QUERY =
             "SELECT a.id AS a_id, a.item_id, a.current_highest_bid AS a_high_bid, " +
-                    "a.current_winner_username, a.start_time, a.end_time, a.status, a.created_at, " +
-                    "i.name, i.item_type, i.startingPrice, i.currentHighestBid AS i_high_bid, i.seller_id, " +
+                    "a.current_winner_username, a.start_time, a.end_time, a.status, a.bid_step, a.created_at, " +
+                    "i.name, i.item_type, i.startingPrice, i.currentHighestBid AS i_high_bid, i.seller_id, i.image_url, i.information, " +
                     "e.warranty_months, art.artist_name, v.brand, v.year " +
                     "FROM auctions a " +
                     "JOIN Items i ON a.item_id = i.id " +
@@ -56,11 +56,18 @@ public class AuctionDaoImpl implements IAuctionDAO {
 
         if (item != null) {
             item.setCurrentHighestBid(itemHighBid);
+            try {
+                item.setImageUrl(rs.getString("image_url"));
+                item.setDescription(rs.getString("information"));
+            } catch (SQLException ignored) {}
         }
 
         Auction auction = new Auction(auctionId, item, startTime, endTime);
         auction.updateHighestBid(highBid, winner);
         auction.updateStatus(Auction.Status.valueOf(statusStr));
+        try {
+            auction.setBidStep(rs.getDouble("bid_step"));
+        } catch (SQLException ignored) {}
         return auction;
     }
 
@@ -163,7 +170,7 @@ public class AuctionDaoImpl implements IAuctionDAO {
     }
 
     @Override
-    public int insertAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime) {
+    public int insertAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime, double bidStep) {
         // Lấy startingPrice trong 1 query nhỏ — chỉ dùng 1 connection, không phụ thuộc ItemDAO ngoài
         double startingPrice = 0;
         String sqlPrice = "SELECT startingPrice FROM Items WHERE id = ?";
@@ -183,8 +190,8 @@ public class AuctionDaoImpl implements IAuctionDAO {
             return -1;
         }
 
-        String sql = "INSERT INTO auctions (item_id, current_highest_bid, start_time, end_time, status) " +
-                "VALUES (?, ?, ?, ?, 'OPEN')";
+        String sql = "INSERT INTO auctions (item_id, current_highest_bid, start_time, end_time, status, bid_step) " +
+                "VALUES (?, ?, ?, ?, 'OPEN', ?)";
 
         try (Connection conn = DatabaseManager.getInstance().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -193,6 +200,7 @@ public class AuctionDaoImpl implements IAuctionDAO {
             stmt.setDouble(2, startingPrice);
             stmt.setTimestamp(3, Timestamp.valueOf(startTime));
             stmt.setTimestamp(4, Timestamp.valueOf(endTime));
+            stmt.setDouble(5, bidStep);
             stmt.executeUpdate();
 
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {

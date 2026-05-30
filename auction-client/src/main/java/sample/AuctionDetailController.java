@@ -1,3 +1,4 @@
+
 package sample;
 
 import com.google.gson.JsonArray;
@@ -80,6 +81,8 @@ public class AuctionDetailController {
     private double dragOffsetX;
     private double dragOffsetY;
     private XYChart.Series<String, Number> bidSeries;
+    private double finalMaxBid;
+    private double finalIncrement;
 
     private boolean autoBidActive = false;
 
@@ -195,9 +198,14 @@ public class AuctionDetailController {
                     lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 11;");
                     return;
                 }
-
-                double finalMaxBid    = maxBid;
-                double finalIncrement = increment;
+                if (finalMaxBid > maxBid) return;
+                if (finalMaxBid < maxBid){
+                    finalMaxBid = maxBid;
+                    finalIncrement = increment;
+                    lblAutoBidStatus.setText("Đã có người đấu giá tự động lơn hơn");
+                    lblAutoBidStatus.setStyle("-fx-text-fill: #e05252; -fx-font-size: 18;");
+                    return;
+                }
                 new Thread(() -> {
                     try {
                         String res = ServerConnection.getInstance()
@@ -298,7 +306,12 @@ public class AuctionDetailController {
 
             // Cập nhật UI (đã chạy trên FX thread vì NotificationManager gọi Platform.runLater)
             currentBidLabel.setText(formatVND(req.amount));
-            bidHintLabel.setText("Gia toi thieu phai cao hon gia hien tai: " + formatVND(req.amount));
+            if (auction.stepPrice > 0) {
+                bidHintLabel.setText("Gia toi thieu: " + formatVND(req.amount + auction.stepPrice)
+                        + " (Buoc gia: " + formatVND(auction.stepPrice) + ")");
+            } else {
+                bidHintLabel.setText("Gia toi thieu phai cao hon gia hien tai: " + formatVND(req.amount));
+            }
             buildQuickBidButtons();
             buildParticipants();
             if (bidSeries != null) {
@@ -394,67 +407,113 @@ public class AuctionDetailController {
     private void loadImage() {
         thumbList.getChildren().clear();
 
-        if (auction.imageUrl != null && !auction.imageUrl.isBlank()) {
-            imgPlaceholder.setVisible(false);
-            imgPlaceholder.setManaged(false);
-
-            String[] urls = auction.imageUrl.split("\\|");
-            for (int i = 0; i < urls.length; i++) {
-                String url = urls[i].trim();
-                if (url.isEmpty()) continue;
-
-                final int index = i;
-                Image img = new Image(url, true);
-
-                if (i == 0) {
-                    mainImageView.setImage(img);
-                }
-
-                ImageView iv = new ImageView(img);
-                iv.setFitWidth(42);
-                iv.setFitHeight(38);
-                iv.setPreserveRatio(false);
-
-                StackPane wrap = new StackPane(iv);
-                wrap.setPrefSize(44, 40);
-
-                String activeStyle = "-fx-border-color: " + RED + ";"
-                        + "-fx-border-width: 1.5;"
-                        + "-fx-border-radius: 5;"
-                        + "-fx-background-radius: 5;"
-                        + "-fx-cursor: hand;";
-                String normalStyle = "-fx-border-color: #E5E7EB;"
-                        + "-fx-border-width: 0.5;"
-                        + "-fx-border-radius: 5;"
-                        + "-fx-background-radius: 5;"
-                        + "-fx-cursor: hand;"
-                        + "-fx-opacity: 0.7;";
-
-                wrap.setStyle(i == 0 ? activeStyle : normalStyle);
-
-                wrap.setOnMouseClicked(e -> {
-                    mainImageView.setImage(img);
-                    thumbList.getChildren().forEach(n -> ((StackPane) n).setStyle(normalStyle));
-                    wrap.setStyle(activeStyle);
-                });
-                wrap.setOnMouseEntered(e -> {
-                    if (!wrap.getStyle().contains(RED)) {
-                        wrap.setStyle(wrap.getStyle().replace("-fx-opacity: 0.7;", "-fx-opacity: 1.0;"));
-                    }
-                });
-                wrap.setOnMouseExited(e -> {
-                    if (!wrap.getStyle().contains(RED)) {
-                        wrap.setStyle(wrap.getStyle().replace("-fx-opacity: 1.0;", "-fx-opacity: 0.7;"));
-                    }
-                });
-
-                thumbList.getChildren().add(wrap);
-            }
-        } else {
-            imgPlaceholder.setVisible(true);
-            imgPlaceholder.setManaged(true);
-            mainImageView.setImage(null);
+        if (auction.imageUrl == null || auction.imageUrl.isBlank()) {
+            // Không có ảnh — hiện placeholder
+            showImagePlaceholder("Chưa có\nảnh sản phẩm");
+            return;
         }
+        // Hiện trạng thái đang tải
+        imgPlaceholder.setVisible(true);
+        imgPlaceholder.setManaged(true);
+        imgPlaceholder.setText("Đang tải ảnh...");
+        mainImageView.setImage(null);
+        String[] urls = auction.imageUrl.split("\\|");
+        // Tải ảnh trên background thread (tránh block UI)
+        new Thread(() -> {
+            final java.util.List<Image> images = new java.util.ArrayList<>();
+            for (String rawUrl : urls) {
+                final String url = rawUrl.trim();
+                if (url.isEmpty()) continue;
+                try {
+                    final Image img;
+                    if (url.startsWith("data:")) {
+                        final int commaIdx = url.indexOf(',');
+                        if (commaIdx < 0) {
+                            System.err.println("[loadImage] data URL thiếu dấu phẩy: " + url.substring(0, Math.min(50, url.length())));
+                            continue;
+                        }
+                        final String base64Data = url.substring(commaIdx + 1);
+                        if (base64Data.isEmpty()) {
+                            System.err.println("[loadImage] base64 rỗng");
+                            continue;
+                        }
+                        final byte[] imageBytes;
+                        try {
+                            imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+                        } catch (IllegalArgumentException ex) {
+                            System.err.println("[loadImage] Base64 không hợp lệ: " + ex.getMessage());
+                            continue;
+                        }
+                        img = new Image(new java.io.ByteArrayInputStream(imageBytes));
+                        if (img.isError()) {
+                            System.err.println("[loadImage] Không thể decode ảnh từ byte[]: " + img.getException());
+                            continue;
+                        }
+                    } else {
+                        // ── ĐỌC ẢNH TỪ ĐƯỜNG DẪN FILE VẬT LÝ (CODE MỚI TÍCH HỢP) ──
+                        final java.io.File file = new java.io.File(url);
+                        if (file.exists()) {
+                            // Chuyển đường dẫn file cứng thành định dạng URL hợp lệ của JavaFX (file:/...)
+                            img = new Image(file.toURI().toString(), true);
+                        } else {
+                            // Fallback tải qua mạng/đường dẫn web nếu không tìm thấy file cục bộ
+                            img = new Image(url, true);
+                        }
+                    }
+                    images.add(img);
+                } catch (Exception e) {
+                    System.err.println("[loadImage] Lỗi tải ảnh: " + e.getMessage());
+                }
+            }
+            // Cập nhật UI trên JavaFX Application Thread
+            Platform.runLater(() -> {
+                if (images.isEmpty()) {
+                    showImagePlaceholder("Không tải\nđược ảnh");
+                    return;
+                }
+                // Ảnh tải thành công — ẩn placeholder
+                imgPlaceholder.setVisible(false);
+                imgPlaceholder.setManaged(false);
+                mainImageView.setImage(images.get(0));
+                // Tạo thumbnail cho từng ảnh
+                final String activeStyle = "-fx-border-color: #B91C1C;-fx-border-width: 1.5;-fx-border-radius: 5;-fx-background-radius: 5;-fx-cursor: hand;";
+                final String normalStyle = "-fx-border-color: #E5E7EB;-fx-border-width: 0.5;-fx-border-radius: 5;-fx-background-radius: 5;-fx-cursor: hand;-fx-opacity: 0.7;";
+                for (int i = 0; i < images.size(); i++) {
+                    final Image img = images.get(i);
+                    final ImageView iv = new ImageView(img);
+                    iv.setFitWidth(42);
+                    iv.setFitHeight(38);
+                    iv.setPreserveRatio(false);
+                    final StackPane wrap = new StackPane(iv);
+                    wrap.setPrefSize(44, 40);
+                    wrap.setStyle(i == 0 ? activeStyle : normalStyle);
+                    final Image finalImg = img;
+                    final StackPane finalWrap = wrap;
+                    wrap.setOnMouseClicked(e -> {
+                        mainImageView.setImage(finalImg);
+                        thumbList.getChildren().forEach(n -> ((StackPane) n).setStyle(normalStyle));
+                        finalWrap.setStyle(activeStyle);
+                    });
+                    wrap.setOnMouseEntered(e -> {
+                        if (!finalWrap.getStyle().contains("#B91C1C"))
+                            finalWrap.setStyle(finalWrap.getStyle().replace("-fx-opacity: 0.7;", "-fx-opacity: 1.0;"));
+                    });
+                    wrap.setOnMouseExited(e -> {
+                        if (!finalWrap.getStyle().contains("#B91C1C"))
+                            finalWrap.setStyle(finalWrap.getStyle().replace("-fx-opacity: 1.0;", "-fx-opacity: 0.7;"));
+                    });
+                    thumbList.getChildren().add(wrap);
+                }
+            });
+        }, "ImageLoader").start();
+    }
+
+    /** Hiển thị placeholder với thông báo tuỳ chỉnh */
+    private void showImagePlaceholder(String message) {
+        imgPlaceholder.setText(message);
+        imgPlaceholder.setVisible(true);
+        imgPlaceholder.setManaged(true);
+        mainImageView.setImage(null);
     }
 
     private void loadStats() {
@@ -468,8 +527,12 @@ public class AuctionDetailController {
             endTimeLabel.setText("---");
         }
 
-        bidHintLabel.setText("Gia toi thieu phai cao hon gia hien tai: "
-                + formatVND(auction.currentHighest));
+        if (auction.stepPrice > 0) {
+            bidHintLabel.setText("Gia toi thieu: " + formatVND(auction.currentHighest + auction.stepPrice)
+                    + " (Buoc gia: " + formatVND(auction.stepPrice) + ")");
+        } else {
+            bidHintLabel.setText("Gia toi thieu phai cao hon gia hien tai: " + formatVND(auction.currentHighest));
+        }
     }
 
     private void buildQuickBidButtons() {
@@ -654,8 +717,32 @@ public class AuctionDetailController {
 
     @FXML
     private void handleViewDetail() {
-        String desc = auction.description != null ? auction.description : "Khong co mo ta.";
-        showInfo("Chi tiet san pham", desc);
+        StringBuilder details = new StringBuilder();
+
+        String title = (auction.title != null) ? auction.title : "Chưa cập nhật";
+        String category = (auction.category != null) ? auction.category : "Khác";
+
+        details.append("Tên sản phẩm: ").append(title).append("\n");
+        details.append("Danh mục: ").append(category).append("\n\n");
+
+        if ("Nghệ thuật".equalsIgnoreCase(category)) {
+            String artist = (auction.artist != null && !auction.artist.isEmpty()) ? auction.artist : "Không rõ";
+            details.append("Tác giả/Nghệ sĩ: ").append(artist).append("\n");
+
+        } else if ("Điện tử".equalsIgnoreCase(category)) {
+            details.append("Bảo hành: ").append(auction.warrantyMonths).append(" tháng\n");
+
+        } else if ("Phương tiện".equalsIgnoreCase(category)) {
+            String brand = (auction.brand != null && !auction.brand.isEmpty()) ? auction.brand : "Không rõ";
+            String yearStr = (auction.year > 0) ? String.valueOf(auction.year) : "Không rõ";
+            details.append("Thương hiệu: ").append(brand).append("\n");
+            details.append("Năm sản xuất: ").append(yearStr).append("\n");
+        }
+
+        details.append("\nMô tả thêm: ").append((auction.description != null && !auction.description.isEmpty())
+                ? auction.description : "Chưa có mô tả chi tiết.");
+
+        showInfo("Chi tiết sản phẩm", details.toString());
     }
 
     @FXML
@@ -714,9 +801,19 @@ public class AuctionDetailController {
             return;
         }
 
-        if (amount <= auction.currentHighest) {
-            messageLabel.setText("Gia phai lon hon " + formatVND(auction.currentHighest));
-            return;
+        // Kiểm tra bước giá tối thiểu
+        if (auction.stepPrice > 0) {
+            double minBid = auction.currentHighest + auction.stepPrice;
+            if (amount < minBid) {
+                messageLabel.setText("Gia toi thieu: " + formatVND(minBid)
+                        + " (Buoc gia: " + formatVND(auction.stepPrice) + ")");
+                return;
+            }
+        } else {
+            if (amount <= auction.currentHighest) {
+                messageLabel.setText("Gia phai lon hon " + formatVND(auction.currentHighest));
+                return;
+            }
         }
 
         final int   auctionId = auction.id;

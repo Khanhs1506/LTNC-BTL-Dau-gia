@@ -29,7 +29,10 @@ public interface IAuctionDAO {
     List<Auction> getAuctionsBySellerId(String sellerId, int limit, int offset);
 
     // Thêm phiên đấu giá mới
-    int insertAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime);
+    default int insertAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime) {
+        return insertAuction(itemId, startTime, endTime, 0.0);
+    }
+    int insertAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime, double bidStep);
 
     // Cập nhật trạng thái phiên
     boolean updateStatus(int auctionId, Auction.Status status);

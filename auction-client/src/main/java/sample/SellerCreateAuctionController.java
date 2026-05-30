@@ -570,7 +570,23 @@ public class SellerCreateAuctionController implements Initializable {
         dto.stepPrice     = parseMoney(txtStepPrice.getText());
         dto.buyNowPrice   = txtBuyNow.getText().isBlank() ? 0 : parseMoney(txtBuyNow.getText());
         dto.sellerUsername = UserSession.getInstance().getUsername();
-        dto.imageUrl      = selectedImageFile != null ? selectedImageFile.toURI().toString() : null;
+
+        // Chuyển file ảnh sang base64 data URL để gửi qua socket
+        if (selectedImageFile != null) {
+            try {
+                byte[] imageBytes = java.nio.file.Files.readAllBytes(selectedImageFile.toPath());
+                String base64 = java.util.Base64.getEncoder().encodeToString(imageBytes);
+                String fn = selectedImageFile.getName().toLowerCase();
+                String mime = fn.endsWith(".png")  ? "image/png"  :
+                        fn.endsWith(".gif")  ? "image/gif"  :
+                                fn.endsWith(".webp") ? "image/webp" : "image/jpeg";
+                dto.imageUrl = "data:" + mime + ";base64," + base64;
+            } catch (Exception e) {
+                dto.imageUrl = null;
+            }
+        } else {
+            dto.imageUrl = null;
+        }
         dto.status        = "OPEN";
 
         // Delegate fill xuống panel đang active

@@ -14,4 +14,11 @@ public class AuctionSummary {
     public String endTime;
     public String status;
     public int bidCount;
+    public String imageUrl;
+    public double stepPrice;
+    public String artist;
+    public int warrantyMonths;
+    public String brand;
+    public int year;
+    public String description;
 }

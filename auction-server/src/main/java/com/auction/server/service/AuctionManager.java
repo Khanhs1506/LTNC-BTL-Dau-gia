@@ -65,8 +65,8 @@ public class AuctionManager {
      *
      * @return id phiên được DB tạo ra, hoặc -1 nếu thất bại.
      */
-    public int createAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime) {
-        int auctionId = auctionDao.insertAuction(itemId, startTime, endTime);
+    public int createAuction(int itemId, LocalDateTime startTime, LocalDateTime endTime, double bidStep) {
+        int auctionId = auctionDao.insertAuction(itemId, startTime, endTime, bidStep);
         if (auctionId <= 0) return -1;
 
         // Load lại từ DB để có đầy đủ thông tin (item, ...)
@@ -125,8 +125,8 @@ public class AuctionManager {
                         String winnerId = String.valueOf(winnerUser.getId());
                         IWalletDAO walletDao = new WalletDaoImpl();
                         WalletTransaction tx = walletDao.payment(winnerId, winBid, auctionId,
-                                        String.format("Thanh toán đấu giá #%d - %s",
-                                                auctionId, auction.getItem().getName()));
+                                String.format("Thanh toán đấu giá #%d - %s",
+                                        auctionId, auction.getItem().getName()));
                         if (tx != null) {
                             System.out.printf("[AuctionManager] AUTO_PAYMENT phiên %d: user=%s | -%.0f | thành công%n", auctionId, winner, winBid);
                         } else {
