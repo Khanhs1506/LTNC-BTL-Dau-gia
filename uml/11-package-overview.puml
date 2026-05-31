@@ -1,0 +1,40 @@
+@startuml LTNC_Package_Overview
+' ============================================================
+' Package Diagram — Toàn hệ thống Maven
+' ============================================================
+title Package Diagram — LTNC-BTL-Dau-gia (Maven Multi-Module)
+
+package "auction-client (JavaFX)" {
+  package sample {
+    package controllers
+    package model
+    package form.panels
+  }
+}
+
+package "auction-server" {
+  package com.auction.server.model
+  package com.auction.server.factory
+  package com.auction.server.service
+  package com.auction.server.repository
+  package com.auction.server.network
+  package com.auction.server.network.handler
+  package com.auction.server.exception
+  package com.auction.server.util
+}
+
+database "MySQL\nauction_system" as db
+
+auction-client.controllers ..> auction-server.network : TCP JSON
+auction-server.network ..> auction-server.service
+auction-server.service ..> auction-server.repository
+auction-server.repository ..> db
+auction-server.network ..> auction-server.factory
+auction-server.factory ..> auction-server.model
+
+note bottom
+  **Công nghệ:** Java 17+, JavaFX, Gson, JDBC, MySQL
+  **Giao thức:** ACTION===JSON qua Socket port 9999
+end note
+
+@enduml

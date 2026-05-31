@@ -1,0 +1,27 @@
+@startuml LTNC_All_In_One
+' File tổng hợp — mở từng file riêng nếu diagram quá lớn
+' Hoặc dùng: plantuml -tpng uml/*.puml
+
+title LTNC Auction — Index Diagrams
+
+note as N1
+  **Bộ UML đầy đủ — LTNC-BTL-Dau-gia**
+
+  Mở từng file để render rõ nét:
+
+  01-class-domain-model.puml
+  02-class-server-architecture.puml
+  03-class-client.puml
+  04-er-database.puml
+  05-sequence-login-register.puml
+  06-sequence-place-bid.puml
+  07-sequence-seller-create-auction.puml
+  08-component-deployment.puml
+  09-use-case.puml
+  10-activity-auction-lifecycle.puml
+  11-package-overview.puml
+
+  Xem hướng dẫn: README.md
+end note
+
+@enduml
