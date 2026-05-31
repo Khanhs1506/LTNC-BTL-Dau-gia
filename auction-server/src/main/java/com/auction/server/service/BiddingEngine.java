@@ -1,7 +1,9 @@
 
-
 package com.auction.server.service;
 
+import com.auction.server.exception.AuctionClosedException;
+import com.auction.server.exception.AuctionNotFoundException;
+import com.auction.server.exception.InvalidBidException;
 import com.auction.server.model.Auction;
 import com.auction.server.model.BidTransaction;
 import com.auction.server.repository.AuctionDaoImpl;
@@ -92,16 +94,19 @@ public class BiddingEngine {
     /**
      * Xử lý một lần đặt giá thủ công.
      *
-     * @param auctionId  ID phiên đấu giá
-     * @param username   Tên người đặt giá
-     * @param bidAmount  Số tiền đặt giá
+     * @param auctionId ID phiên đấu giá
+     * @param username Tên người đặt giá
+     * @param bidAmount Số tiền đặt giá
      * @return true nếu đặt giá thành công
-     * @throws Exception nếu phiên không hợp lệ hoặc giá không đủ cao
+     * @throws AuctionNotFoundException nếu không tìm thấy phiên đấu giá
+     * @throws AuctionClosedException nếu phiên đã đóng hoặc hết giờ
+     * @throws InvalidBidException nếu giá đặt không hợp lệ
      */
-    public boolean processBid(int auctionId, String username, double bidAmount) throws Exception {
+    public boolean processBid(int auctionId, String username, double bidAmount)
+            throws AuctionNotFoundException, AuctionClosedException, InvalidBidException {
         Auction auction = auctionManager.getAuction(auctionId);
         if (auction == null) {
-            throw new Exception("Không tìm thấy phiên đấu giá với ID " + auctionId);
+            throw new AuctionNotFoundException(auctionId);
         }
 
         // 1. Đặt giá vào object (synchronized bên trong Auction.placeBid)
