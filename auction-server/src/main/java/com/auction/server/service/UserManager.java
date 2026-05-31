@@ -1,7 +1,11 @@
 package com.auction.server.service;
 
-import com.auction.server.model.User; // Giả định bạn đã có lớp User trong model
+import com.auction.server.exception.DuplicateUsernameException;
+import com.auction.server.exception.InvalidCredentialsException;
+import com.auction.server.exception.InvalidUserDataException;
 import com.auction.server.exception.UserNotFoundException;
+import com.auction.server.model.User;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -30,15 +34,16 @@ public class UserManager {
         return Holder.INSTANCE;
     }
 
-// chức năng đăng ký tài khoản mới
-    public synchronized boolean register(User user) throws Exception {
+    // chức năng đăng ký tài khoản mới
+    public synchronized boolean register(User user)
+            throws InvalidUserDataException, DuplicateUsernameException {
         if (user == null || user.getUsername() == null || user.getUsername().trim().isEmpty()) {
-            throw new Exception("Lỗi: Thông tin người dùng không hợp lệ!");
+            throw new InvalidUserDataException("Thông tin người dùng không hợp lệ (username null hoặc rỗng)!");
         }
 
         // Kiểm tra xem tên đăng nhập đã tồn tại chưa
         if (users.containsKey(user.getUsername())) {
-            throw new Exception("Lỗi: Tên đăng nhập '" + user.getUsername() + "' đã tồn tại!");
+            throw new DuplicateUsernameException(user.getUsername());
         }
 
         // Lưu vào hệ thống
@@ -48,26 +53,27 @@ public class UserManager {
         return true;
     }
 
-// đăng nhập
-    public User login(String username, String password) throws UserNotFoundException {
+    // đăng nhập
+    public User login(String username, String password)
+            throws UserNotFoundException, InvalidCredentialsException {
 
         User user = users.get(username);
 
         // Báo lỗi nếu không thấy username
         if (user == null) {
-            throw new UserNotFoundException("Lỗi: Không tìm thấy tài khoản '" + username + "'!");
+            throw new UserNotFoundException("Không tìm thấy tài khoản '" + username + "'!");
         }
 
         // Kiểm tra mật khẩu
         if (!user.getPassword().equals(password)) {
-            throw new UserNotFoundException("Lỗi: Sai mật khẩu cho tài khoản '" + username + "'!");
+            throw new InvalidCredentialsException("Sai mật khẩu cho tài khoản '" + username + "'!");
         }
 
         System.out.println("[UserManager] Đăng nhập thành công: " + username);
         return user;
     }
 
-// lấy thông tin để kiểm tra quyền như admin hay seller ,.......
+    // lấy thông tin để kiểm tra quyền như admin hay seller ,.......
     public User getUser(String username) {
         return users.get(username);
     }
