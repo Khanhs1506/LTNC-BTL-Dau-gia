@@ -1,0 +1,46 @@
+@startuml LTNC_Sequence_CreateAuction
+' ============================================================
+' Sequence: Seller tạo sản phẩm + phiên đấu giá
+' ============================================================
+title Sequence Diagram — Seller Create Item & Auction
+
+actor Seller as seller
+participant SellerCreateAuctionController as ui
+participant CategoryPanelManager as forms
+participant AuctionItemDTO as dto
+participant ServerConnection as conn
+participant ClientHandler as handler
+participant ItemFactoryImpl as factory
+participant ItemDaoImpl as itemDao
+participant AuctionManager as mgr
+database MySQL as db
+
+seller -> ui : chọn danh mục, điền form
+ui -> forms : getPanel(category)
+forms --> ui : CategoryFormPanel data
+ui -> dto : build DTO (title, price, times, image...)
+ui -> conn : createItem(dto)
+conn -> handler : CREATE_ITEM===JSON
+
+handler -> factory : createItem(itemType, ...)
+factory --> handler : ElectronicsItem | ArtItem | VehicleItem
+handler -> itemDao : insertItem(item, sellerId)
+itemDao -> db : INSERT Items + subtype table
+db --> itemDao : item_id
+
+handler -> mgr : createAuction(itemId, start, end, bidStep)
+mgr -> db : INSERT auctions
+mgr -> mgr : activeAuctions.put(id, auction)
+mgr --> handler : auctionId
+
+handler --> conn : CREATE_ITEM_SUCCESS===...
+conn --> ui : response
+ui --> seller : SellerDashboard refresh
+
+note over mgr
+  ServerApp scheduler mỗi 5s:
+  checkAndUpdateStatuses()
+  OPEN → RUNNING → FINISHED
+end note
+
+@enduml

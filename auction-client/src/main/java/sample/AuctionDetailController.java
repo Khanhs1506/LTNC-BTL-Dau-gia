@@ -207,8 +207,7 @@ public class AuctionDetailController {
                 finalIncrement = increment;
                 new Thread(() -> {
                     try {
-                        String res = ServerConnection.getInstance()
-                                .registerAutoBid(auction.id, finalMaxBid, finalIncrement, minutes);
+                        String res = ServerConnection.getInstance().registerAutoBid(auction.id, finalMaxBid, finalIncrement, minutes);
                         Platform.runLater(() -> {
                             if (res != null && res.contains("OK")) {
                                 autoBidActive = true;

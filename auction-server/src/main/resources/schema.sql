@@ -198,4 +198,4 @@ CREATE INDEX idx_auctions_status  ON auctions (status);
 CREATE INDEX idx_bids_auction     ON bid_transactions (auction_id, timestamp);
  
 
- 
+ x

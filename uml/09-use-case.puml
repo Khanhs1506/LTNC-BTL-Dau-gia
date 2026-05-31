@@ -1,0 +1,80 @@
+@startuml LTNC_UseCase
+' ============================================================
+' Use Case Diagram
+' ============================================================
+left to right direction
+skinparam packageStyle rectangle
+title Use Case Diagram — Hệ thống Đấu giá LTNC
+
+actor "Khách (chưa đăng nhập)" as Guest
+actor Bidder
+actor Seller
+actor Admin
+
+rectangle "Hệ thống Đấu giá Trực tuyến" {
+
+  usecase "Đăng ký tài khoản" as UC1
+  usecase "Đăng nhập / Đăng xuất" as UC2
+  usecase "Xem danh sách phiên đấu giá" as UC3
+  usecase "Xem chi tiết & lịch sử bid" as UC4
+  usecase "Đặt giá (Place Bid)" as UC5
+  usecase "Đăng ký Auto-Bid" as UC6
+  usecase "Yêu thích phiên đấu giá" as UC7
+  usecase "Nạp tiền / Quản lý ví" as UC8
+  usecase "Giữ & giải phóng tiền cọc bid" as UC9
+  usecase "Báo cáo vi phạm" as UC10
+
+  usecase "Tạo sản phẩm (3 loại)" as UC11
+  usecase "Tạo phiên đấu giá" as UC12
+  usecase "Xóa sản phẩm / phiên" as UC13
+  usecase "Xem phiên của seller" as UC14
+  usecase "Đánh dấu đã thanh toán" as UC15
+
+  usecase "Quản lý người dùng (ban/unban)" as UC16
+  usecase "Hủy phiên đấu giá" as UC17
+  usecase "Xử lý báo cáo" as UC18
+  usecase "Thống kê hệ thống" as UC19
+  usecase "Xem tất cả bid (admin)" as UC20
+
+  usecase "Realtime cập nhật giá" as UC21
+  usecase "Anti-sniping gia hạn 5 phút" as UC22
+}
+
+Guest --> UC1
+Guest --> UC2
+Guest --> UC3
+
+Bidder --> UC2
+Bidder --> UC3
+Bidder --> UC4
+Bidder --> UC5
+Bidder --> UC6
+Bidder --> UC7
+Bidder --> UC8
+Bidder --> UC9
+Bidder --> UC10
+Bidder --> UC21
+
+Seller --> UC2
+Seller --> UC11
+Seller --> UC12
+Seller --> UC13
+Seller --> UC14
+Seller --> UC15
+Seller --> UC3
+
+Admin --> UC2
+Admin --> UC16
+Admin --> UC17
+Admin --> UC18
+Admin --> UC19
+Admin --> UC20
+Admin --> UC3
+
+UC5 ..> UC21 : <<include>>
+UC5 ..> UC22 : <<extend>>
+UC6 ..> UC5 : <<extend>>
+UC12 ..> UC11 : <<include>>
+UC9 ..> UC8 : <<include>>
+
+@enduml

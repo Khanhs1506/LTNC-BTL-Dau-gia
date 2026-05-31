@@ -1,0 +1,55 @@
+@startuml LTNC_Activity_Auction
+' ============================================================
+' Activity: Vòng đời phiên đấu giá
+' ============================================================
+title Activity Diagram — Auction Lifecycle
+
+|Seller|
+start
+:Tạo Item (Factory + DB);
+:Tạo phiên đấu giá\n(startTime, endTime, bidStep);
+|System|
+:Status = OPEN;
+:Load vào AuctionManager (RAM);
+
+repeat
+  :Scheduler checkAndUpdateStatuses()\nmỗi 5 giây;
+  if (now >= startTime\nvà now < endTime?) then (yes)
+    :Status = RUNNING;
+  endif
+  if (now >= endTime?) then (yes)
+    :Status = FINISHED;
+    :Xóa khỏi activeAuctions;
+    stop
+  endif
+repeat while (status != FINISHED?) is (yes)
+
+|Bidder|
+partition "Trong RUNNING" {
+  :Đặt giá PLACE_BID;
+  if (giá hợp lệ?) then (yes)
+    :Cập nhật RAM + DB;
+    :Push BID_UPDATE;
+    if (<= 5 phút cuối?) then (yes)
+      :Anti-sniping: +5 phút endTime;
+      :Push TIME_EXTENDED;
+    endif
+    :AutoBiddingService xử lý hàng đợi;
+  else (no)
+    :Trả lỗi InvalidBid;
+  endif
+}
+
+|Admin|
+if (vi phạm?) then (yes)
+  :CANCEL_AUCTION;
+  :Status = CANCELED;
+  stop
+endif
+
+|Seller|
+:Người thắng thanh toán (PAYMENT);
+:MARK_AUCTION_PAID;
+stop
+
+@enduml

@@ -1,0 +1,57 @@
+@startuml LTNC_Sequence_PlaceBid
+' ============================================================
+' Sequence: Đặt giá + Realtime + Anti-sniping + Auto-bid
+' ============================================================
+title Sequence Diagram — Place Bid (Realtime)
+
+actor Bidder as bidder
+participant AuctionDetailController as ui
+participant ServerConnection as conn
+participant ClientHandler as handler
+participant BiddingEngine as engine
+participant AuctionManager as mgr
+participant Auction as auction
+participant BidTransactionDaoImpl as bidDao
+participant AuctionDaoImpl as auctionDao
+participant AutoBiddingService as autoBid
+participant "Other ClientHandlers" as others
+
+== Đặt giá thủ công ==
+
+bidder -> ui : nhập số tiền, bấm Đặt giá
+ui -> conn : placeBid(auctionId, username, amount)
+conn -> handler : PLACE_BID===JSON
+handler -> engine : placeBid(auctionId, username, amount)
+engine -> mgr : getAuction(auctionId)
+mgr --> engine : Auction (RAM)
+engine -> auction : placeBid(username, amount)
+note right of auction
+  synchronized, kiểm tra:
+  - status == RUNNING
+  - chưa hết endTime
+  - amount >= current + bidStep
+end note
+auction --> engine : true
+engine -> bidDao : save(transaction)
+engine -> auctionDao : updateHighestBid(...)
+opt còn <= 5 phút trước endTime
+  engine -> auction : extendEndTime(5)
+  engine -> auctionDao : updateEndTime(...)
+  engine -> handler : onTimeExtended(...)
+  handler -> conn : TIME_EXTENDED===JSON (push)
+end
+engine -> handler : onNewBidPlaced(...) [Observer]
+handler -> conn : BID_UPDATE===JSON (push)
+engine -> autoBid : processAfterBid(auctionId)
+autoBid -> autoBid : PriorityQueue auto counter-bid
+engine --> handler : SUCCESS
+handler --> conn : PLACE_BID_SUCCESS
+conn --> ui : response
+ui --> bidder : cập nhật UI + Toast
+
+== Broadcast tới client khác ==
+
+engine -> others : onNewBidPlaced → BID_UPDATE push
+others --> bidder : giá mới realtime (không cần refresh)
+
+@enduml

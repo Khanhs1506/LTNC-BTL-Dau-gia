@@ -1012,9 +1012,15 @@ public class SellerDashboardController implements Initializable {
 
         Auction a = new Auction(dto.id, item, start, end);
         a.updateHighestBid(dto.startingPrice, null);
-        a.updateStatus(Auction.Status.OPEN);
+        LocalDateTime now = LocalDateTime.now();
+        Auction.Status computedStatus;
+        if (!now.isBefore(start) && now.isBefore(end)) {
+            computedStatus = Auction.Status.RUNNING;
+        } else {
+            computedStatus = Auction.Status.OPEN;
+        }
+        a.updateStatus(computedStatus);
         a.setBidCount(0);
-
         allAuctions.add(0, a);
         updateStatsFromData();
         setupPieChart();
