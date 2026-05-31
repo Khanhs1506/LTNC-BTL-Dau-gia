@@ -212,14 +212,21 @@ Releases/auction-server-1.0-SNAPSHOT.jar
 Releases/auction-client-1.0-SNAPSHOT.jar
 ```
 ### Bước 2 — Chạy Server (khởi động trước)
+Vào thư mục chứa 2 file
 ```properties
-java -jar auction-server-1.0-SNAPSHOT.jar
+auction-server-1.0-SNAPSHOT.jar
 ```
-Server sẽ chạy tại cổng 9999. Khi thấy log Server dang chay... là thành công.
+```properties
+auction-client-1.0-SNAPSHOT.jar 
+```
+Mở 1 Cmd chạy java -jar auction-server-1.0-SNAPSHOT.jar
 ### Bước 3 — Chạy Client (khởi động sau)
+Tại thư mục đó mở 1 Cmd khác chạy
 ```properties
 java -jar auction-client-1.0-SNAPSHOT.jar
 ```
+hoặc nháy đúp chuột. 
+(Nếu muốn chạy nhiều client làm tương tự)
 ## 🗄️ Sơ đồ cơ sở dữ liệu
 
 Database `auction_system` gồm các bảng chính:
