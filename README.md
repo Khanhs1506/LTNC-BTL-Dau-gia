@@ -112,14 +112,11 @@ LTNC-BTL-Dau-gia/
 - [x] Đặt giá thủ công
 - [x] Đặt giá tự động (Auto-bid) với bước giá và giới hạn tối đa
 - [x] Xem thông báo khi có người đặt giá mới
-- [x] Xem lịch sử đặt giá của bản thân
 - [x] Thêm/bỏ phiên đấu giá vào danh sách yêu thích
 - [x] Báo cáo vi phạm phiên đấu giá
 
 ### 💰 Quản lý ví
 - [x] Nạp tiền vào ví
-- [x] Giữ tiền cọc khi đặt giá
-- [x] Hoàn tiền khi không thắng đấu giá
 - [x] Thanh toán khi thắng đấu giá
 - [x] Xem lịch sử giao dịch ví
 
@@ -130,14 +127,12 @@ LTNC-BTL-Dau-gia/
 - [x] Tải lên hình ảnh sản phẩm
 - [x] Xem danh sách sản phẩm đã đăng
 - [x] Theo dõi các phiên đấu giá đang diễn ra
-- [x] Xác nhận thanh toán khi có người thắng
 
 ### 🛡️ Chức năng Admin
 - [x] Xem danh sách tất cả người dùng
 - [x] Khóa / Mở khóa tài khoản người dùng
 - [x] Xem thống kê hệ thống (tổng người dùng, phiên đấu giá, doanh thu...)
 - [x] Theo dõi toàn bộ phiên đấu giá
-- [x] Xem và xử lý báo cáo vi phạm
 
 ### ⚙️ Hệ thống
 - [x] Đấu giá thời gian thực (Socket TCP)
@@ -161,7 +156,7 @@ LTNC-BTL-Dau-gia/
 #### 🔄 Cơ chế đấu giá thông minh
 - [x] **Anti-Sniping** — tự động gia hạn thêm **5 phút** mỗi khi có đặt giá trong **5 phút cuối**
 - [x] **Auto-Bid PriorityQueue** — nhiều người cùng đặt auto-bid, hệ thống ưu tiên theo thời gian + mức giá cao nhất
-- [x] **Auto-Payment** — khi phiên kết thúc, tiền cọc của người thắng được chuyển sang seller tự động
+- [x] **Auto-Payment** — phiên kết thúc tự động thanh toán.
 
 #### 📡 Giao tiếp thời gian thực
 - [x] **Push Notification Server → Client** — server chủ động gửi `BID_UPDATE`, `TIME_EXTENDED`, `NEW_AUCTION_NOTIFY` mà không cần client polling
@@ -192,8 +187,8 @@ LTNC-BTL-Dau-gia/
 
 | Tài liệu | Mô tả | Link |
 |---|---|---|
-| Báo cáo BTL | File PDF báo cáo bài tập lớn | 🔗 [Link sẽ được cập nhật]() |
-| Video Demo | Video demo toàn bộ chức năng | 🔗 [Link sẽ được cập nhật]() |
+| Báo cáo BTL | File PDF báo cáo bài tập lớn | 🔗 [https://drive.google.com/file/d/1e06CSN3xsjq0QbapZVsTZN85lVq1aWP1/view?usp=sharing]() |
+| Video Demo | Video demo toàn bộ chức năng | 🔗 [https://drive.google.com/file/d/1uAFb5HdTp_EnS7m3d8YOxpPQw882UxLc/view?usp=sharing]() |
 
 
 ## ⚙️ Hướng dẫn cài đặt & chạy
@@ -234,58 +229,24 @@ db.password=your_password
 
 ---
 
-### Bước 2 — Chạy Server
+### Bước 2 — Tải file thực thi
 
-Mở terminal tại thư mục gốc của dự án, chạy:
-
-```bash
-mvn compile
-cd auction-server
-mvn exec:java -Dexec.mainClass="com.auction.server.network.ServerApp"
+Vào thư mục Releases/ trong repository và tải 2 file JAR:
+```properties
+Releases/auction-server-1.0-SNAPSHOT.jar
 ```
-
-Hoặc mở `ServerApp.java` trong IDE và nhấn **Run**.
-
-Khi thấy dòng sau nghĩa là server đã chạy thành công:
-
+```properties
+Releases/auction-client-1.0-SNAPSHOT.jar
 ```
-Server dang chay...
+### Bước 3 — Chạy Server (khởi động trước)
+```properties
+java -jar auction-server-1.0-SNAPSHOT.jar
 ```
-
-> Server lắng nghe tại cổng **9999**.
-
----
-
-### Bước 3 — Cấu hình địa chỉ Server cho Client
-
-Mở file:
-
+Server sẽ chạy tại cổng 9999. Khi thấy log Server dang chay... là thành công.
+### Bước 4 — Chạy Client (khởi động sau)
+```properties
+java -jar auction-client-1.0-SNAPSHOT.jar
 ```
-auction-client/src/main/java/sample/ServerConnection.java
-```
-
-Tìm dòng sau và sửa lại IP của máy đang chạy server:
-
-```java
-private static final String HOST = "10.11.0.143"; // ← đổi thành IP của máy server
-private static final int PORT = 9999;
-```
-
-> Nếu chạy cùng một máy (localhost), đổi thành `"127.0.0.1"`.
-
----
-
-### Bước 4 — Chạy Client
-
-```bash
-cd auction-client
-mvn javafx:run
-```
-
-Hoặc mở `Main.java` trong IDE và nhấn **Run**.
-
----
-
 ## 🗄️ Sơ đồ cơ sở dữ liệu
 
 Database `auction_system` gồm các bảng chính:
@@ -317,7 +278,23 @@ Database `auction_system` gồm các bảng chính:
 - **Thread Pool:** Mỗi client kết nối được xử lý bởi một luồng riêng biệt
 
 ---
+---
 
+## 📦 File thực thi (.JAR)
+
+Sau khi build bằng `mvn package`, các file `.jar` sẽ nằm trong thư mục `target/` của mỗi module:
+
+| Module | Đường dẫn file .jar |
+|---|---|
+| **Server** | `auction-server/target/auction-server-1.0.jar` |
+| **Client** | `auction-client/target/auction-client-1.0.jar` |
+
+### Chạy ứng dụng từ file .jar
+
+**Server:**
+```bash
+cd auction-server
+java -jar target/auction-server-1.0.jar
 ## 📬 Giao thức truyền tin
 
 Client và Server giao tiếp qua Socket bằng chuỗi JSON theo định dạng:
