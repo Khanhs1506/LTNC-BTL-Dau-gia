@@ -943,15 +943,6 @@ public class HomeController {
         );
     }
 
-    public String getItemNameByAuctionId(int auctionId) {
-        for (AuctionItem item : allItems) {
-            if (item.auctionId == auctionId) {
-                return item.title;
-            }
-        }
-        return "sản phẩm này"; // Phòng hờ nếu không tìm thấy
-    }
-
     private void loadFavoritesFromServer() {
         if (!UserSession.getInstance().isLoggedIn()) return;
         new Thread(() -> {

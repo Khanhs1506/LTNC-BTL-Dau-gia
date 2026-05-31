@@ -206,13 +206,8 @@ public class ServerConnection {
                     if (line.startsWith("BID_UPDATE===")) {
                         String json = line.split("===")[1];
                         PlacedBidRequest res = gson.fromJson(json, PlacedBidRequest.class);
+                        String msg = "🔔 " + res.bidder + " vừa đặt giá " + formatVND(res.amount);
                         javafx.application.Platform.runLater(() -> {
-                            String itemName = "sản phẩm này";
-                            HomeController home = HomeController.getInstance();
-                            if (home != null) {
-                                itemName = home.getItemNameByAuctionId(res.auctionId);
-                            }
-                            String msg = "🔔 " + res.bidder + " vừa đặt giá " + formatVND(res.amount) + " cho \"" + itemName + "\"";
                             NotificationManager.getInstance().addNotification(msg);
                             NotificationManager.getInstance().notifyBidUpdate(res);
                         });

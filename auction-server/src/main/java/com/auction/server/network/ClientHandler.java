@@ -436,7 +436,7 @@ public class ClientHandler implements Runnable, AuctionObserver {
 
 
     //ĐẶT GIÁ
-    private synchronized void handlePlaceBid(String json) {
+    private void handlePlaceBid(String json) {
 
         if (!(currentUser instanceof Bidder)) {
             writer.println("ONLY BIDDER CAN BID");
