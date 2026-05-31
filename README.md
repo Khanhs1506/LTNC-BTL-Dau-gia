@@ -187,8 +187,8 @@ LTNC-BTL-Dau-gia/
 
 | Tài liệu | Mô tả | Link |
 |---|---|---|
-| Báo cáo BTL | File PDF báo cáo bài tập lớn | 🔗 [https://drive.google.com/file/d/1e06CSN3xsjq0QbapZVsTZN85lVq1aWP1/view?usp=sharing]() |
-| Video Demo | Video demo toàn bộ chức năng | 🔗 [https://drive.google.com/file/d/1uAFb5HdTp_EnS7m3d8YOxpPQw882UxLc/view?usp=sharing]() |
+| Báo cáo BTL | File PDF báo cáo bài tập lớn | 🔗 [https://drive.google.com/file/d/1uAFb5HdTp_EnS7m3d8YOxpPQw882UxLc/view?usp=sharing]() |
+| Video Demo | Video demo toàn bộ chức năng | 🔗 [ https://drive.google.com/file/d/1e06CSN3xsjq0QbapZVsTZN85lVq1aWP1/view?usp=sharing]() |
 
 
 ## ⚙️ Hướng dẫn cài đặt & chạy
@@ -202,34 +202,7 @@ LTNC-BTL-Dau-gia/
 
 ---
 
-### Bước 1 — Cài đặt Database
-
-1. Mở MySQL Workbench hoặc bất kỳ MySQL client nào.
-2. Chạy file script khởi tạo:
-
-```sql
-SOURCE đường/dẫn/tới/sql/init.sql;
-```
-
-Lệnh trên sẽ tự động tạo database `auction_system` với đầy đủ các bảng.
-
-3. Mở file cấu hình kết nối của server:
-
-```
-auction-server/src/main/resources/db.properties
-```
-
-Chỉnh lại thông tin kết nối theo môi trường của bạn:
-
-```properties
-db.url=jdbc:mysql://localhost:3306/auction_system
-db.user=root
-db.password=your_password
-```
-
----
-
-### Bước 2 — Tải file thực thi
+### Bước 1 — Tải file thực thi
 
 Vào thư mục Releases/ trong repository và tải 2 file JAR:
 ```properties
@@ -238,12 +211,12 @@ Releases/auction-server-1.0-SNAPSHOT.jar
 ```properties
 Releases/auction-client-1.0-SNAPSHOT.jar
 ```
-### Bước 3 — Chạy Server (khởi động trước)
+### Bước 2 — Chạy Server (khởi động trước)
 ```properties
 java -jar auction-server-1.0-SNAPSHOT.jar
 ```
 Server sẽ chạy tại cổng 9999. Khi thấy log Server dang chay... là thành công.
-### Bước 4 — Chạy Client (khởi động sau)
+### Bước 3 — Chạy Client (khởi động sau)
 ```properties
 java -jar auction-client-1.0-SNAPSHOT.jar
 ```
