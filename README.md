@@ -187,8 +187,8 @@ LTNC-BTL-Dau-gia/
 
 | Tài liệu | Mô tả | Link |
 |---|---|---|
-| Báo cáo BTL | File PDF báo cáo bài tập lớn | 🔗 [https://drive.google.com/file/d/1e06CSN3xsjq0QbapZVsTZN85lVq1aWP1/view?usp=sharing]() |
-| Video Demo | Video demo toàn bộ chức năng | 🔗 [https://drive.google.com/file/d/1uAFb5HdTp_EnS7m3d8YOxpPQw882UxLc/view?usp=sharing]() |
+| Báo cáo BTL | File PDF báo cáo bài tập lớn | 🔗 [https://drive.google.com/file/d/1uAFb5HdTp_EnS7m3d8YOxpPQw882UxLc/view?usp=sharing]() |
+| Video Demo | Video demo toàn bộ chức năng | 🔗 [ https://drive.google.com/file/d/1e06CSN3xsjq0QbapZVsTZN85lVq1aWP1/view?usp=sharing]() |
 
 
 ## ⚙️ Hướng dẫn cài đặt & chạy
